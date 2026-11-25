@@ -28,9 +28,9 @@ namespace OnionLLM.Core.Sources;
 /// <c>CODEX_HOME</c>, z którego wczytano plik; ustawienie <see cref="SourceSettings.Speed"/> może go wymusić
 /// (<see cref="ApplySettings"/>). Wpis z poziomem z logu ma <see cref="UsageEntry.Preference"/> = 1.</item>
 /// <item>Duplikaty między plikami (ccusage <c>aggregate/dedupe.rs</c>, #2208/#2366): <c>token_count</c> potwierdzający
-/// <c>token_usage_record</c> ma klucz <c>rec:&lt;response_id&gt;</c>; pozostałe — sygnaturę (czas, model, zużycie), numer wśród
-/// identycznych zdarzeń bez rekordu w pliku i głębokość forka. Kopie bez rekordu łączą się tylko na tej samej głębokości;
-/// <see cref="Reconcile"/> paruje je z nazwanymi żądaniami tej głębokości.</item>
+/// <c>token_usage_record</c> ma klucz <c>rec:&lt;response_id&gt;</c>; pozostałe — sygnaturę (czas, model, zużycie) i numer wśród
+/// identycznych zdarzeń bez rekordu w pliku. Plik, <c>rollout_count</c> i linia wątków są w <see cref="UsageEntry.SourceData"/>;
+/// kopie scala <see cref="Reconcile"/> (<see cref="CodexDedupe"/>) według głębokości forka.</item>
 /// </list>
 /// </remarks>
 public sealed partial class CodexSource : UsageSourceBase
@@ -40,12 +40,6 @@ public sealed partial class CodexSource : UsageSourceBase
 
     /// <summary>Model-plan auto-review; kierowany na model zależny od daty (ccusage <c>parser/model.rs:117-119</c>).</summary>
     public const string AutoReviewModel = "codex-auto-review";
-
-    /// <summary>Prefiks klucza <c>token_count</c> z nazwanym żądaniem (<c>record_response_id</c> w ccusage).</summary>
-    private const string RecordedKeyPrefix = "rec:";
-
-    /// <summary>Prefiks klucza <c>token_count</c> bez rekordu odpowiedzi (ccusage <c>CodexUsageKey</c>).</summary>
-    private const string RecordlessKeyPrefix = "tc:";
 
     private static readonly string[] LineMarkers =
     [
@@ -58,14 +52,11 @@ public sealed partial class CodexSource : UsageSourceBase
 
     private readonly ConcurrentDictionary<string, SessionIndex> _sessionIndex = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Katalogi z ostatniego <see cref="EnumerateFiles"/> — linia forków dla <see cref="Reconcile"/>.</summary>
-    private volatile string[] _roots = [];
-
     public override string Id => SourceId;
     public override string DisplayName => "Codex CLI";
     public override string Vendor => "OpenAI";
     public override string AccentColor => "#10A37F";
-    public override int ParserVersion => 5;
+    public override int ParserVersion => 6;
 
     protected override string[] EnvironmentVariables => ["CODEX_HOME"];
 
@@ -90,7 +81,7 @@ public sealed partial class CodexSource : UsageSourceBase
     };
 
     /// <summary>
-    /// Duplikaty (ten sam klucz w kilku plikach): poziom zapisany w logu (<see cref="UsageEntry.Preference"/> = 1) wygrywa
+    /// Duplikaty o tym samym kluczu (kompakcja <c>resp:</c>, <c>exec:</c>; kopie <c>token_count</c> scala <see cref="CodexDedupe"/>): poziom zapisany w logu (<see cref="UsageEntry.Preference"/> = 1) wygrywa
     /// z poziomem z <c>config.toml</c>. Dwa zapisane łączą się jak ccusage <c>merge_codex_service_tiers</c>
     /// (<c>types.rs:70-89</c>): Standard &gt; Ultrafast &gt; Fast &gt; Flex &gt; nieznany. Kopie niesklasyfikowane z kilku
     /// katalogów <c>CODEX_HOME</c> o różnych <c>config.toml</c> dostają poziom z najwyższym mnożnikiem dla modelu
@@ -113,40 +104,20 @@ public sealed partial class CodexSource : UsageSourceBase
             }
         }
 
-        return TierRank(left.Speed).CompareTo(TierRank(right.Speed));
+        return CodexDedupe.TierRank(left.Speed).CompareTo(CodexDedupe.TierRank(right.Speed));
     });
 
     /// <summary>
     /// Mnożnik poziomu z <c>config.toml</c> dla modelu wpisu; brak poziomu nie wnosi nic (ccusage <c>ConfiguredTiers</c> z
     /// <c>None</c> jest pusty), poziom bez stawki modelu płaci 1×.
     /// </summary>
-    private static double ConfiguredMultiplier(UsageEntry entry)
-    {
-        var model = entry.Model ?? FallbackModel;
-        return entry.Speed switch
-        {
-            SpeedTier.Standard => 1.0,
-            SpeedTier.Fast => SpeedMultipliers.Fast(model) ?? 1.0,
-            SpeedTier.Flex => SpeedMultipliers.Flex(model) ?? 1.0,
-            SpeedTier.Ultrafast => SpeedMultipliers.Ultrafast(model) ?? 1.0,
-            _ => double.NegativeInfinity
-        };
-    }
-
-    private static int TierRank(SpeedTier tier) => tier switch
-    {
-        SpeedTier.Standard => 4,
-        SpeedTier.Ultrafast => 3,
-        SpeedTier.Fast => 2,
-        SpeedTier.Flex => 1,
-        _ => 0
-    };
+    private static double ConfiguredMultiplier(UsageEntry entry) => entry.Speed == SpeedTier.Unknown
+        ? double.NegativeInfinity
+        : CodexDedupe.Multiplier(entry.Speed, entry.Model ?? FallbackModel);
 
     public override IEnumerable<SourceFile> EnumerateFiles(OnionConfig config)
     {
-        var roots = ResolveRoots(config).ToArray();
-        _roots = roots;
-        foreach (var root in roots)
+        foreach (var root in ResolveRoots(config))
         {
             // Zmiana config.toml zmienia poziom wpisów bez poziomu w logach — wymusza ponowny odczyt rolloutów.
             var configModified = ConfigModifiedMs(root);
@@ -193,10 +164,10 @@ public sealed partial class CodexSource : UsageSourceBase
     public override IEnumerable<UsageEntry> Parse(SourceFile file, ParseDiagnostics diagnostics, CancellationToken cancellationToken)
     {
         var result = ParseRollout(file.Path, file.Root, diagnostics, cancellationToken);
-        var depth = ForkDepth(file.Root, result.Meta);
+        var lineage = Lineage(file.Root, result.Meta);
         if (result.Meta.ParentId is not { } parentId)
         {
-            return AssignKeys(result.Events, depth);
+            return AssignKeys(result.Events, file.Path, lineage);
         }
 
         var parentPath = FindSessionFile(file.Root, parentId, file.Path);
@@ -255,130 +226,62 @@ public sealed partial class CodexSource : UsageSourceBase
             diagnostics.Skip($"brak pliku sesji-rodzica {missing} (fork liczony w całości)");
         }
 
-        return AssignKeys(output, depth);
+        return AssignKeys(output, file.Path, lineage);
     }
 
     /// <summary>
-    /// Klucze <c>token_count</c> po odfiltrowaniu replay (ccusage <c>CodexDedupe::record</c>, <c>dedupe.rs:382-447</c>):
-    /// nazwane żądanie → <c>rec:&lt;response_id&gt;</c> (ta sama odpowiedź w każdym pliku); bez rekordu → sygnatura i numer
+    /// Klucze i dane <c>token_count</c> po odfiltrowaniu replay (ccusage <c>CodexDedupe::record</c>, <c>dedupe.rs:382-447</c>):
+    /// nazwane żądanie → <c>rec:&lt;response_id&gt;</c>; bez rekordu → <c>tc:</c> + sygnatura (czas, model, zużycie) i numer
     /// wśród identycznych zdarzeń bez rekordu w tym pliku (kopia powtarza numery oryginału, identyczne żądania jednego pliku
-    /// zostają osobne). Żądanie na innej głębokości forka to osobne żądanie (#2366), więc głębokość &gt; 0 należy do klucza.
+    /// zostają osobne). <see cref="UsageEntry.SourceData"/> (<see cref="CodexData"/>): plik, <c>rollout_count</c> (zdarzenia
+    /// tej sygnatury w pliku do tego włącznie, z rekordem i bez), wątek i przodkowie — kopie z różnych plików scala
+    /// <see cref="Reconcile"/>.
     /// </summary>
-    private static List<UsageEntry> AssignKeys(IEnumerable<ParsedEvent> events, int depth)
+    private static List<UsageEntry> AssignKeys(IEnumerable<ParsedEvent> events, string path, (string? Thread, string? Ancestors) lineage)
     {
-        var occurrences = new Dictionary<string, int>(StringComparer.Ordinal);
+        var file = CodexData.FileIdentity(path);
+        var occurrences = new Dictionary<string, (int Total, int Recordless)>(StringComparer.Ordinal);
         var entries = new List<UsageEntry>();
         foreach (var item in events)
         {
             if (!item.TokenCount)
             {
-                entries.Add(item.Entry);
+                // Rekord kompakcji (resp:) też niesie plik — kopie scala CodexDedupe (ccusage CodexResponseUsage); exec łączy klucz.
+                entries.Add(item.Replayable ? item.Entry : item.Entry with { SourceData = CodexData.Data((CodexData.File, file)) });
                 continue;
             }
 
-            string key;
-            if (item.RecordId is { } recordId)
-            {
-                key = RecordedKeyPrefix + recordId;
-            }
-            else
-            {
-                var entry = item.Entry;
-                var raw = item.Raw;
-                var signature = $"{entry.TimestampMs}:{entry.Model}:{raw.Input}:{raw.Cached}:{raw.CacheCreation}:{raw.Output}:{raw.Reasoning}:{raw.Total}";
-                var occurrence = occurrences.TryGetValue(signature, out var count) ? count : 0;
-                occurrences[signature] = occurrence + 1;
-                key = $"{RecordlessKeyPrefix}{signature}:{occurrence}" + (depth > 0 ? $"@{depth}" : "");
-            }
+            var entry = item.Entry;
+            var raw = item.Raw;
+            var signature = $"{entry.TimestampMs}:{entry.Model}:{raw.Input}:{raw.Cached}:{raw.CacheCreation}:{raw.Output}:{raw.Reasoning}:{raw.Total}";
+            var (total, recordless) = occurrences.GetValueOrDefault(signature);
+            occurrences[signature] = (total + 1, recordless + (item.RecordId is null ? 1 : 0));
 
-            entries.Add(item.Entry with { DedupeKey = key });
+            var key = item.RecordId is { } recordId
+                ? CodexDedupe.RecordedKeyPrefix + recordId
+                : $"{CodexDedupe.RecordlessKeyPrefix}{signature}:{recordless}";
+            var data = CodexData.Data(
+                (CodexData.File, file),
+                (CodexData.RolloutCount, Invariant(total + 1)),
+                (CodexData.Occurrence, item.RecordId is null ? Invariant(recordless) : null),
+                (CodexData.RecordId, item.RecordId),
+                (CodexData.Total, Invariant(raw.Total)),
+                (CodexData.Thread, lineage.Thread),
+                (CodexData.Ancestors, lineage.Ancestors));
+            entries.Add(entry with { DedupeKey = key, SourceData = data });
         }
 
         return entries;
     }
 
+    private static string Invariant(long value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
     /// <summary>
-    /// Paruje kopie bez rekordu z nazwanymi żądaniami o tej samej sygnaturze i głębokości forka (ccusage
-    /// <c>CodexDedupeMap::into_usage</c>, <c>dedupe.rs:228-315</c>, #2366). Na każdej głębokości z nazwanymi żądaniami odpada
-    /// tyle kopii, ile nazwy mogą objąć: liczba kopii minus nadwyżka największego pliku ponad liczbę nazw. Kopia innej
-    /// głębokości (własne żądanie forka zgodne z żądaniem przodka) zostaje. Kopie bez rekordu tej samej głębokości łączy
-    /// już klucz (rozliczenie <c>collapse_copies</c>). Kopia nie przekazuje poziomu usługi nazwanemu żądaniu.
+    /// Scala kopie <c>token_count</c> z różnych plików jak ccusage <c>aggregate/dedupe.rs</c> (#2208, #2366): nazwane żądania
+    /// po <c>response_id</c>, kopie bez rekordu parowane z nazwanymi tej samej głębokości forka, reszta rozliczana po jednej
+    /// na głębokość — szczegóły w <see cref="CodexDedupe"/>. Działa wyłącznie na wpisach (bez stanu instancji).
     /// </summary>
-    /// <remarks>
-    /// Głębokość to liczba przodków z <c>session_meta</c> (<c>forked_from_id</c> lub <c>thread_spawn.parent_thread_id</c>,
-    /// także przy <c>history_base</c>). ccusage liczy tylko przodków wśród dopasowanych sesji — różnica dotyczy wyłącznie
-    /// niepowiązanych sesji na różnych głębokościach z identycznym zużyciem w tej samej milisekundzie. Liczność największego
-    /// pliku jest liczona z wpisów po deduplikacji kluczem (ccusage: z każdej kopii).
-    /// </remarks>
-    public override IReadOnlyList<UsageEntry> Reconcile(IReadOnlyList<UsageEntry> entries)
-    {
-        Dictionary<Signature, List<int>>? named = null;
-        for (var index = 0; index < entries.Count; index++)
-        {
-            if (entries[index].DedupeKey?.StartsWith(RecordedKeyPrefix, StringComparison.Ordinal) == true)
-            {
-                named ??= [];
-                var signature = SignatureOf(entries[index]);
-                (named.TryGetValue(signature, out var list) ? list : named[signature] = []).Add(index);
-            }
-        }
-
-        if (named is null)
-        {
-            return entries;
-        }
-
-        var standIns = new Dictionary<Signature, List<int>>();
-        for (var index = 0; index < entries.Count; index++)
-        {
-            if (entries[index].DedupeKey?.StartsWith(RecordlessKeyPrefix, StringComparison.Ordinal) == true &&
-                named.ContainsKey(SignatureOf(entries[index])))
-            {
-                var signature = SignatureOf(entries[index]);
-                (standIns.TryGetValue(signature, out var list) ? list : standIns[signature] = []).Add(index);
-            }
-        }
-
-        if (standIns.Count == 0)
-        {
-            return entries;
-        }
-
-        var depths = new Dictionary<string, int>(StringComparer.Ordinal);
-        int DepthOf(int index) => depths.TryGetValue(entries[index].SessionId, out var depth)
-            ? depth
-            : depths[entries[index].SessionId] = SessionDepth(entries[index].SessionId);
-
-        var removed = new HashSet<int>();
-        foreach (var (signature, recordless) in standIns)
-        {
-            var requests = named[signature];
-            foreach (var level in recordless.GroupBy(DepthOf))
-            {
-                var namedAtDepth = requests.Where(index => DepthOf(index) == level.Key).ToList();
-                if (namedAtDepth.Count == 0)
-                {
-                    continue;
-                }
-
-                var copies = level.ToList();
-                var largestRollout = namedAtDepth.Concat(copies)
-                    .GroupBy(index => entries[index].SessionId, StringComparer.Ordinal)
-                    .Max(group => group.Count());
-                var unmatched = Math.Max(0, largestRollout - namedAtDepth.Count);
-                var paired = Math.Max(0, copies.Count - unmatched);
-                removed.UnionWith(copies.Take(paired));
-            }
-        }
-
-        return removed.Count == 0 ? entries : entries.Where((_, index) => !removed.Contains(index)).ToList();
-    }
-
-    /// <summary>Sygnatura żądania (ccusage <c>CodexUsageKey</c> bez numeru wystąpienia).</summary>
-    private readonly record struct Signature(long Timestamp, string? Model, long Input, long CacheRead, long CacheCreation, long Output, long Reasoning);
-
-    private static Signature SignatureOf(UsageEntry entry) => new(entry.TimestampMs, entry.Model, entry.InputTokens,
-        entry.CacheReadTokens, entry.CacheCreationTokens, entry.OutputTokens, entry.ReasoningTokens);
+    public override IReadOnlyList<UsageEntry> Reconcile(IReadOnlyList<UsageEntry> entries) => CodexDedupe.Apply(entries);
 
     /// <summary>Liczniki tokenów Codexa: wejście zawiera odczyt i zapis cache (ccusage <c>CodexRawUsage</c>).</summary>
     internal readonly record struct RawUsage(long Input, long Cached, long Output, long Reasoning, long Total, long CacheCreation = 0)
@@ -828,7 +731,7 @@ public sealed partial class CodexSource : UsageSourceBase
 
         // Rekord bez własnego modelu dziedziczy bieżący, ale jest oznaczony jako zastępczy (ccusage parser.rs:437-460).
         var model = ModelFrom(record);
-        var entry = CreateEntry(state, timestamp.Value, usage, "resp:" + responseId, model ?? state.Model, model is null, state.Tier);
+        var entry = CreateEntry(state, timestamp.Value, usage, CodexDedupe.ResponseKeyPrefix + responseId, model ?? state.Model, model is null, state.Tier);
         var parsed = new ParsedEvent(entry, usage, Replayable: false);
 
         state.LatestResponseId = responseId;
@@ -994,15 +897,14 @@ public sealed partial class CodexSource : UsageSourceBase
 
     /// <summary>
     /// Indeks rolloutów katalogu z pierwszych linii <c>session_meta</c>: id wątku (i uuid z nazwy pliku) → plik,
-    /// wątek → rodzic w linii, klucz sesji → wątek (ccusage <c>CodexLineage</c>, <c>dedupe.rs:133-157</c>).
+    /// wątek → rodzic w linii (ccusage <c>CodexLineage</c>, <c>dedupe.rs:133-157</c>).
     /// </summary>
     private sealed record SessionIndex(
         DateTime Built,
         Dictionary<string, string> Files,
-        Dictionary<string, string> Parents,
-        Dictionary<string, string> Threads)
+        Dictionary<string, string> Parents)
     {
-        public static SessionIndex Empty { get; } = new(DateTime.MinValue, [], [], []);
+        public static SessionIndex Empty { get; } = new(DateTime.MinValue, [], []);
     }
 
     /// <summary>Indeks katalogu; przebudowywany, gdy brak szukanego elementu, nie częściej niż co 30 s.</summary>
@@ -1016,7 +918,6 @@ public sealed partial class CodexSource : UsageSourceBase
 
         var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var parents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var threads = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var file in RolloutFiles(root))
         {
             files.TryAdd(SessionIdFromFileName(file), file);
@@ -1026,67 +927,39 @@ public sealed partial class CodexSource : UsageSourceBase
             }
 
             files.TryAdd(thread, file);
-            threads.TryAdd(SessionKey(root, file), thread);
             if (parent is not null)
             {
                 parents.TryAdd(thread, parent);
             }
         }
 
-        index = new SessionIndex(DateTime.UtcNow, files, parents, threads);
+        index = new SessionIndex(DateTime.UtcNow, files, parents);
         _sessionIndex[root] = index;
         return index;
     }
 
     /// <summary>
-    /// Głębokość forka pliku: liczba przodków w linii wątków, od rodzica z własnego <c>session_meta</c> (ccusage
-    /// <c>CodexLineage::ancestors</c>). Bez id wątku lub rodzica — 0.
+    /// Wątek pliku i jego przodkowie od rodzica z własnego <c>session_meta</c> w górę, z indeksu katalogu pliku (ccusage
+    /// <c>CodexLineage::ancestors</c>, <c>dedupe.rs:146-157</c>). Bez id wątku — brak linii (ccusage <c>record_lineage</c>).
     /// </summary>
-    private int ForkDepth(string root, SessionMeta meta) =>
-        meta.Id is null || meta.LineageParentId is not { } parent
-            ? 0
-            : 1 + Ancestors(parent, [root, .. _roots], new HashSet<string>(StringComparer.OrdinalIgnoreCase) { meta.Id });
-
-    /// <summary>Głębokość forka sesji (klucz <see cref="UsageEntry.SessionId"/>) z indeksów katalogów; nieznana — 0.</summary>
-    private int SessionDepth(string sessionId)
+    private (string? Thread, string? Ancestors) Lineage(string root, SessionMeta meta)
     {
-        var roots = _roots;
-        foreach (var root in roots)
+        if (meta.Id is not { } thread)
         {
-            if (Index(root, known => known.Threads.ContainsKey(sessionId)).Threads.TryGetValue(sessionId, out var thread))
-            {
-                return Ancestors(thread, roots, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-            }
+            return (null, null);
         }
 
-        return 0;
-    }
-
-    /// <summary>Liczba kolejnych rodziców wątku <paramref name="thread"/> (bez cykli).</summary>
-    private int Ancestors(string thread, IReadOnlyList<string> roots, HashSet<string> seen)
-    {
-        seen.Add(thread);
-        var count = 0;
-        while (ParentOf(thread, roots) is { } parent && seen.Add(parent))
+        var ancestors = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { thread };
+        var parent = meta.LineageParentId;
+        while (parent is not null && seen.Add(parent))
         {
-            count++;
-            thread = parent;
+            ancestors.Add(parent);
+            var current = parent;
+            parent = Index(root, known => known.Files.ContainsKey(current)).Parents.GetValueOrDefault(current);
         }
 
-        return count;
-    }
-
-    private string? ParentOf(string thread, IReadOnlyList<string> roots)
-    {
-        foreach (var root in roots)
-        {
-            if (Index(root, known => known.Files.ContainsKey(thread)).Parents.TryGetValue(thread, out var parent))
-            {
-                return parent;
-            }
-        }
-
-        return null;
+        return (thread, CodexData.List(ancestors));
     }
 
     /// <summary>

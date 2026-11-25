@@ -13,7 +13,10 @@ public class CodexDuplicateTests
 {
     private const string Day = "2026-11-01";
 
-    /// <summary>Wpisy po deduplikacji w kolejności ledgera (czas, ścieżka pliku), z regułami tej samej instancji źródła.</summary>
+    /// <summary>
+    /// Wpisy po deduplikacji w kolejności ledgera (czas, ścieżka pliku). Uzgadnia je wspólna instancja źródła z rejestru,
+    /// która nigdy nie wyliczała plików — <see cref="CodexSource.Reconcile"/> korzysta wyłącznie z danych wpisów.
+    /// </summary>
     private static List<UsageEntry> Load(string root, params string[] roots)
     {
         var source = new CodexSource();
@@ -26,7 +29,7 @@ public class CodexDuplicateTests
             .ThenBy(item => item.Path, StringComparer.Ordinal)
             .Select(item => item.Entry)
             .ToList();
-        return Deduplicator.Apply(entries, _ => source);
+        return Deduplicator.Apply(entries);
     }
 
     /// <summary>Wejście jak w ccusage <c>input_tokens</c> (z odczytem i zapisem cache).</summary>
@@ -147,6 +150,42 @@ public class CodexDuplicateTests
 
         Assert.Equal(3_200, DailyInput(entries, "2026-05-12"));
         Assert.Equal(3_200, InputBySession(entries).Values.Sum());
+    }
+
+    [Fact]
+    public void Credits_a_copied_compaction_record_to_the_first_file_with_the_merged_tier()
+    {
+        // ccusage CodexAttribution::merge: sesja z pierwszego pliku, poziom zapisany w którejkolwiek kopii.
+        const string compaction = """
+            {"timestamp":"2026-11-01T09:00:00Z","type":"token_usage_record","payload":{"response_id":"compaction-1","usage":{"input_tokens":300,"cached_input_tokens":200,"output_tokens":30}}}
+            {"timestamp":"2026-11-01T09:00:01Z","type":"compacted","payload":{"compaction_response_id":"compaction-1"}}
+            """;
+        using var directory = new TempDirectory();
+        directory.Write("sessions/0-a.jsonl", compaction);
+        directory.Write("sessions/1-b.jsonl", Join(ServiceTier("2026-11-01T08:59:00.000Z", "priority"), compaction));
+
+        var entry = Assert.Single(Load(directory.Path));
+
+        Assert.Equal(("0-a", SpeedTier.Fast, 300L), (entry.SessionId, entry.Speed, Input(entry)));
+    }
+
+    [Fact]
+    public void Measures_fork_depth_only_against_ancestors_among_the_matches()
+    {
+        // Fork B ma rodzica A, ale A nie ma tego żądania — głębokość B względem dopasowań to 0, więc kopia C bez metadanych
+        // jest kopią żądania B (ccusage fork_depths liczy tylko przodków wśród dopasowanych sesji).
+        var request = ForkTokenCount("2026-05-12T09:00:00.000Z", 100, 1_100);
+        using var directory = new TempDirectory();
+        directory.Write("sessions/a.jsonl", Join(SessionMeta("2026-05-12T08:00:00.000Z", "parent-a", null),
+            ForkTokenCount("2026-05-12T08:01:00.000Z", 1_000, 1_000)));
+        directory.Write("sessions/b.jsonl", Join(SessionMeta("2026-05-12T08:30:00.000Z", "fork-b", "parent-a"),
+            ForkTokenCount("2026-05-12T08:30:00.000Z", 1_000, 1_000), request));
+        directory.Write("sessions/c.jsonl", request);
+
+        var entries = Load(directory.Path);
+
+        Assert.Equal(1_100, DailyInput(entries, "2026-05-12"));
+        Assert.Equal(new Dictionary<string, long> { ["a"] = 1_000, ["b"] = 100 }, InputBySession(entries));
     }
 
     [Fact]
@@ -396,6 +435,36 @@ public class CodexDuplicateTests
 
         var parentSession = new[] { first, second }.Single(name => name.EndsWith("-parent", StringComparison.Ordinal));
         Assert.Equal(new Dictionary<string, long> { [parentSession] = 1_000 }, InputBySession(entries));
+    }
+
+    [Fact]
+    public void Settles_mixed_recordless_tiers_independently_of_file_order()
+    {
+        static string ChangeLastTier(string contents, string tier)
+        {
+            var lastCount = contents.LastIndexOf('\n') + 1;
+            return contents.Insert(lastCount, ServiceTier("2026-11-01T09:01:00.000Z", tier) + "\n");
+        }
+
+        var named = RecordedRequests("priority", "resp_x");
+        var anonymous = ChangeLastTier(RecordedRequests("flex", null, null), "standard");
+        var mixed = ChangeLastTier(RecordedRequests("priority", "resp_x", null), "standard");
+        string[][] orders =
+        [
+            [named, anonymous, mixed], [named, mixed, anonymous], [anonymous, named, mixed],
+            [anonymous, mixed, named], [mixed, named, anonymous], [mixed, anonymous, named]
+        ];
+
+        foreach (var order in orders)
+        {
+            var entries = LoadInOrder(order);
+
+            Assert.Equal((2_000L, 1_000L, 1_000L, 0L), (
+                entries.Sum(Input),
+                entries.Where(entry => entry.Speed == SpeedTier.Fast).Sum(Input),
+                entries.Where(entry => entry.Speed == SpeedTier.Standard).Sum(Input),
+                entries.Where(entry => entry.Speed == SpeedTier.Flex).Sum(Input)));
+        }
     }
 
     [Fact]
