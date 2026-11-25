@@ -1,46 +1,71 @@
 ﻿<ContentPage x:Class="OnionLLM.MainPage"
              Shell.NavBarIsVisible="False"
              Title="Dziś"
-             BackgroundColor="{AppThemeBinding Light=#F2F4F8, Dark=#0C0E13}">
+             BackgroundColor="{AppThemeBinding Light=#F6F7F9, Dark=#101114}">
 
     <Grid RowDefinitions="Auto,*,Auto"
-          Padding="16,14,16,10"
-          RowSpacing="12">
-        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-            <Border WidthRequest="42"
-                    HeightRequest="42"
+          Padding="20,16,20,12"
+          RowSpacing="14">
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12" Padding="2,0">
+            <Button Text=""
+                    Clicked="OnMenuClicked"
+                    FontFamily="Segoe MDL2 Assets"
+                    FontSize="15"
+                    Padding="0"
+                    WidthRequest="40"
+                    HeightRequest="40"
+                    MinimumWidthRequest="0"
+                    MinimumHeightRequest="0"
+                    CornerRadius="8"
+                    BorderWidth="1"
+                    BorderColor="{AppThemeBinding Light=#E1E3E8, Dark=#34363D}"
+                    BackgroundColor="{AppThemeBinding Light=#FBFBFC, Dark=#1C1D22}"
+                    TextColor="{AppThemeBinding Light=#2E3036, Dark=#F3F3F3}"
+                    ToolTipProperties.Text="Otwórz nawigację"
+                    SemanticProperties.Description="Otwórz nawigację" />
+            <Border Grid.Column="1" WidthRequest="40"
+                    HeightRequest="40"
                     StrokeThickness="0"
-                    BackgroundColor="#5B4BFF">
+                    BackgroundColor="#6554E8">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="13" />
+                    <RoundRectangle CornerRadius="10" />
                 </Border.StrokeShape>
                 <Label Text="O"
-                       FontSize="21"
+                       FontFamily="Segoe UI Variable"
+                       FontSize="19"
                        FontAttributes="Bold"
                        TextColor="White"
                        HorizontalOptions="Center"
                        VerticalOptions="Center" />
             </Border>
-            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+            <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
                 <Label Text="OnionLLM"
-                       FontSize="18"
+                       FontFamily="Segoe UI Variable"
+                       FontSize="19"
                        FontAttributes="Bold" />
                 <Label Text="Token &amp; cost monitor"
+                       FontFamily="Segoe UI Variable"
                        FontSize="10"
-                       CharacterSpacing="1.2"
+                       CharacterSpacing="0.8"
                        TextTransform="Uppercase"
-                       TextColor="{AppThemeBinding Light=#7A7F8C, Dark=#8F94A3}" />
+                       TextColor="{AppThemeBinding Light=#656A75, Dark=#A7ABB4}" />
             </VerticalStackLayout>
-            <Button Grid.Column="2"
-                    Text="↻"
+            <Button Grid.Column="3"
+                    Text=""
                     Command="{Binding RefreshCommand}"
-                    FontSize="20"
+                    FontFamily="Segoe MDL2 Assets"
+                    FontSize="14"
                     Padding="0"
-                    WidthRequest="42"
-                    HeightRequest="42"
-                    CornerRadius="13"
-                    BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}"
-                    TextColor="{AppThemeBinding Light=#313541, Dark=White}"
+                    WidthRequest="40"
+                    HeightRequest="40"
+                    MinimumWidthRequest="0"
+                    MinimumHeightRequest="0"
+                    CornerRadius="8"
+                    BorderWidth="1"
+                    BorderColor="{AppThemeBinding Light=#E1E3E8, Dark=#34363D}"
+                    BackgroundColor="{AppThemeBinding Light=#FBFBFC, Dark=#1C1D22}"
+                    TextColor="{AppThemeBinding Light=#2E3036, Dark=#F3F3F3}"
+                    ToolTipProperties.Text="Odśwież dane"
                     SemanticProperties.Description="Odśwież" />
         </Grid>
 
@@ -57,85 +82,91 @@
             <CollectionView.Header>
                 <VerticalStackLayout Spacing="10" Padding="0,0,0,10">
                     <!-- Podsumowanie dnia -->
-                    <Border Padding="20,17" StrokeThickness="0">
+                    <Border Padding="22,19" StrokeThickness="1" Stroke="#33FFFFFF">
                         <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="22" />
+                            <RoundRectangle CornerRadius="16" />
                         </Border.StrokeShape>
+                        <Border.Shadow>
+                            <Shadow Brush="#26000000" Offset="0,4" Radius="14" Opacity="0.34" />
+                        </Border.Shadow>
                         <Border.Background>
                             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                <GradientStop Color="#171B2D" Offset="0" />
-                                <GradientStop Color="#4F3FD5" Offset="0.62" />
-                                <GradientStop Color="#7767F5" Offset="1" />
+                                <GradientStop Color="#24213D" Offset="0" />
+                                <GradientStop Color="#5146C7" Offset="0.58" />
+                                <GradientStop Color="#6B61E8" Offset="1" />
                             </LinearGradientBrush>
                         </Border.Background>
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
-                            <VerticalStackLayout Spacing="3">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="22">
+                            <VerticalStackLayout Spacing="4">
                                 <HorizontalStackLayout Spacing="7">
-                                    <Border WidthRequest="7" HeightRequest="7" BackgroundColor="#8DFFB3" StrokeThickness="0" VerticalOptions="Center">
+                                    <Border WidthRequest="6" HeightRequest="6" BackgroundColor="#78E6A3" StrokeThickness="0" VerticalOptions="Center">
                                         <Border.StrokeShape>
-                                            <RoundRectangle CornerRadius="4" />
+                                            <RoundRectangle CornerRadius="3" />
                                         </Border.StrokeShape>
                                     </Border>
-                                    <Label Text="DZISIAJ" FontSize="10" FontAttributes="Bold" CharacterSpacing="1.4" TextColor="#D9D6FF" />
+                                    <Label Text="DZIŚ" FontFamily="Segoe UI Variable" FontSize="10" FontAttributes="Bold" CharacterSpacing="1.2" TextColor="#E3E0FF" />
                                 </HorizontalStackLayout>
-                                <Label Text="{Binding TodayCost}" FontSize="34" FontAttributes="Bold" TextColor="White" />
-                                <Label FontSize="12" TextColor="#CBC7EE">
+                                <Label Text="{Binding TodayCost}" FontFamily="Segoe UI Variable" FontSize="36" FontAttributes="Bold" TextColor="White" />
+                                <Label FontFamily="Segoe UI Variable" FontSize="12" TextColor="#D8D5F2">
                                     <Label.FormattedText>
                                         <FormattedString>
                                             <Span Text="{Binding TodayTokens}" FontAttributes="Bold" />
-                                            <Span Text=" tokenów (z cache)" />
+                                            <Span Text=" tokenów w sumie" />
                                         </FormattedString>
                                     </Label.FormattedText>
                                 </Label>
                             </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" HorizontalOptions="End" Spacing="3">
-                                <Label Text="{Binding ActiveProviders}" FontSize="13" FontAttributes="Bold" TextColor="White" HorizontalTextAlignment="End" />
-                                <Label Text="{Binding WeekSummary}" FontSize="10" TextColor="#CBC7EE" HorizontalTextAlignment="End" />
-                                <Label Text="{Binding MonthSummary}" FontSize="10" TextColor="#CBC7EE" HorizontalTextAlignment="End" />
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" HorizontalOptions="End" Spacing="4">
+                                <Label Text="{Binding ActiveProviders}" FontFamily="Segoe UI Variable" FontSize="14" FontAttributes="Bold" TextColor="White" HorizontalTextAlignment="End" />
+                                <Label Text="{Binding WeekSummary}" FontFamily="Segoe UI Variable" FontSize="11" TextColor="#D8D5F2" HorizontalTextAlignment="End" />
+                                <Label Text="{Binding MonthSummary}" FontFamily="Segoe UI Variable" FontSize="11" TextColor="#D8D5F2" HorizontalTextAlignment="End" />
                             </VerticalStackLayout>
                         </Grid>
                     </Border>
 
                     <!-- Aktywny blok 5h Claude -->
                     <Border IsVisible="{Binding HasActiveBlock}"
-                            Padding="16,13"
+                            Padding="17,14"
                             StrokeThickness="1"
-                            Stroke="{AppThemeBinding Light=#E2E5EC, Dark=#282C37}"
-                            BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
+                            Stroke="{AppThemeBinding Light=#E0E2E7, Dark=#303239}"
+                            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1B1D22}">
                         <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="19" />
+                            <RoundRectangle CornerRadius="14" />
                         </Border.StrokeShape>
-                        <VerticalStackLayout Spacing="8">
+                        <Border.Shadow>
+                            <Shadow Brush="#14000000" Offset="0,2" Radius="8" Opacity="0.3" />
+                        </Border.Shadow>
+                        <VerticalStackLayout Spacing="9">
                             <Grid ColumnDefinitions="*,Auto">
-                                <VerticalStackLayout Spacing="1">
-                                    <Label Text="AKTYWNY BLOK CLAUDE" FontSize="9" FontAttributes="Bold" CharacterSpacing="1"
-                                           TextColor="{AppThemeBinding Light=#6861A4, Dark=#9D97DA}" />
-                                    <Label FontSize="15" FontAttributes="Bold">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="AKTYWNY BLOK CLAUDE" FontFamily="Segoe UI Variable" FontSize="9" FontAttributes="Bold" CharacterSpacing="0.9"
+                                           TextColor="{AppThemeBinding Light=#665E9C, Dark=#AAA3E4}" />
+                                    <Label FontFamily="Segoe UI Variable" FontSize="16" FontAttributes="Bold">
                                         <Label.FormattedText>
                                             <FormattedString>
-                                                <Span Text="zostało " />
+                                                <Span Text="Pozostało " />
                                                 <Span Text="{Binding BlockRemaining}" />
                                             </FormattedString>
                                         </Label.FormattedText>
                                     </Label>
-                                    <Label Text="{Binding BlockEnds}" FontSize="10" TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
+                                    <Label Text="{Binding BlockEnds}" FontFamily="Segoe UI Variable" FontSize="11" TextColor="{AppThemeBinding Light=#747A85, Dark=#9A9FAB}" />
                                 </VerticalStackLayout>
-                                <VerticalStackLayout Grid.Column="1" Spacing="1" HorizontalOptions="End">
-                                    <Label Text="{Binding BlockCost}" FontSize="20" FontAttributes="Bold" HorizontalTextAlignment="End" />
-                                    <Label Text="{Binding BlockTokens}" FontSize="10" HorizontalTextAlignment="End"
-                                           TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="2" HorizontalOptions="End">
+                                    <Label Text="{Binding BlockCost}" FontFamily="Segoe UI Variable" FontSize="21" FontAttributes="Bold" HorizontalTextAlignment="End" />
+                                    <Label Text="{Binding BlockTokens}" FontFamily="Segoe UI Variable" FontSize="11" HorizontalTextAlignment="End"
+                                           TextColor="{AppThemeBinding Light=#747A85, Dark=#9A9FAB}" />
                                 </VerticalStackLayout>
                             </Grid>
-                            <ProgressBar Progress="{Binding BlockLimitProgress}" ProgressColor="#D97757" HeightRequest="5"
-                                         BackgroundColor="{AppThemeBinding Light=#EBEDF2, Dark=#2B2F3A}" />
+                            <ProgressBar Progress="{Binding BlockLimitProgress}" ProgressColor="#D97757" HeightRequest="4"
+                                         BackgroundColor="{AppThemeBinding Light=#ECEEF2, Dark=#2B2D34}" />
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <Label Text="{Binding BlockLimitDisplay}" FontSize="9" TextColor="{AppThemeBinding Light=#8B8EAA, Dark=#777C9D}" />
-                                <Label Grid.Column="1" Text="{Binding Projection}" FontSize="9" TextColor="{AppThemeBinding Light=#8B8EAA, Dark=#777C9D}" />
+                                <Label Text="{Binding BlockLimitDisplay}" FontFamily="Segoe UI Variable" FontSize="10" TextColor="{AppThemeBinding Light=#7A7E94, Dark=#9296AA}" />
+                                <Label Grid.Column="1" Text="{Binding Projection}" FontFamily="Segoe UI Variable" FontSize="10" TextColor="{AppThemeBinding Light=#7A7E94, Dark=#9296AA}" />
                             </Grid>
                             <HorizontalStackLayout Spacing="6">
-                                <Label Text="🔥" FontSize="12" VerticalOptions="Center" />
-                                <Label Text="{Binding BurnRate}" FontSize="11" FontAttributes="Bold" VerticalOptions="Center" />
-                                <Label Text="{Binding BurnLevel}" FontSize="10" TextColor="{Binding BurnColor}" VerticalOptions="Center" />
+                                <Label Text="" FontFamily="Segoe MDL2 Assets" FontSize="11" TextColor="#D97757" VerticalOptions="Center" />
+                                <Label Text="{Binding BurnRate}" FontFamily="Segoe UI Variable" FontSize="11" FontAttributes="Bold" VerticalOptions="Center" />
+                                <Label Text="{Binding BurnLevel}" FontFamily="Segoe UI Variable" FontSize="10" TextColor="{Binding BurnColor}" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </Border>
@@ -146,39 +177,43 @@
                 <DataTemplate>
                     <Border Padding="0"
                             StrokeThickness="1"
-                            Stroke="{AppThemeBinding Light=#E2E5EC, Dark=#282C37}"
-                            BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
+                            Stroke="{AppThemeBinding Light=#E0E2E7, Dark=#303239}"
+                            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1B1D22}">
                         <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="19" />
+                            <RoundRectangle CornerRadius="14" />
                         </Border.StrokeShape>
-                        <Grid ColumnDefinitions="4,*">
+                        <Border.Shadow>
+                            <Shadow Brush="#12000000" Offset="0,2" Radius="8" Opacity="0.28" />
+                        </Border.Shadow>
+                        <Grid ColumnDefinitions="3,*">
                             <BoxView Color="{Binding AccentColor}" />
-                            <VerticalStackLayout Grid.Column="1" Padding="16,14,16,13" Spacing="11">
-                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                                    <Border WidthRequest="34" HeightRequest="34" StrokeThickness="0" BackgroundColor="{Binding AccentColor}">
+                            <VerticalStackLayout Grid.Column="1" Padding="17,15,17,14" Spacing="12">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="11">
+                                    <Border WidthRequest="36" HeightRequest="36" StrokeThickness="0" BackgroundColor="{Binding AccentColor}">
                                         <Border.StrokeShape>
-                                            <RoundRectangle CornerRadius="11" />
+                                            <RoundRectangle CornerRadius="9" />
                                         </Border.StrokeShape>
-                                        <Label Text="{Binding Initial}" TextColor="White" FontSize="14" FontAttributes="Bold"
+                                        <Label Text="{Binding Initial}" TextColor="White" FontFamily="Segoe UI Variable" FontSize="14" FontAttributes="Bold"
                                                HorizontalOptions="Center" VerticalOptions="Center" />
                                     </Border>
-                                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
-                                        <Label Text="{Binding Name}" FontSize="15" FontAttributes="Bold" />
-                                        <Label Text="{Binding Description}" FontSize="10" TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                        <Label Text="{Binding Name}" FontFamily="Segoe UI Variable" FontSize="16" FontAttributes="Bold" />
+                                        <Label Text="{Binding Description}" FontFamily="Segoe UI Variable" FontSize="11" TextColor="{AppThemeBinding Light=#747A85, Dark=#9A9FAB}" />
                                     </VerticalStackLayout>
-                                    <Grid Grid.Column="2" ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
-                                        <VerticalStackLayout Spacing="1" HorizontalOptions="End">
-                                            <Label Text="{Binding TotalTokensDisplay}" FontSize="20" FontAttributes="Bold" HorizontalTextAlignment="End" />
-                                            <Label Text="{Binding CostDisplay}" FontSize="11" FontAttributes="Bold" HorizontalTextAlignment="End"
-                                                   TextColor="{AppThemeBinding Light=#4F3FD5, Dark=#A99FFF}" />
+                                    <Grid Grid.Column="2" ColumnDefinitions="Auto,Auto" ColumnSpacing="11">
+                                        <VerticalStackLayout Spacing="2" HorizontalOptions="End">
+                                            <Label Text="{Binding TotalTokensDisplay}" FontFamily="Segoe UI Variable" FontSize="21" FontAttributes="Bold" HorizontalTextAlignment="End" />
+                                            <Label Text="{Binding CostDisplay}" FontFamily="Segoe UI Variable" FontSize="11" FontAttributes="Bold" HorizontalTextAlignment="End"
+                                                   TextColor="{AppThemeBinding Light=#574BD1, Dark=#B4ACFF}" />
                                         </VerticalStackLayout>
-                                        <Label Grid.Column="1" Text="⋮⋮" FontSize="19" FontAttributes="Bold" VerticalOptions="Center"
-                                               TextColor="{AppThemeBinding Light=#B1B6C1, Dark=#626977}"
+                                        <Label Grid.Column="1" Text="" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalOptions="Center"
+                                               TextColor="{AppThemeBinding Light=#A6ABB5, Dark=#747982}"
+                                               ToolTipProperties.Text="Przeciągnij, aby zmienić kolejność"
                                                SemanticProperties.Description="Przeciągnij, aby zmienić kolejność" />
                                     </Grid>
                                 </Grid>
 
-                                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+                                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
                                     <VerticalStackLayout Spacing="3">
                                         <Label Text="WEJŚCIE" FontSize="8" FontAttributes="Bold" CharacterSpacing="0.8" TextColor="{AppThemeBinding Light=#9499A5, Dark=#777D8B}" />
                                         <Label Text="{Binding InputDisplay}" FontSize="14" FontAttributes="Bold" />
@@ -203,13 +238,34 @@
                                     <Label Grid.Column="1" Text="{Binding CacheShareDisplay}" FontSize="9" TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
                                 </Grid>
 
-                                <Label Text="{Binding ModelsDisplay}" FontSize="10" LineBreakMode="TailTruncation"
+                                <Button Text="{Binding DetailsToggleText}"
+                                        Command="{Binding ToggleDetailsCommand}"
+                                        FontFamily="Segoe UI Variable"
+                                        FontSize="11"
+                                        FontAttributes="Bold"
+                                        Padding="6,0"
+                                        Margin="-6,0,0,0"
+                                        HeightRequest="30"
+                                        MinimumHeightRequest="0"
+                                        MinimumWidthRequest="0"
+                                        HorizontalOptions="Start"
+                                        CornerRadius="6"
+                                        BackgroundColor="Transparent"
+                                        TextColor="{AppThemeBinding Light=#574BD1, Dark=#B4ACFF}" />
+
+                                <Label Text="{Binding ModelsDisplay}" IsVisible="{Binding IsDetailsExpanded}" FontFamily="Segoe UI Variable" FontSize="11" LineBreakMode="TailTruncation"
                                        TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
 
                                 <Label Text="{Binding CreditsDisplay}" IsVisible="{Binding HasCredits}" FontSize="10" FontAttributes="Bold"
-                                       LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#4F3FD5, Dark=#A99FFF}" />
+                                       LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#4F3FD5, Dark=#A99FFF}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsDetailsExpanded}" Value="False">
+                                            <Setter Property="IsVisible" Value="False" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
 
-                                <Border IsVisible="{Binding ShowLimitsBox}" Padding="11,9" StrokeThickness="0"
+                                <Border IsVisible="{Binding IsDetailsExpanded}" Padding="11,9" StrokeThickness="0"
                                         BackgroundColor="{AppThemeBinding Light=#F0F1FF, Dark=#1E2032}">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="11" />
@@ -258,7 +314,7 @@
                                            TextColor="{AppThemeBinding Light=#A0A5AF, Dark=#686E7C}" />
                                 </Grid>
 
-                                <Border Padding="10,8" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light=#F5F7FA, Dark=#20232D}">
+                                <Border IsVisible="{Binding IsDetailsExpanded}" Padding="10,8" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light=#F5F7FA, Dark=#20232D}">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="10" />
                                     </Border.StrokeShape>
@@ -282,19 +338,36 @@
             <CollectionView.Footer>
                 <Button Text="{Binding UndetectedToggleText}"
                         Command="{Binding ToggleUndetectedCommand}"
+                        FontFamily="Segoe UI Variable"
                         FontSize="11"
-                        Margin="0,6,0,0"
+                        Margin="0,4,0,0"
+                        MinimumHeightRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="7"
                         BackgroundColor="Transparent"
-                        TextColor="{AppThemeBinding Light=#6861A4, Dark=#9D97DA}" />
+                        TextColor="{AppThemeBinding Light=#665E9C, Dark=#AAA3E4}" />
             </CollectionView.Footer>
         </CollectionView>
 
-        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-            <ActivityIndicator IsRunning="{Binding IsRefreshing}" IsVisible="{Binding IsRefreshing}" Color="#6C5CE7" WidthRequest="14" HeightRequest="14" />
-            <Label Grid.Column="1" Text="{Binding LastUpdated}" FontSize="9" VerticalOptions="Center" LineBreakMode="TailTruncation"
-                   TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
-            <Label Grid.Column="2" Text="Lokalnie · prywatnie" FontSize="9" VerticalOptions="Center"
-                   TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
-        </Grid>
+        <Border Grid.Row="2" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E3E5E9, Dark=#2A2C31}"
+                BackgroundColor="{AppThemeBinding Light=#FBFBFC, Dark=#18191D}" Padding="10,7">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                <ActivityIndicator IsRunning="{Binding IsRefreshing}" IsVisible="{Binding IsRefreshing}" Color="#6C5CE7" WidthRequest="14" HeightRequest="14" />
+                <Label Grid.Column="1" Text="{Binding LastUpdated}" FontFamily="Segoe UI Variable" FontSize="10" VerticalOptions="Center" LineBreakMode="TailTruncation"
+                       TextColor="{AppThemeBinding Light=#747A85, Dark=#8D929D}" />
+                <HorizontalStackLayout Grid.Column="2" Spacing="5" VerticalOptions="Center">
+                    <Border WidthRequest="6" HeightRequest="6" StrokeThickness="0" BackgroundColor="#2EAA72" VerticalOptions="Center">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="3" />
+                        </Border.StrokeShape>
+                    </Border>
+                    <Label Text="Dane lokalne" FontFamily="Segoe UI Variable" FontSize="10" VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light=#747A85, Dark=#8D929D}" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
     </Grid>
 </ContentPage>
