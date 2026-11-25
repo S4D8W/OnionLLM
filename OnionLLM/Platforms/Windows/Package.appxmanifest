@@ -2,14 +2,12 @@
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
-  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
   xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
-  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap3 uap5 mp com rescap">
+  IgnorableNamespaces="uap uap5 mp rescap">
 
-  <Identity Name="maui-package-name-placeholder" Publisher="CN=User Name" Version="0.0.0.0" />
+  <Identity Name="maui-package-name-placeholder" Publisher="CN=User Name" Version="0.1.1.0" />
 
   <mp:PhoneIdentity PhoneProductId="015711AA-F65F-411D-BC82-84D1D5C39534" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -40,9 +38,7 @@
         <uap:SplashScreen Image="$placeholder$.png" />
       </uap:VisualElements>
       <Extensions>
-        <com:Extension Category="windows.comServer"><com:ComServer><com:ExeServer Executable="OnionLLM.WidgetProvider.exe" DisplayName="OnionLLM Widget Provider"><com:Class Id="6F56F2D0-E2D8-48E0-A0A3-7E6E6B6A4C22" DisplayName="OnionLLM Widget Provider" /></com:ExeServer></com:ComServer></com:Extension>
-        <uap3:Extension Category="windows.appExtension"><uap3:AppExtension Name="com.microsoft.windows.widgets" DisplayName="OnionLLM" Id="OnionLLMWidgetProvider" PublicFolder="ProviderAssets"><uap3:Properties><WidgetProvider><ProviderIcons><Icon Path="ProviderAssets\Icon.png" /></ProviderIcons><Activation><CreateInstance ClassId="6F56F2D0-E2D8-48E0-A0A3-7E6E6B6A4C22" /></Activation><TrustedPackageFamilyNames><TrustedPackageFamilyName>Microsoft.WidgetsPlatformRuntime_8wekyb3d8bbwe</TrustedPackageFamilyName><TrustedPackageFamilyName>MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy</TrustedPackageFamilyName></TrustedPackageFamilyNames><Definitions><Definition Id="OnionLLM_Monitor" DisplayName="OnionLLM — zużycie AI" Description="Tokeny, sesje i limity providerów AI w czasie rzeczywistym." AllowMultiple="false"><Capabilities><Capability><Size Name="medium" /></Capability><Capability><Size Name="large" /></Capability></Capabilities><ThemeResources><Icons><Icon Path="ProviderAssets\Icon.png" /></Icons><Screenshots><Screenshot Path="ProviderAssets\Screenshot.png" DisplayAltText="OnionLLM pokazuje tokeny, sesje i limity providerów AI" /></Screenshots><DarkMode /><LightMode /></ThemeResources></Definition></Definitions></WidgetProvider></uap3:Properties></uap3:AppExtension></uap3:Extension>
-        <uap5:Extension Category="windows.startupTask" Executable="$targetnametoken$.exe" EntryPoint="Windows.FullTrustApplication"><uap5:StartupTask TaskId="OnionLLMStartup" Enabled="false" DisplayName="OnionLLM" /></uap5:Extension>
+        <uap5:Extension Category="windows.startupTask" Executable="OnionLLM.exe" EntryPoint="Windows.FullTrustApplication"><uap5:StartupTask TaskId="OnionLLMStartup" Enabled="false" DisplayName="OnionLLM" /></uap5:Extension>
       </Extensions>
     </Application>
   </Applications>

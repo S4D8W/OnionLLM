@@ -4,7 +4,7 @@
 
 **Local token-usage and cost tracker for AI coding assistants: Claude Code, OpenAI Codex CLI, GitHub Copilot, Gemini CLI and 16 more.**
 
-Desktop app · Windows widget · CLI · Claude Code statusline — all reading the logs your tools already write to disk.
+Desktop app · CLI · Claude Code statusline — all reading the logs your tools already write to disk.
 
 ![.NET 11](https://img.shields.io/badge/.NET-11-512BD4?logo=dotnet&logoColor=white)
 ![.NET MAUI](https://img.shields.io/badge/UI-.NET%20MAUI-512BD4)
@@ -49,7 +49,6 @@ Run `onionllm sources` to see which ones were found on your machine and where th
 | Component | What it does |
 | --- | --- |
 | **OnionLLM** (app) | .NET MAUI desktop app with tabs: **Today · Reports · Sessions · Blocks · Settings**. Charts, per-model breakdowns, provider limits, JSON/CSV export, cost-mismatch report. |
-| **OnionLLM.WidgetProvider** | Windows 11 Widget Board widget: today's cost and tokens, the active 5-hour block, active sources. |
 | **OnionLLM.Cli** (`onionllm`) | Command-line reports, JSON/CSV export, `jq` filtering and a statusline for Claude Code. |
 | **OnionLLM.Core** | The engine: source parsers, SQLite ledger, pricing catalog, cost calculation, reports, blocks, export. |
 | **OnionLLM.Core.Tests** | xUnit test suite (360+ tests). |
@@ -58,7 +57,7 @@ Run `onionllm sources` to see which ones were found on your machine and where th
 
 ## Getting started
 
-**Requirements:** [.NET 11 SDK](https://dotnet.microsoft.com/download) and, for the desktop app, the .NET MAUI workload (`dotnet workload install maui`). The Widget Board widget requires Windows 11.
+**Requirements:** [.NET 11 SDK](https://dotnet.microsoft.com/download) and, for the desktop app, the .NET MAUI workload (`dotnet workload install maui`).
 
 ```powershell
 git clone <this-repo-url>

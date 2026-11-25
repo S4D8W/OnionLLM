@@ -8,7 +8,7 @@ using OnionLLM.Core.Storage;
 
 namespace OnionLLM.Core;
 
-/// <summary>Podsumowanie jednego źródła na ekran „Dziś” i widżet.</summary>
+/// <summary>Podsumowanie jednego źródła na ekran „Dziś”.</summary>
 public sealed record SourceSummary
 {
     public required string Id { get; init; }
@@ -44,7 +44,7 @@ public sealed record DashboardSnapshot
 }
 
 /// <summary>
-/// Fasada logiki OnionLLM dla GUI, widżetu i CLI: synchronizacja ledgera, cennik, raporty, bloki.
+/// Fasada logiki OnionLLM dla GUI i CLI: synchronizacja ledgera, cennik, raporty, bloki.
 /// Metody są bezpieczne do wywołania z wątku w tle.
 /// </summary>
 public sealed class UsageEngine : IDisposable

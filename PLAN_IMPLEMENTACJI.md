@@ -1,6 +1,7 @@
 # OnionLLM — plan implementacji funkcji z ccusage
 
 > Dokument roboczy. Opisuje, co i jak zostanie zaimplementowane, oraz śledzi postęp.
+> Widżet Windows został usunięty z projektu; wcześniejsze wzmianki o nim dokumentują stan historyczny.
 > Statusy: `[ ]` do zrobienia · `[~]` w toku · `[x]` gotowe · `[-]` świadomie pominięte (z uzasadnieniem).
 > Referencja: ccusage (`C:\Users\rs0097\Downloads\ccusage-main\ccusage-main`, Rust, `rust/adapters/*`, `rust/crates/*`, `docs/guide/*`).
 >

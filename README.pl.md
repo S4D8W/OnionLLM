@@ -13,7 +13,6 @@ Funkcjonalnie wzorowane na [ccusage](https://github.com/ryoppippi/ccusage); ró�
 | --- | --- |
 | `OnionLLM.Core` | Cała logika: parsery źródeł, baza (ledger SQLite), cennik, koszty, raporty, bloki 5 h, eksport |
 | `OnionLLM` | Aplikacja .NET MAUI z zakładkami: **Dziś · Raporty · Sesje · Bloki · Ustawienia** |
-| `OnionLLM.WidgetProvider` | Widżet Windows (Widget Board): koszt i tokeny dziś, aktywny blok, źródła |
 | `OnionLLM.Cli` | Narzędzie konsolowe `onionllm`: raporty, eksport JSON/CSV, statusline dla Claude Code |
 | `OnionLLM.Core.Tests` | Testy xUnit (`dotnet test`) |
 
