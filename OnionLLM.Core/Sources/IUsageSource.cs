@@ -106,6 +106,15 @@ public interface IUsageSource
     /// </summary>
     bool ReconcileNeedsFullHistory => false;
 
+    /// <summary>
+    /// Prefiksy <see cref="UsageEntry.DedupeKey"/>, pod którymi <see cref="Reconcile"/> może dopasować do podanych wpisów
+    /// z zakresu dat wpisy spoza niego (np. Claude: ID wiadomości — kopia we wznowionej sesji, oryginał przed zakresem).
+    /// Silnik dociąga takie wpisy z ledgera bez filtra dat, uzgadnia je razem z zakresem i dopiero potem nakłada zakres —
+    /// tańsza alternatywa <see cref="ReconcileNeedsFullHistory"/> dla źródeł, których dopasowania nie wychodzą poza wspólny
+    /// prefiks klucza. Null (domyślnie) = bez dociągania.
+    /// </summary>
+    IReadOnlyCollection<string>? ReconcileKeyPrefixes(IReadOnlyList<UsageEntry> entries) => null;
+
     /// <summary>Błędy konfiguracji katalogów źródła (np. zmienna środowiskowa wskazuje nieistniejący katalog) — do Diagnostyki.</summary>
     IReadOnlyList<string> ConfigurationProblems(OnionConfig config) => [];
 
@@ -176,6 +185,8 @@ public abstract class UsageSourceBase : IUsageSource
     public virtual UsageEntry ApplySettings(UsageEntry entry, SourceSettings settings) => entry;
 
     public virtual bool ReconcileNeedsFullHistory => false;
+
+    public virtual IReadOnlyCollection<string>? ReconcileKeyPrefixes(IReadOnlyList<UsageEntry> entries) => null;
 
     public virtual IReadOnlyList<string> ConfigurationProblems(OnionConfig config) => [];
 

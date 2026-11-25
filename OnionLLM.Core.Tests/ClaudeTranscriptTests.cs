@@ -1,6 +1,7 @@
 using OnionLLM.Core.Config;
 using OnionLLM.Core.Models;
 using OnionLLM.Core.Pricing;
+using OnionLLM.Core.Reports;
 using OnionLLM.Core.Sources;
 using OnionLLM.Core.Storage;
 
@@ -610,5 +611,63 @@ public class ClaudeTranscriptTests
 
         Assert.Equal(20, entry.CacheReadTokens);
         Assert.Equal(1, entry.Preference);
+    }
+
+    // --- zakres dat vs kopie spoza zakresu (11.9.3; ccusage deduplikuje przed oknem dat: daily.rs:113-129) ---
+
+    private static UsageEngine RangedEngine(TempDirectory directory, long copyOutput)
+    {
+        // Sesja „resumed” zawiera kopię wiadomości sesji „parent” z przepisanym, późniejszym timestampem.
+        directory.Write("claude/projects/p/parent.jsonl", string.Join('\n',
+            Record("parent", "msg-original", "req-original", 100, timestamp: "2026-05-19T10:00:00.000Z"),
+            Record("parent", "msg-early", "req-early", 200, timestamp: "2026-05-21T10:00:00.000Z")));
+        directory.Write("claude/projects/p/resumed.jsonl", string.Join('\n',
+            Record("resumed", "msg-original", "req-original", 100, timestamp: "2026-05-23T10:00:00.000Z", output: copyOutput),
+            Record("resumed", "msg-new", "req-new", 300, timestamp: "2026-05-23T11:00:00.000Z"),
+            Record("resumed", "msg-late", "req-late", 400, timestamp: "2026-05-25T10:00:00.000Z")));
+        var config = new OnionConfig { Timezone = "UTC", Offline = true };
+        config.Sources["claude"] = new SourceSettings { Paths = [Path.Combine(directory.Path, "claude")] };
+        var engine = new UsageEngine(config, new UsageLedger(Path.Combine(directory.Path, "ledger.db")), [new ClaudeSource()]);
+        engine.Ledger.Sync(engine.Sources, config);
+        return engine;
+    }
+
+    private static long Utc(string timestamp) => DateTimeOffset.Parse(timestamp, System.Globalization.CultureInfo.InvariantCulture).ToUnixTimeMilliseconds();
+
+    [Fact]
+    public void Copy_in_range_is_matched_with_its_original_before_the_range()
+    {
+        using var directory = new TempDirectory();
+        using var engine = RangedEngine(directory, copyOutput: 10);
+
+        // Remis: zostaje wcześniejszy wpis (oryginał sprzed zakresu), więc kopia z zakresu nie jest liczona drugi raz.
+        var ranged = engine.LoadEntries(Utc("2026-05-22T00:00:00Z"), Utc("2026-05-24T00:00:00Z"));
+        var entry = Assert.Single(ranged);
+        Assert.Equal(300, entry.CacheReadTokens);
+
+        var full = engine.LoadEntries()
+            .Where(item => item.TimestampMs >= Utc("2026-05-22T00:00:00Z") && item.TimestampMs < Utc("2026-05-24T00:00:00Z"));
+        Assert.Equal(full.Select(item => item.DedupeKey), ranged.Select(item => item.DedupeKey));
+
+        var report = engine.BuildReport(ReportPeriod.Daily,
+            new ReportQuery { Since = new DateOnly(2026, 5, 22), Until = new DateOnly(2026, 5, 23) }, DateTimeOffset.Parse("2026-05-26T00:00:00Z"));
+        Assert.Equal(300, report.Totals.CacheReadTokens);
+    }
+
+    [Fact]
+    public void Winning_copy_stays_in_its_own_range_and_the_original_day_drops_it()
+    {
+        using var directory = new TempDirectory();
+        using var engine = RangedEngine(directory, copyOutput: 50);
+
+        // Kopia z większą liczbą tokenów wygrywa: liczona w swoim dniu, a zakres oryginału jej nie obejmuje.
+        var ranged = engine.LoadEntries(Utc("2026-05-22T00:00:00Z"), Utc("2026-05-24T00:00:00Z"));
+        Assert.Equal([100L, 300L], ranged.Select(item => item.CacheReadTokens).Order());
+        Assert.Equal(50, ranged.Single(item => item.CacheReadTokens == 100).OutputTokens);
+
+        var originalDay = engine.LoadEntries(Utc("2026-05-19T00:00:00Z"), Utc("2026-05-22T00:00:00Z"));
+        Assert.Equal([200L], originalDay.Select(item => item.CacheReadTokens));
+
+        Assert.Equal(4, engine.LoadEntries().Count);
     }
 }

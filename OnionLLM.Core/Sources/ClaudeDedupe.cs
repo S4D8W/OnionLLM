@@ -28,6 +28,13 @@ internal sealed record ClaudeDedupeKey(
     /// <summary>Wartość <see cref="UsageEntry.SourceData"/>: <c>s</c>/<c>m</c> (sidechain / wątek główny) i <c>c</c>/<c>-</c> (podział cache).</summary>
     public string Data => (IsSidechain ? "s" : "m") + (HasCacheSplit ? "c" : "-");
 
+    /// <summary>Początek <see cref="UsageEntry.DedupeKey"/> wspólny dla wszystkich kopii wiadomości: ID wiadomości z separatorem.</summary>
+    public static string? MessagePrefix(UsageEntry entry)
+    {
+        var separator = entry.DedupeKey?.IndexOf(Separator) ?? -1;
+        return separator > 0 ? entry.DedupeKey![..(separator + 1)] : null;
+    }
+
     public static ClaudeDedupeKey? Parse(UsageEntry entry)
     {
         if (entry.DedupeKey is not { } text)
