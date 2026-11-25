@@ -7,7 +7,9 @@ namespace OnionLLM.Core.Sources;
 /// </summary>
 /// <remarks>
 /// <list type="number">
-/// <item>Kopie spanu OTel z kilku plików (ta sama tożsamość lub ponowny eksport spanu chat) liczą się raz — najwcześniejsza kopia.</item>
+/// <item>Wywołania OTel ze wszystkich plików uzgadnia <see cref="ResolveOtelRows"/>: kontekst trace (model, sesja) między plikami,
+/// kopie tej samej tożsamości i ponowne eksporty spanu chat liczą się raz (najwcześniejsza kopia), rodzaj rekordu gorszy od innego
+/// rekordu tego samego trace lub response id jest pomijany, a reszta z <c>total_tokens</c> staje się wyjściem, gdy potwierdzi ją kopia.</item>
 /// <item>Kopie <c>usage_record</c> z plików kilku sesji liczą się raz — w sesji z <c>sourceSessionId</c>, inaczej o najniższym ID.</item>
 /// <item>Każdy <c>usage_record</c> zastępuje najwyżej jeden wiersz OTel tego samego modelu: najpierw po service request id,
 /// potem po response id (najbliższy w czasie; ccusage <c>reconcile.rs:6-53</c>, #2108).</item>
@@ -42,7 +44,13 @@ public sealed partial class CopilotSource
             keep[index] = kinds[index] == CopilotEntryKind.Other;
         }
 
-        var otel = UniqueOtelRows(entries, kinds);
+        var otel = ResolveOtelRows(entries, kinds);
+        var resolved = entries.ToArray();
+        foreach (var row in otel)
+        {
+            resolved[row.Index] = row.Entry;
+        }
+
         var records = UniqueRecordRows(entries, kinds);
         var matches = RecordedOtelCalls(otel, records);
         foreach (var record in records)
@@ -108,45 +116,11 @@ public sealed partial class CopilotSource
         {
             if (keep[index])
             {
-                result.Add(entries[index]);
+                result.Add(resolved[index]);
             }
         }
 
         return result;
-    }
-
-    /// <summary>Jeden wiersz na tożsamość spanu (najwcześniejszy, z identyfikatorami żądania z każdej kopii) i na ponownie wyeksportowany span chat.</summary>
-    private static List<OtelRow> UniqueOtelRows(IReadOnlyList<UsageEntry> entries, CopilotEntryKind[] kinds)
-    {
-        var rows = new List<OtelRow>();
-        var copies = Enumerable.Range(0, entries.Count)
-            .Where(index => kinds[index] == CopilotEntryKind.Otel)
-            .GroupBy(index => entries[index].DedupeKey!, StringComparer.Ordinal);
-        foreach (var group in copies)
-        {
-            var ordered = group.OrderBy(index => entries[index].TimestampMs).ThenBy(index => index).ToList();
-            var copyEntries = ordered.Select(index => entries[index]).ToList();
-            rows.Add(new OtelRow(
-                ordered[0],
-                entries[ordered[0]],
-                copyEntries.Select(copy => CopilotKey.Field(copy, CopilotKey.ResponseId)).FirstOrDefault(id => id is not null),
-                copyEntries.Select(copy => CopilotKey.Field(copy, CopilotKey.ServiceRequestId)).FirstOrDefault(id => id is not null)));
-        }
-
-        rows = rows.OrderBy(row => row.Entry.TimestampMs).ThenBy(row => row.Index).ToList();
-        var seenChatResponses = new Dictionary<string, List<string?>>(StringComparer.Ordinal);
-        return rows.Where(row =>
-        {
-            if (row.ResponseId is null ||
-                !row.Entry.DedupeKey!.StartsWith(CopilotKey.OtelPrefix + nameof(OtelKind.ChatSpan) + ":", StringComparison.Ordinal))
-            {
-                return true;
-            }
-
-            var entry = row.Entry;
-            var call = $"{row.ResponseId}|{entry.Model}|{entry.InputTokens}|{entry.OutputTokens}|{entry.CacheReadTokens}|{entry.CacheCreationTokens}|{entry.ReasoningTokens}";
-            return !IsRepeatedChatSpan(seenChatResponses, call, row.ServiceRequestId);
-        }).ToList();
     }
 
     /// <summary>Jedna kopia na tożsamość rekordu: najpierw w sesji z <c>sourceSessionId</c>, potem o najniższym ID (ccusage <c>reconcile.rs:55-80</c>).</summary>

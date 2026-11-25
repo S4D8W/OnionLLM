@@ -21,8 +21,8 @@ namespace OnionLLM.Core.Sources;
 /// <remarks>
 /// W obu formatach <c>input_tokens</c> zawiera tokeny odczytu i zapisu cache — odejmujemy je,
 /// aby liczniki były rozłączne. <c>total_nano_aiu</c> to koszt w 1e-11 USD (1 AIU = 1 kredyt = 0,01 USD).
-/// Dane potrzebne do uzgadniania (identyfikatory wywołań, liczba żądań, surowa nazwa modelu) są zapisane w polach
-/// <see cref="UsageEntry.DedupeKey"/> (<see cref="CopilotKey"/>), bo ledger przechowuje wpisy, a nie pliki.
+/// Dane potrzebne do uzgadniania (identyfikatory wywołań, liczba żądań, surowa nazwa modelu, kontekst trace OTel) są zapisane
+/// w <see cref="UsageEntry.SourceData"/> (<see cref="CopilotKey"/>), bo ledger przechowuje wpisy, a nie pliki.
 /// </remarks>
 public sealed partial class CopilotSource : UsageSourceBase
 {
@@ -54,8 +54,11 @@ public sealed partial class CopilotSource : UsageSourceBase
     public override string Vendor => "GitHub";
     public override string AccentColor => "#7C5CFC";
 
-    /// <summary>4: usage_record, przedziały shutdown, kredyty, normalizacja modeli, identyfikatory wywołań w kluczu.</summary>
-    public override int ParserVersion => 5;
+    /// <summary>
+    /// 4: usage_record, przedziały shutdown, kredyty, normalizacja modeli, identyfikatory wywołań w kluczu; 5: dane pomocnicze w
+    /// <see cref="UsageEntry.SourceData"/>; 6: OTel — każde wywołanie z pliku, kontekst trace i reszta z <c>total_tokens</c> w danych pomocniczych.
+    /// </summary>
+    public override int ParserVersion => 6;
 
     protected override string[] EnvironmentVariables => ["COPILOT_HOME"];
 

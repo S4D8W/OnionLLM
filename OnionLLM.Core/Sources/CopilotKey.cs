@@ -41,6 +41,33 @@ internal static class CopilotKey
     /// <summary>Flaga: któraś migawka shutdown pary (sesja, model) nie podaje liczby żądań.</summary>
     public const string NoRequestCounts = "norq";
 
+    /// <summary>Rodzaj rekordu OTel (<c>OtelKind</c> jako liczba).</summary>
+    public const string OtelKind = "kind";
+
+    /// <summary>Trace id rekordu OTel.</summary>
+    public const string TraceId = "tr";
+
+    /// <summary>Flaga: rekord OTel nie podaje własnego modelu (model z kontekstu trace).</summary>
+    public const string NoOwnModel = "nom";
+
+    /// <summary>Flaga: rekord OTel nie podaje własnej sesji (sesja z kontekstu trace).</summary>
+    public const string NoOwnSession = "nos";
+
+    /// <summary>Model z kontekstu trace w pliku rekordu (pierwszy niepusty, surowa nazwa).</summary>
+    public const string TraceModel = "tm";
+
+    /// <summary>Sesja z kontekstu trace w pliku rekordu (najwyższy priorytet atrybutu).</summary>
+    public const string TraceSession = "ts";
+
+    /// <summary>Priorytet <see cref="TraceSession"/> (1–3).</summary>
+    public const string TraceSessionPriority = "tp";
+
+    /// <summary>Reszta z <c>total_tokens</c> rekordu bez <c>output_tokens</c> — wyjście „zastępcze” (ccusage <c>fallback_output_tokens</c>).</summary>
+    public const string FallbackOutput = "fb";
+
+    /// <summary>Reszta z <c>total_tokens</c> rekordu z <c>output_tokens</c> (ccusage <c>extra_total_tokens</c>).</summary>
+    public const string ExtraTotal = "x";
+
     public const string OtelPrefix = "otel:";
     public const string UsageRecordPrefix = "usage-record:";
     public const string ShutdownPrefix = "shutdown:";
