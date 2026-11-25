@@ -172,6 +172,8 @@ public sealed class SettingsViewModel : ObservableObject
     private string _pricingMismatches = "";
     private int _mismatchRangeIndex = 1;
     private bool _isBusy;
+    private bool _runAtStartup;
+    private string _startupStatus = "";
 
     public SettingsViewModel()
     {
@@ -181,12 +183,18 @@ public sealed class SettingsViewModel : ObservableObject
         RebuildCommand = new Command(async () => await RebuildAsync());
         CheckMismatchesCommand = new Command(async () => await CheckMismatchesAsync());
         OpenFolderCommand = new Command(async () => await Launcher.Default.OpenAsync(new OpenFileRequest("Folder", new ReadOnlyFile(FileUtil.DataDirectory))));
-        Load();
     }
 
     public string[] CostModes { get; } = ["auto — koszt z narzędzia, inaczej z cennika", "calculate — zawsze z cennika", "display — tylko zapisany koszt"];
     public string[] Days { get; } = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"];
     public ObservableCollection<SourceSettingViewModel> Sources { get; } = [];
+#if WINDOWS
+    public bool IsStartupSettingAvailable => true;
+#else
+    public bool IsStartupSettingAvailable => false;
+#endif
+    public bool RunAtStartup { get => _runAtStartup; set => Set(ref _runAtStartup, value); }
+    public string StartupStatus { get => _startupStatus; private set => Set(ref _startupStatus, value); }
 
     /// <summary>Nadpisania cennika (<c>pricingOverrides</c>); stawki w UI w USD za 1M tokenów.</summary>
     public ObservableCollection<PricingOverrideViewModel> PricingOverrides { get; } = [];
@@ -231,7 +239,7 @@ public sealed class SettingsViewModel : ObservableObject
     public bool IsBusy { get => _isBusy; private set => Set(ref _isBusy, value); }
     public string ConfigPath => ConfigLoader.UserConfigPath;
 
-    public void Load()
+    public async Task LoadAsync()
     {
         var config = AppState.Config;
         Timezone = config.Timezone ?? "";
@@ -262,6 +270,17 @@ public sealed class SettingsViewModel : ObservableObject
 
         Status = AppState.ConfigError is { } error ? "Błąd pliku konfiguracji: " + error : "";
         UpdateDiagnostics();
+#if WINDOWS
+        try
+        {
+            RunAtStartup = await WindowsStartupManager.IsEnabledAsync();
+            StartupStatus = "";
+        }
+        catch (Exception exception) when (IsStartupError(exception))
+        {
+            StartupStatus = "Nie można odczytać ustawienia autostartu: " + exception.Message;
+        }
+#endif
     }
 
     private void RemoveOverride(PricingOverrideViewModel item) => PricingOverrides.Remove(item);
@@ -304,6 +323,18 @@ public sealed class SettingsViewModel : ObservableObject
 
             AppState.SaveConfig(config);
             Status = "Zapisano: " + ConfigLoader.UserConfigPath;
+#if WINDOWS
+            try
+            {
+                var startupResult = await WindowsStartupManager.SetEnabledAsync(RunAtStartup);
+                RunAtStartup = startupResult.Enabled;
+                StartupStatus = startupResult.Status;
+            }
+            catch (Exception exception) when (IsStartupError(exception))
+            {
+                StartupStatus = "Nie udało się zmienić ustawienia autostartu: " + exception.Message;
+            }
+#endif
 
             // Nowe nadpisania i aliasy działają po ponownym wczytaniu cennika (z cache, bez wymuszania sieci).
             IsBusy = true;
@@ -329,6 +360,12 @@ public sealed class SettingsViewModel : ObservableObject
             Status = "Nie zapisano: " + exception.Message;
         }
     }
+
+#if WINDOWS
+    private static bool IsStartupError(Exception exception) =>
+        exception is InvalidOperationException or UnauthorizedAccessException or IOException or
+            System.Security.SecurityException or System.Runtime.InteropServices.COMException or NotSupportedException;
+#endif
 
     private async Task RefreshPricingAsync()
     {

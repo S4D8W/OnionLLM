@@ -16,7 +16,7 @@
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="16" />
                 </Border.StrokeShape>
-                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="6">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="6">
                     <Label Text="Strefa czasowa" FontSize="12" VerticalOptions="Center" />
                     <Entry Grid.Column="1" Text="{Binding Timezone}" Placeholder="systemowa (np. Europe/Warsaw, UTC)" FontSize="12" />
 
@@ -43,6 +43,10 @@
 
                     <Label Grid.Row="8" Text="Aliasy projektów" FontSize="12" VerticalOptions="Center" />
                     <Entry Grid.Row="8" Grid.Column="1" Text="{Binding ProjectAliases}" Placeholder="klucz=Nazwa,klucz2=Nazwa2" FontSize="12" />
+
+                    <Label Grid.Row="9" Text="Uruchamiaj przy starcie systemu" FontSize="12" VerticalOptions="Center" IsVisible="{Binding IsStartupSettingAvailable}" />
+                    <Switch Grid.Row="9" Grid.Column="1" IsToggled="{Binding RunAtStartup}" HorizontalOptions="Start" IsVisible="{Binding IsStartupSettingAvailable}" />
+                    <Label Grid.Row="10" Grid.Column="1" Text="{Binding StartupStatus}" FontSize="10" IsVisible="{Binding IsStartupSettingAvailable}" />
                 </Grid>
             </Border>
 
