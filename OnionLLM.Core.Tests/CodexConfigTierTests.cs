@@ -119,6 +119,80 @@ public class CodexConfigTierTests
         Assert.Equal(SpeedTier.Fast, Assert.Single(TestData.ParseAll(source, onion)).Speed);
     }
 
+    /// <summary>Wpisy z kilku katalogów <c>CODEX_HOME</c> po deduplikacji regułami tej samej instancji źródła.</summary>
+    private static List<UsageEntry> LoadHomes(params TempDirectory[] homes)
+    {
+        var source = new CodexSource();
+        var config = new OnionConfig { Timezone = "UTC" };
+        config.Sources["codex"] = new SourceSettings { Paths = homes.Select(home => home.Path).ToList() };
+        return Storage.Deduplicator.Apply(TestData.ParseAll(source, config), _ => source);
+    }
+
+    private static string Request(string model, string timestamp = "2026-07-22T00:00:01Z") =>
+        """{"timestamp":"@0@","type":"event_msg","payload":{"type":"token_count","info":{"model":"@1@","last_token_usage":{"input_tokens":10,"output_tokens":1}}}}""".Fill(timestamp, model);
+
+    [Fact]
+    public void Each_codex_home_prices_its_own_unclassified_usage_with_its_own_config()
+    {
+        using var fast = new TempDirectory();
+        using var flex = new TempDirectory();
+        fast.Write("config.toml", "service_tier = \"priority\"");
+        fast.Write("sessions/a.jsonl", Request("gpt-5.5", "2026-07-22T00:00:01Z"));
+        flex.Write("config.toml", "service_tier = \"flex\"");
+        flex.Write("sessions/b.jsonl", Request("gpt-5.5", "2026-07-22T00:00:02Z"));
+
+        var entries = LoadHomes(fast, flex);
+
+        Assert.Equal([("a", SpeedTier.Fast), ("b", SpeedTier.Flex)], entries.Select(entry => (entry.SessionId, entry.Speed)));
+    }
+
+    [Theory]
+    [InlineData("priority", "standard", "gpt-5.5", SpeedTier.Fast)]     // fast 2,5× > standard
+    [InlineData("standard", "priority", "gpt-5.5", SpeedTier.Fast)]
+    [InlineData("flex", "standard", "gpt-5.5", SpeedTier.Standard)]     // flex 0,5× < standard
+    [InlineData("priority", "standard", "gpt-5.1", SpeedTier.Standard)] // gpt-5.1 bez stawki fast — remis, jak ccusage Standard
+    [InlineData("priority", null, "gpt-5.5", SpeedTier.Fast)]           // katalog bez config.toml nie wnosi poziomu
+    public void Unclassified_copies_across_homes_use_the_highest_configured_multiplier(string first, string? second, string model, SpeedTier expected)
+    {
+        foreach (var reversed in new[] { false, true })
+        {
+            using var one = new TempDirectory();
+            using var two = new TempDirectory();
+            one.Write("config.toml", $"service_tier = \"{first}\"");
+            if (second is not null)
+            {
+                two.Write("config.toml", $"service_tier = \"{second}\"");
+            }
+
+            one.Write("sessions/2026/07/22/rollout-a.jsonl", Request(model));
+            two.Write("sessions/2026/07/22/rollout-a.jsonl", Request(model));
+
+            var entry = Assert.Single(reversed ? LoadHomes(two, one) : LoadHomes(one, two));
+
+            Assert.Equal(expected, entry.Speed);
+        }
+    }
+
+    [Fact]
+    public void Recorded_tier_takes_precedence_over_another_homes_config()
+    {
+        foreach (var reversed in new[] { false, true })
+        {
+            using var recorded = new TempDirectory();
+            using var configured = new TempDirectory();
+            recorded.Write("config.toml", "service_tier = \"priority\"");
+            recorded.Write("sessions/a.jsonl", string.Join('\n',
+                """{"timestamp":"2026-07-22T00:00:00Z","type":"event_msg","payload":{"type":"thread_settings_applied","thread_settings":{"service_tier":"flex"}}}""",
+                Request("gpt-5.5")));
+            configured.Write("config.toml", "service_tier = \"priority\"");
+            configured.Write("sessions/a.jsonl", Request("gpt-5.5"));
+
+            var entry = Assert.Single(reversed ? LoadHomes(configured, recorded) : LoadHomes(recorded, configured));
+
+            Assert.Equal(SpeedTier.Flex, entry.Speed);
+        }
+    }
+
     [Theory]
     [InlineData(null, SpeedTier.Fast)]
     [InlineData("auto", SpeedTier.Fast)]
