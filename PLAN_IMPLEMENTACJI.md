@@ -384,7 +384,7 @@ Każdy punkt ma wskazane miejsce w UI. Zmiana tylko w Core wystarcza, gdy wpływ
 
 ### 11.1 Cennik i koszty (Core → wszystkie widoki, widżet, eksport)
 
-- [x] 11.1.1 **W** Wbudowane ceny modeli, których brak w LiteLLM. Dotyczy to starszych Claude: Sonnet 4, Opus 4 i 4.1, 3.7/3.5 Sonnet, 3.5 Haiku i 3.x. Przed poprawką kosztowały $0. `OnionLLM.Core/Pricing/BuiltinPricing.cs` przenosi `pricing/builtin_pricing.rs` (bez wierszy Qwen `-thinking`, zob. 11.1.9) oraz wiersze Claude, które ccusage bierze z models.dev. Wiersz jest tylko dodawany, gdy go brakuje; istniejącemu uzupełnia się brakujące stawki cache i limit kontekstu.
+- [x] 11.1.1 **W** Wbudowane ceny modeli, których brak w LiteLLM. Dotyczy to starszych Claude: Sonnet 4, Opus 4 i 4.1, 3.7/3.5 Sonnet, 3.5 Haiku i 3.x. Przed poprawką kosztowały $0. `OnionLLM.Core/Pricing/BuiltinPricing.cs` przenosi `pricing/builtin_pricing.rs` (razem z wierszami Qwen `-thinking`, zob. 11.9.5) oraz wiersze Claude, które ccusage bierze z models.dev. Wiersz jest tylko dodawany, gdy go brakuje; istniejącemu uzupełnia się brakujące stawki cache i limit kontekstu.
 - [x] 11.1.2 **W** Wpisy łączące wiele żądań wyceniane bez progu długiego kontekstu (`cost.rs:148-154`, #2365). Nowa właściwość `UsageEntry.SpansMultipleRequests` obejmuje dwa rodzaje wpisów: wpisy zbiorcze sesji (Copilot `shutdown`, Droid, Goose, Hermes, sumy OpenCode) oraz `IsAggregate`, czyli tury Grok. `IsAggregate` ma kolumnę `aggregate` w ledgerze (migracja do schematu 3), a parser Grok ma wersję 2, co wymusza ponowny odczyt.
 - [x] 11.1.3 **W** Kuratorskie progi i harmonogramy cen według daty (`pricing/data.rs`):
   - Sonnet 4/4.5 powyżej 200k: $6 / $22.50;
@@ -407,10 +407,10 @@ Każdy punkt ma wskazane miejsce w UI. Zmiana tylko w Core wystarcza, gdy wpływ
 - [x] 11.1.9 **N** Aliasy modeli:
   - konfigurowalne (`modelAliases` w configu; odpowiednik `CCUSAGE_MODEL_ALIASES`, `model_aliases.rs`);
   - wbudowane `gpt-reserve` → `gpt-5.6-luna` i `gpt-5.3-spark`;
-  - wiersze Qwen `-thinking` (z rozpoznawaniem trybu thinking).
+  - wiersze Qwen `-thinking` — dopasowane tylko do id z sufiksem `-thinking` zapisanego w logu; ccusage nie rozpoznaje trybu thinking w źródłach.
 
   UI: edytor aliasów w Ustawieniach.
-  - Core gotowe (`modelAliases` w configu, aliasy wbudowane); edytor `nazwa=model` w Ustawieniach (walidacja przed zapisem, ostrzeżenie o aliasie bez ceny). Wiersze Qwen `-thinking` nadal bez rozpoznawania trybu thinking.
+  - Core gotowe (`modelAliases` w configu, aliasy wbudowane); edytor `nazwa=model` w Ustawieniach (walidacja przed zapisem, ostrzeżenie o aliasie bez ceny). Wiersze Qwen `-thinking` w `BuiltinPricing` (11.9.5); rozpoznawanie trybu thinking w źródłach nie jest potrzebne — żaden adapter ccusage go nie ma.
 - [x] 11.1.10 **Ś** Ceny szacowane: darmowy model używany przez płatnego hosta dostaje cenę najbliższego płatnego wpisu i flagę `estimated` (`docs/guide/json-output.md` → „Estimated Prices”). UI: znacznik `~` przy koszcie i lista modeli szacowanych w stopce Raportów.
 - [x] 11.1.11 **Ś** `pricingOverrides` zgodne z ccusage (`ccusage-config/src/config_schema.rs:291-305`):
   - przyjmowanie nazwy `cacheCreationInputTokenCostAbove1hr` (obok obecnej `…Above1h`, która dziś po cichu ignoruje configi z ccusage);
@@ -535,8 +535,10 @@ Fala 1 była realizowana równolegle przez agentów w izolowanych kopiach; poni�
 - [ ] 11.9.1 **N** Codex: parowanie duplikatów według głębokości forka (ccusage #2208/#2366); kilka katalogów `CODEX_HOME` z różnymi poziomami w `config.toml` (wpis ma jeden poziom); linie JSON z escapowanymi kluczami.
 - [ ] 11.9.2 **N** Copilot OTel: model i kontekst sesji ze śladu (trace) tylko z tego samego pliku; reszta z `total_tokens` nierozdzielana.
 - [ ] 11.9.3 **Ś** Claude: dopasowanie kopii między plikami (`Reconcile`) działa na wpisach z wczytanego zakresu dat — rodzic spoza zakresu nie jest dopasowany. Pełna historia (jak Copilot, `ReconcileNeedsFullHistory`) celowo wyłączona ze względu na wydajność; do zmierzenia.
-- [ ] 11.9.4 **N** Cennik: przebiegi dopasowania z rozróżnianiem wielkości liter z ccusage nie są przeniesione (wyszukiwanie zawsze bez rozróżniania).
-- [ ] 11.9.5 **N** Wiersze Qwen `-thinking` (wymagają rozpoznania trybu thinking w źródłach).
+- [x] 11.9.4 **N** Cennik: przebiegi dopasowania z rozróżnianiem wielkości liter z ccusage nie są przeniesione (wyszukiwanie zawsze bez rozróżniania).
+  - `PricingCatalog`: nadpisania, host, tożsamość, sufiksy i models.dev najpierw z rozróżnianiem wielkości liter, potem bez (`rows.rs` `fold_case`, `resolve.rs` `search_case_fallback`, `overrides.rs` `label_id`). Przybliżenie też najpierw z rozróżnianiem, potem bez (łagodniej niż ccusage). Testy w `PricingCaseTests`.
+- [x] 11.9.5 **N** Wiersze Qwen `-thinking`.
+  - Wiersze (z progiem 256K dla qwen-plus) były już w `BuiltinPricing`; dopasowują tylko id `-thinking` z logu — ccusage nie rozpoznaje trybu thinking w źródłach. `qwen-plus-thinking` nie spada do `qwen-plus`, jak w ccusage. Testy w `PricingThinkingTests`.
 - [x] 11.9.6 Kontrakt Core: `DedupeKey` w części źródeł (Claude, Copilot, Antigravity, OpenClaw, Kimi) przenosi dane pomocnicze po separatorze U+001F — nie parsować ani nie wyświetlać poza źródłem. Rozważyć osobne pole zamiast kodowania w kluczu.
   - Nowe pole `UsageEntry.SourceData` (kolumna `source_data`, ledger schemat 5). `DedupeKey` to sama tożsamość; dane pomocnicze są w `SourceData`: Claude — flagi sidechain i podziału cache, Copilot — identyfikatory żądania, liczba żądań, surowy model, Antigravity — ranga czasu, numer API, nazwa z logu i identyfikatory, OpenClaw — koszt i id zdarzenia, Kimi — surowy model. `Deduplicator` łączy od razu tylko wpisy o równych `DedupeKey` i `SourceData` (jak dotąd pełny klucz), więc wyniki się nie zmieniły. Statusline nie parsuje już klucza (`ClaudeSource.IsAdvisor`). Wersje parserów tych pięciu źródeł podniesione. Sprawdzone na prawdziwych danych: raport miesięczny i 78 sesji identyczne jak przed zmianą.
 
