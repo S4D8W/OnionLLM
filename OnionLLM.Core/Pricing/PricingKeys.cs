@@ -2,7 +2,8 @@ namespace OnionLLM.Core.Pricing;
 
 /// <summary>
 /// Porównywanie nazw modeli z kluczami cennika (ccusage <c>pricing/keys.rs</c>).
-/// Separatory <c>.</c> i <c>@</c> są równoważne <c>-</c>, wielkość liter nie ma znaczenia.
+/// Separatory <c>.</c> i <c>@</c> są równoważne <c>-</c>. Wielkość liter rozróżnia <see cref="Normalized"/> (przebiegi dokładne
+/// ccusage); <see cref="Identity"/> ją pomija (przebiegi zastępcze, ccusage <c>rows.rs</c> <c>fold_case</c>).
 /// </summary>
 internal static class PricingKeys
 {
@@ -20,6 +21,13 @@ internal static class PricingKeys
 
         return new string(chars);
     }
+
+    /// <summary>Klucz z rozróżnianiem wielkości liter: tylko <c>.</c>/<c>@</c> → <c>-</c> (ccusage <c>normalized_pricing_key</c>).</summary>
+    public static string Normalized(string value) =>
+        value.AsSpan().IndexOfAny('.', '@') < 0 ? value : value.Replace('.', '-').Replace('@', '-');
+
+    /// <summary>Tożsamość w danym przebiegu: <see cref="Identity"/> po złożeniu wielkości liter, inaczej <see cref="Normalized"/>.</summary>
+    public static string Identity(string value, bool fold) => fold ? Identity(value) : Normalized(value);
 
     public static string LastSegment(string key)
     {
@@ -77,40 +85,41 @@ internal static class PricingKeys
     /// Klucz może wystąpić w nazwie po kwalifikatorze (<c>/</c>, <c>.</c>, <c>:</c>…) i z sufiksem neutralnym cenowo
     /// (data, rewizja <c>-v1:0</c>, <c>[1m]</c>, poziom effort, <c>thinking</c> rodziny); albo nazwa jest końcówką dłuższego
     /// klucza po kwalifikatorze (<c>kimi-k3</c> → <c>moonshot/kimi-k3</c>). Słowo przed kluczem (<c>chat-gpt-5.4</c>) lub inne
-    /// słowo po nim (<c>gpt-5.4-codex</c>) oznacza inny model.
+    /// słowo po nim (<c>gpt-5.4-codex</c>) oznacza inny model. Domyślnie bez rozróżniania wielkości liter; <paramref name="fold"/> = false
+    /// porównuje jak ccusage (<c>pricing_key_matches</c> rozróżnia wielkość liter).
     /// </summary>
-    public static bool Matches(string key, string model) => SameModel(Identity(model), model, key);
+    public static bool Matches(string key, string model, bool fold = true) => SameModel(Identity(model, fold), model, key, fold);
 
     /// <summary>Klucz zawarty w nazwie z sufiksem neutralnym cenowo (ccusage <c>names_pricing_key</c>) — warunek dla wierszy <c>exactOnly</c>.</summary>
-    public static bool NamesKey(string key, string model) => ContainsKey(Identity(model), model, key);
+    public static bool NamesKey(string key, string model, bool fold = true) => ContainsKey(Identity(model, fold), model, key, fold);
 
-    private static bool SameModel(string identity, string raw, string key)
+    private static bool SameModel(string identity, string raw, string key, bool fold)
     {
-        var keyIdentity = Identity(key);
+        var keyIdentity = Identity(key, fold);
         if (identity.Length >= keyIdentity.Length)
         {
-            return ContainsKey(identity, raw, key);
+            return ContainsKey(identity, raw, key, fold);
         }
 
         var start = keyIdentity.Length - identity.Length;
         return IsQualifierEnd(key[start - 1]) && keyIdentity.AsSpan(start).SequenceEqual(identity);
     }
 
-    private static bool ContainsKey(string identity, string raw, string key)
+    private static bool ContainsKey(string identity, string raw, string key, bool fold)
     {
-        var keyIdentity = Identity(key);
+        var keyIdentity = Identity(key, fold);
         if (keyIdentity.Length == 0)
         {
             return false;
         }
 
-        var family = FamilyWords(key);
+        var family = FamilyWords(key, fold);
         for (var index = identity.IndexOf(keyIdentity, StringComparison.Ordinal);
              index >= 0;
              index = identity.IndexOf(keyIdentity, index + 1, StringComparison.Ordinal))
         {
             if ((index == 0 || IsQualifierEnd(raw[index - 1])) &&
-                IsPriceNeutralSuffix(raw[(index + keyIdentity.Length)..], family))
+                IsPriceNeutralSuffix(raw[(index + keyIdentity.Length)..], family, fold))
             {
                 return true;
             }
@@ -122,9 +131,9 @@ internal static class PricingKeys
     private static bool IsQualifierEnd(char value) => !char.IsAsciiLetterOrDigit(value) && value is not '-' and not '_';
 
     /// <summary>Słowa neutralne rodziny klucza; nazwa rodziny może stać po kwalifikatorze <c>.</c> (np. <c>anthropic.claude-…</c>).</summary>
-    private static string[] FamilyWords(string key)
+    private static string[] FamilyWords(string key, bool fold)
     {
-        var segment = LastSegment(key).ToLowerInvariant();
+        var segment = fold ? LastSegment(key).ToLowerInvariant() : LastSegment(key);
         var names = new List<string> { segment };
         for (var dot = segment.IndexOf('.'); dot >= 0; dot = segment.IndexOf('.', dot + 1))
         {
@@ -162,9 +171,9 @@ internal static class PricingKeys
     }
 
     /// <summary>Sufiks złożony wyłącznie z elementów neutralnych cenowo (ccusage <c>is_price_neutral_suffix</c>).</summary>
-    private static bool IsPriceNeutralSuffix(string raw, string[] family)
+    private static bool IsPriceNeutralSuffix(string raw, string[] family, bool fold)
     {
-        var rest = raw.ToLowerInvariant();
+        var rest = fold ? raw.ToLowerInvariant() : raw;
         while (rest.Length > 0)
         {
             var separator = rest[0];

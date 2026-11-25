@@ -22,9 +22,14 @@ public sealed record PricingResolution(ModelPricing Pricing, string Candidate);
 /// (<see cref="BuiltinPricing"/>), a na końcu models.dev — tylko dla modeli, których LiteLLM nie zna.
 /// <para>
 /// Kolejność dopasowania nazwy (ccusage <c>resolve.rs</c>): nadpisania; alias z konfiguracji; cennik hosta zapisanego w nazwie
-/// (Bedrock/Azure/Vertex); tożsamość nazwy (<c>.</c>/<c>@</c> = <c>-</c>, wielkość liter, ID dostawcy bez prefiksu); sufiksy ścieżki
+/// (Bedrock/Azure/Vertex); tożsamość nazwy (<c>.</c>/<c>@</c> = <c>-</c>, ID dostawcy bez prefiksu); sufiksy ścieżki
 /// (<c>openrouter/anthropic/x</c> → <c>anthropic/x</c> → <c>x</c>) i models.dev; na końcu dopasowanie przybliżone, które dopuszcza
 /// wyłącznie różnice neutralne cenowo (data, rewizja, effort, <c>thinking</c> rodziny), zob. <see cref="PricingKeys.Matches"/>.
+/// </para>
+/// <para>
+/// Wielkość liter (ccusage <c>rows.rs</c> <c>fold_case</c>, <c>resolve.rs</c> <c>search_case_fallback</c>): nadpisania, host, tożsamość,
+/// sufiksy i models.dev są najpierw szukane z rozróżnianiem wielkości liter, a dopiero gdy żaden kandydat nie trafi — bez
+/// rozróżniania. Dopasowanie przybliżone też najpierw rozróżnia wielkość liter; przebieg bez rozróżniania jest łagodniejszy niż ccusage.
 /// </para>
 /// </summary>
 public sealed partial class PricingCatalog
@@ -59,7 +64,12 @@ public sealed partial class PricingCatalog
     private readonly Index _secondary;
     private readonly HashSet<string> _devExactOnlyIdentities = new(StringComparer.Ordinal);
     private readonly HashSet<string> _paidHosts;
+
+    /// <summary>Nadpisania według klucza z rozróżnianiem wielkości liter (<see cref="PricingKeys.Normalized"/>).</summary>
     private readonly Dictionary<string, (string Key, PricingOverride Value)> _overrides = new(StringComparer.Ordinal);
+
+    /// <summary>Te same nadpisania według <see cref="PricingKeys.Identity(string)"/> — przebieg bez rozróżniania wielkości liter.</summary>
+    private readonly Dictionary<string, List<string>> _foldedOverrides = new(StringComparer.Ordinal);
     private readonly IReadOnlyDictionary<string, string> _aliases;
     private readonly ConcurrentDictionary<string, ModelPricing?> _overrideRows = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Hit?> _searches = new(StringComparer.Ordinal);
@@ -83,12 +93,25 @@ public sealed partial class PricingCatalog
 
     private sealed record Hit(ModelPricing Row, int Candidate, HitKind Kind);
 
-    private sealed class Index
+    /// <summary>Wiersze według tożsamości klucza, ID u dostawcy i wiersze hosta bez prefiksu (ccusage <c>RowIndexes</c>).</summary>
+    private sealed class Maps
     {
         public Dictionary<string, List<ModelPricing>> Identity { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, List<ModelPricing>> Vendor { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, List<ModelPricing>> BareHosted { get; } = new(StringComparer.Ordinal);
-        public List<(ModelPricing Row, string Identity)> Keys { get; } = [];
+    }
+
+    /// <summary>
+    /// Indeks z rozróżnianiem wielkości liter (<see cref="Sensitive"/>, przebiegi dokładne) i bez (<see cref="Folded"/>, przebiegi
+    /// zastępcze) — ccusage <c>rows.rs</c> <c>RowIndexes</c>/<c>FoldedIndexes</c>.
+    /// </summary>
+    private sealed class Index
+    {
+        public Maps Sensitive { get; } = new();
+        public Maps Folded { get; } = new();
+        public List<(ModelPricing Row, string Identity, string Normalized)> Keys { get; } = [];
+
+        public Maps For(bool fold) => fold ? Folded : Sensitive;
 
         public static Index Build(IEnumerable<ModelPricing> rows)
         {
@@ -96,11 +119,14 @@ public sealed partial class PricingCatalog
             foreach (var row in rows)
             {
                 var identity = PricingKeys.Identity(row.Key);
-                index.Keys.Add((row, identity));
-                Add(row.IsBareHosted ? index.BareHosted : index.Identity, identity, row);
+                var normalized = PricingKeys.Normalized(row.Key);
+                index.Keys.Add((row, identity, normalized));
+                Add(row.IsBareHosted ? index.Folded.BareHosted : index.Folded.Identity, identity, row);
+                Add(row.IsBareHosted ? index.Sensitive.BareHosted : index.Sensitive.Identity, normalized, row);
                 if (row.VendorId is { } vendor && !vendor.Equals(row.Key, StringComparison.OrdinalIgnoreCase))
                 {
-                    Add(index.Vendor, PricingKeys.Identity(vendor), row);
+                    Add(index.Folded.Vendor, PricingKeys.Identity(vendor), row);
+                    Add(index.Sensitive.Vendor, PricingKeys.Normalized(vendor), row);
                 }
             }
 
@@ -157,8 +183,19 @@ public sealed partial class PricingCatalog
         {
             if (!string.IsNullOrWhiteSpace(key) && value is not null)
             {
-                _overrides[PricingKeys.Identity(key.Trim())] = (key.Trim(), value);
+                _overrides[PricingKeys.Normalized(key.Trim())] = (key.Trim(), value);
             }
+        }
+
+        foreach (var (key, _) in _overrides.Values)
+        {
+            var identity = PricingKeys.Identity(key);
+            if (!_foldedOverrides.TryGetValue(identity, out var keys))
+            {
+                _foldedOverrides[identity] = keys = [];
+            }
+
+            keys.Add(key);
         }
 
         _aliases = aliases ?? new Dictionary<string, string>();
@@ -430,7 +467,7 @@ public sealed partial class PricingCatalog
 
     /// <summary>Czy dla modelu (lub <c>[źródło] model</c>) istnieje nadpisanie użytkownika (ccusage ZCode: dostawcy spoza Z.ai tylko z nadpisań).</summary>
     public bool HasOverride(string? model, string? source = null) =>
-        !string.IsNullOrWhiteSpace(model) && LabelOverride(model.Trim(), source) is not null;
+        !string.IsNullOrWhiteSpace(model) && LabelOverride(model.Trim(), source).HasValue;
 
     /// <summary>Mnożnik trybu fast (1 = brak dopłaty), ccusage <c>fast-multiplier-overrides.json</c>.</summary>
     public static double FastMultiplier(ModelPricing pricing) => pricing.FastMultiplier ?? SpeedMultipliers.Fast(pricing.Key) ?? 1.0;
@@ -478,56 +515,141 @@ public sealed partial class PricingCatalog
 
     private Hit? SearchRequest(string[] candidates, string? reported, string? source, Lookup lookup)
     {
-        // 1. Nadpisania użytkownika (etykieta [źródło] model, nazwa, alias, sufiksy ścieżki).
+        // 1. Nadpisania użytkownika (etykieta [źródło] model, nazwa, alias, sufiksy ścieżki). Nadpisanie o tej samej wielkości liter
+        //    dla dowolnego kandydata wygrywa z dopasowanym bez rozróżniania (ccusage resolve.rs search_request, overrides.rs label_id).
         if (_overrides.Count > 0)
         {
             var names = (reported is null ? [] : new[] { (Index: -1, Name: reported) })
                 .Concat(candidates.Select((name, index) => (Index: index, Name: name)));
+            Hit? folded = null;
             foreach (var (index, name) in names)
             {
-                if (LabelOverride(name, source) is { } key && ResolveOverride(key) is { } row)
+                if (LabelOverride(name, source) is { } label && ResolveOverride(label.Key) is { } row)
                 {
-                    return new Hit(row, index, HitKind.Override);
+                    var hit = new Hit(row, index, HitKind.Override);
+                    if (!label.Folded)
+                    {
+                        return hit;
+                    }
+
+                    folded ??= hit;
                 }
+            }
+
+            if (folded is not null)
+            {
+                return folded;
             }
         }
 
         // 2. Alias z konfiguracji dla nazwy z logu.
         var logged = reported ?? candidates[0];
-        if (ConfiguredAlias(logged) is { } alias && IdentityHit(alias, lookup) is { } aliased)
+        var alias = ConfiguredAlias(logged);
+        if (alias is not null && IdentityHit(alias, lookup, fold: false) is { } aliased)
         {
             return new Hit(aliased.Row, -1, aliased.Kind);
         }
 
-        // 3. Cennik hosta zapisanego w nazwie (ccusage #2229).
+        // 3. Cennik hosta zapisanego w nazwie (ccusage #2229); dla nazwy ze ścieżką także bez rozróżniania wielkości liter.
         for (var index = 0; index < candidates.Length; index++)
         {
-            if (SearchHost(candidates[index], lookup) is { } row)
+            if (SearchHost(candidates[index], lookup, fold: false) is { } row)
             {
                 return new Hit(Shadowed(row), index, HitKind.Identity);
             }
         }
 
-        // 4. Tożsamość nazwy.
+        for (var index = 0; index < candidates.Length; index++)
+        {
+            if (candidates[index].Contains('/') && SearchHost(candidates[index], lookup, fold: true) is { } row)
+            {
+                return new Hit(Shadowed(row), index, HitKind.Identity);
+            }
+        }
+
+        // 4–6. Tożsamość, sufiksy i models.dev z rozróżnianiem wielkości liter.
+        if (SearchIdentity(candidates, lookup, fold: false) is { } exact)
+        {
+            return exact;
+        }
+
+        // Przebieg zastępczy bez rozróżniania wielkości liter (ccusage search_case_fallback): alias, host nazwy bez ścieżki
+        // (np. Anthropic.Claude-…), potem te same przebiegi 4–6.
+        if (alias is not null && IdentityHit(alias, lookup, fold: true) is { } aliasedFolded)
+        {
+            return new Hit(aliasedFolded.Row, -1, aliasedFolded.Kind);
+        }
+
+        for (var index = 0; index < candidates.Length; index++)
+        {
+            if (!candidates[index].Contains('/') && SearchHost(candidates[index], lookup, fold: true) is { } row)
+            {
+                return new Hit(Shadowed(row), index, HitKind.Identity);
+            }
+        }
+
+        if (SearchIdentity(candidates, lookup, fold: true) is { } caseFolded)
+        {
+            return caseFolded;
+        }
+
+        // 7. Dopasowanie przybliżone (tylko różnice neutralne cenowo), najpierw LiteLLM, potem models.dev. ccusage porównuje tu
+        //    z rozróżnianiem wielkości liter; OnionLLM po tym przebiegu próbuje jeszcze bez rozróżniania (łagodniej niż ccusage).
+        foreach (var fold in Folds)
+        {
+            for (var index = 0; index < candidates.Length; index++)
+            {
+                // Wiersz models.dev tylko do dokładnego dopasowania blokuje przybliżenie tej nazwy (ccusage S56).
+                if (Names(candidates[index]).SelectMany(name => Unclaimed(name, lookup, fold: false))
+                    .Any(name => _devExactOnlyIdentities.Contains(PricingKeys.Identity(name))))
+                {
+                    continue;
+                }
+
+                foreach (var name in Names(candidates[index]))
+                {
+                    if (Fuzzy(_primary, name, lookup, includeOverrides: true, fold) is { } row)
+                    {
+                        return new Hit(Shadowed(row), index, HitKind.Fuzzy);
+                    }
+
+                    if (Fuzzy(_secondary, name, lookup, includeOverrides: false, fold) is { } secondary)
+                    {
+                        return new Hit(Shadowed(secondary), index, HitKind.ModelsDevFuzzy);
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Najpierw przebieg z rozróżnianiem wielkości liter, potem bez (ccusage <c>[false, true]</c> dla <c>fold</c>).</summary>
+    private static readonly bool[] Folds = [false, true];
+
+    /// <summary>Przebiegi tożsamości ccusage S2 (nazwa), S34 (sufiksy ścieżki płatne, potem models.dev) i S3f (darmowe wiersze dostawcy).</summary>
+    private Hit? SearchIdentity(string[] candidates, Lookup lookup, bool fold)
+    {
+        // S2. Tożsamość nazwy.
         for (var index = 0; index < candidates.Length; index++)
         {
             foreach (var name in Names(candidates[index]))
             {
-                if (Authoritative(name, lookup, hosted: true, _ => true) is { } row)
+                if (Authoritative(name, lookup, hosted: true, _ => true, fold: fold) is { } row)
                 {
                     return new Hit(Shadowed(row), index, HitKind.Identity);
                 }
             }
         }
 
-        // 5. Sufiksy ścieżki (płatne wiersze), potem models.dev.
+        // S34. Sufiksy ścieżki (płatne wiersze), potem models.dev.
         for (var index = 0; index < candidates.Length; index++)
         {
             foreach (var name in Names(candidates[index]))
             {
                 foreach (var suffix in PricingKeys.Suffixes(name))
                 {
-                    if (Authoritative(suffix, lookup, hosted: false, row => !row.IsFree) is { } row)
+                    if (Authoritative(suffix, lookup, hosted: false, row => !row.IsFree, fold: fold) is { } row)
                     {
                         return new Hit(Shadowed(row), index, HitKind.Suffix);
                     }
@@ -536,9 +658,9 @@ public sealed partial class PricingCatalog
 
             foreach (var name in Names(candidates[index]))
             {
-                foreach (var unclaimed in Unclaimed(name, lookup))
+                foreach (var unclaimed in Unclaimed(name, lookup, fold))
                 {
-                    if (DevExact(unclaimed, lookup) is { } row)
+                    if (DevExact(unclaimed, lookup, fold) is { } row)
                     {
                         return new Hit(Shadowed(row), index, HitKind.ModelsDevIdentity);
                     }
@@ -546,7 +668,7 @@ public sealed partial class PricingCatalog
             }
         }
 
-        // 6. Darmowe wiersze dostawcy przez sufiks.
+        // S3f. Darmowe wiersze dostawcy przez sufiks.
         if (lookup != Lookup.Paid)
         {
             for (var index = 0; index < candidates.Length; index++)
@@ -555,34 +677,11 @@ public sealed partial class PricingCatalog
                 {
                     foreach (var suffix in PricingKeys.Suffixes(name))
                     {
-                        if (Authoritative(suffix, lookup, hosted: false, row => row is { IsDirect: true, IsFree: true }) is { } row)
+                        if (Authoritative(suffix, lookup, hosted: false, row => row is { IsDirect: true, IsFree: true }, fold: fold) is { } row)
                         {
                             return new Hit(Shadowed(row), index, HitKind.Suffix);
                         }
                     }
-                }
-            }
-        }
-
-        // 7. Dopasowanie przybliżone (tylko różnice neutralne cenowo), najpierw LiteLLM, potem models.dev.
-        for (var index = 0; index < candidates.Length; index++)
-        {
-            // Wiersz models.dev tylko do dokładnego dopasowania blokuje przybliżenie tej nazwy (ccusage S56).
-            if (Names(candidates[index]).SelectMany(name => Unclaimed(name, lookup)).Any(name => _devExactOnlyIdentities.Contains(PricingKeys.Identity(name))))
-            {
-                continue;
-            }
-
-            foreach (var name in Names(candidates[index]))
-            {
-                if (Fuzzy(_primary, name, lookup, includeOverrides: true) is { } row)
-                {
-                    return new Hit(Shadowed(row), index, HitKind.Fuzzy);
-                }
-
-                if (Fuzzy(_secondary, name, lookup, includeOverrides: false) is { } secondary)
-                {
-                    return new Hit(Shadowed(secondary), index, HitKind.ModelsDevFuzzy);
                 }
             }
         }
@@ -642,11 +741,11 @@ public sealed partial class PricingCatalog
         return null;
     }
 
-    private (ModelPricing Row, HitKind Kind)? IdentityHit(string model, Lookup lookup)
+    private (ModelPricing Row, HitKind Kind)? IdentityHit(string model, Lookup lookup, bool fold)
     {
         foreach (var name in Names(model))
         {
-            if (Authoritative(name, lookup, hosted: true, _ => true) is { } row)
+            if (Authoritative(name, lookup, hosted: true, _ => true, fold: fold) is { } row)
             {
                 return (Shadowed(row), HitKind.Identity);
             }
@@ -654,7 +753,7 @@ public sealed partial class PricingCatalog
 
         foreach (var name in Names(model))
         {
-            if (DevExact(name, lookup) is { } row)
+            if (DevExact(name, lookup, fold) is { } row)
             {
                 return (Shadowed(row), HitKind.ModelsDevIdentity);
             }
@@ -662,6 +761,19 @@ public sealed partial class PricingCatalog
 
         return null;
     }
+
+    /// <summary>
+    /// Pierwszy wiersz o tej samej tożsamości (ccusage <c>identity_order</c>): z rozróżnianiem wielkości liter najpierw klucz
+    /// dosłowny, bez rozróżniania najpierw klucz równy nazwie z dokładnością do wielkości liter; potem porządek porządkowy kluczy.
+    /// </summary>
+    private static ModelPricing? First(IEnumerable<ModelPricing> rows, string name, bool fold) =>
+        rows.OrderBy(row => fold ? !row.Key.Equals(name, StringComparison.OrdinalIgnoreCase) : !row.Key.Equals(name, StringComparison.Ordinal))
+            .ThenBy(row => row.Key, StringComparer.Ordinal)
+            .FirstOrDefault();
+
+    /// <summary>Wiersz katalogu o kluczu dokładnie równym nazwie (słownik katalogu nie rozróżnia wielkości liter).</summary>
+    private static ModelPricing? Literal(Dictionary<string, ModelPricing> rows, string name) =>
+        rows.TryGetValue(name, out var row) && row.Key.Equals(name, StringComparison.Ordinal) ? row : null;
 
     private static bool Includes(ModelPricing row, Lookup lookup) => lookup switch
     {
@@ -673,24 +785,28 @@ public sealed partial class PricingCatalog
     /// <summary>
     /// Wiersz o tej samej tożsamości (ccusage <c>authoritative</c>): klucz dosłowny, tożsamość, ID u dostawcy bezpośredniego
     /// (tylko gdy wszystkie mają te same stawki), na końcu wiersz hosta bez prefiksu (np. <c>gemini-2.5-pro</c> z Vertex).
+    /// <paramref name="fold"/> = false porównuje z rozróżnianiem wielkości liter (przebieg dokładny ccusage), true — bez
+    /// (przebieg zastępczy, klucz dosłowny pominięty), ccusage <c>rows.rs</c> <c>authoritative_on_index</c>.
     /// </summary>
-    private ModelPricing? Authoritative(string name, Lookup lookup, bool hosted, Func<ModelPricing, bool> select, bool hostedOnly = false)
+    private ModelPricing? Authoritative(string name, Lookup lookup, bool hosted, Func<ModelPricing, bool> select, bool hostedOnly = false,
+        bool fold = false)
     {
         bool Visible(ModelPricing row) => Includes(row, lookup) && select(row) && (!hostedOnly || !row.IsDirect);
 
-        if (_models.TryGetValue(name, out var literal) && !literal.IsBareHosted && Visible(literal))
+        var literal = fold ? null : Literal(_models, name);
+        if (literal is { IsBareHosted: false } && Visible(literal))
         {
             return literal;
         }
 
-        var identity = PricingKeys.Identity(name);
-        if (_primary.Identity.TryGetValue(identity, out var rows) &&
-            rows.Where(Visible).OrderBy(row => row.Key, StringComparer.Ordinal).FirstOrDefault() is { } byIdentity)
+        var maps = _primary.For(fold);
+        var identity = PricingKeys.Identity(name, fold);
+        if (maps.Identity.TryGetValue(identity, out var rows) && First(rows.Where(Visible), name, fold) is { } byIdentity)
         {
             return byIdentity;
         }
 
-        if (!hostedOnly && _primary.Vendor.TryGetValue(identity, out var vendorRows))
+        if (!hostedOnly && maps.Vendor.TryGetValue(identity, out var vendorRows))
         {
             var visible = vendorRows.Where(Visible).ToArray();
             if (visible.Length > 0 && visible.All(row => row.Base == visible[0].Base))
@@ -699,8 +815,7 @@ public sealed partial class PricingCatalog
             }
         }
 
-        if (hosted && _primary.BareHosted.TryGetValue(identity, out var bare) &&
-            bare.Where(Visible).OrderBy(row => row.Key, StringComparer.Ordinal).FirstOrDefault() is { } bareRow)
+        if (hosted && maps.BareHosted.TryGetValue(identity, out var bare) && First(bare.Where(Visible), name, fold) is { } bareRow)
         {
             return bareRow;
         }
@@ -708,25 +823,26 @@ public sealed partial class PricingCatalog
         return null;
     }
 
-    private ModelPricing? DevExact(string name, Lookup lookup)
+    /// <summary>Wiersz models.dev o tej samej tożsamości (ccusage <c>rows.rs</c> <c>exact</c>).</summary>
+    private ModelPricing? DevExact(string name, Lookup lookup, bool fold)
     {
-        if (_modelsDev.TryGetValue(name, out var literal) && Includes(literal, lookup))
+        if (!fold && Literal(_modelsDev, name) is { } literal && Includes(literal, lookup))
         {
             return literal;
         }
 
-        return _secondary.Identity.TryGetValue(PricingKeys.Identity(name), out var rows)
-            ? rows.Where(row => Includes(row, lookup)).OrderBy(row => row.Key, StringComparer.Ordinal).FirstOrDefault()
+        return _secondary.For(fold).Identity.TryGetValue(PricingKeys.Identity(name, fold), out var rows)
+            ? First(rows.Where(row => Includes(row, lookup)), name, fold)
             : null;
     }
 
     /// <summary>Nazwa i jej sufiksy ścieżki, dopóki cennik główny ich nie zna (ccusage <c>models_dev_names</c>, #2238).</summary>
-    private IEnumerable<string> Unclaimed(string name, Lookup lookup)
+    private IEnumerable<string> Unclaimed(string name, Lookup lookup, bool fold)
     {
         yield return name;
         foreach (var suffix in PricingKeys.Suffixes(name))
         {
-            if (Authoritative(suffix, lookup, hosted: false, _ => true) is not null)
+            if (Authoritative(suffix, lookup, hosted: false, _ => true, fold: fold) is not null)
             {
                 yield break;
             }
@@ -736,7 +852,7 @@ public sealed partial class PricingCatalog
     }
 
     /// <summary>Cennik hosta zapisanego w nazwie: <c>bedrock/…</c>, <c>azure/…</c>, <c>vertex_ai/…</c>, inny host w ścieżce lub ID w stylu Bedrock.</summary>
-    private ModelPricing? SearchHost(string model, Lookup lookup)
+    private ModelPricing? SearchHost(string model, Lookup lookup, bool fold)
     {
         var slash = model.IndexOf('/');
         if (slash > 0)
@@ -748,28 +864,27 @@ public sealed partial class PricingCatalog
             }
 
             return PricingData.HostListingIndex(segment) is { } host
-                ? HostListingRow(model[(slash + 1)..], host, lookup)
-                : Authoritative(model, lookup, hosted: false, _ => true, hostedOnly: true);
+                ? HostListingRow(model[(slash + 1)..], host, lookup, fold)
+                : Authoritative(model, lookup, hosted: false, _ => true, hostedOnly: true, fold: fold);
         }
 
         var dot = model.IndexOf('.');
         return dot > 0 && PricingData.Hosts[PricingData.BedrockHost].ModelIdWords.Contains(model[..dot].ToLowerInvariant())
-            ? HostListingRow(model, PricingData.BedrockHost, lookup)
+            ? HostListingRow(model, PricingData.BedrockHost, lookup, fold)
             : null;
     }
 
-    private ModelPricing? HostListingRow(string id, int host, Lookup lookup)
+    private ModelPricing? HostListingRow(string id, int host, Lookup lookup, bool fold)
     {
-        var identity = PricingKeys.Identity(id);
-        if (_primary.BareHosted.TryGetValue(identity, out var bare) &&
-            bare.Where(row => row.Host == host && Includes(row, lookup)).OrderBy(row => row.Key, StringComparer.Ordinal).FirstOrDefault() is { } bareRow)
+        if (_primary.For(fold).BareHosted.TryGetValue(PricingKeys.Identity(id, fold), out var bare) &&
+            First(bare.Where(row => row.Host == host && Includes(row, lookup)), id, fold) is { } bareRow)
         {
             return bareRow;
         }
 
         foreach (var prefix in PricingData.Hosts[host].Prefixes)
         {
-            if (Authoritative($"{prefix}/{id}", lookup, hosted: false, _ => true, hostedOnly: true) is { } row)
+            if (Authoritative($"{prefix}/{id}", lookup, hosted: false, _ => true, hostedOnly: true, fold: fold) is { } row)
             {
                 return row;
             }
@@ -777,30 +892,32 @@ public sealed partial class PricingCatalog
 
         // Ścieżka regionalna spoza katalogu (np. bedrock/us-east-1/<id>) → cennik regionu domyślnego.
         var slash = id.IndexOf('/');
-        return slash > 0 && slash < id.Length - 1 ? HostListingRow(id[(slash + 1)..], host, lookup) : null;
+        return slash > 0 && slash < id.Length - 1 ? HostListingRow(id[(slash + 1)..], host, lookup, fold) : null;
     }
 
     /// <summary>
     /// Najdłuższy pasujący klucz (ccusage <c>fuzzy</c>); jeśli któryś ma ten sam ostatni segment co nazwa, wygrywa najdłuższy
     /// klucz nie dłuższy od nazwy. Darmowe wiersze i wiersze <c>exactOnly</c> (gdy nazwa nie zawiera klucza) są pomijane.
+    /// <paramref name="fold"/> = false porównuje z rozróżnianiem wielkości liter, jak ccusage <c>pricing_key_matches</c>.
     /// </summary>
-    private ModelPricing? Fuzzy(Index index, string name, Lookup lookup, bool includeOverrides)
+    private ModelPricing? Fuzzy(Index index, string name, Lookup lookup, bool includeOverrides, bool fold)
     {
-        var identity = PricingKeys.Identity(name);
+        var identity = PricingKeys.Identity(name, fold);
         var segment = PricingKeys.LastSegment(identity);
         var pool = index.Keys
+            .Select(entry => (entry.Row, Identity: fold ? entry.Identity : entry.Normalized))
             .Where(entry => (identity.Length >= entry.Identity.Length
                                 ? identity.Contains(entry.Identity, StringComparison.Ordinal)
                                 : entry.Identity.EndsWith(identity, StringComparison.Ordinal)) &&
                             Includes(entry.Row, lookup) && !entry.Row.IsFree &&
-                            PricingKeys.Matches(entry.Row.Key, name) &&
-                            (!entry.Row.ExactOnly || PricingKeys.NamesKey(entry.Row.Key, name)))
+                            PricingKeys.Matches(entry.Row.Key, name, fold) &&
+                            (!entry.Row.ExactOnly || PricingKeys.NamesKey(entry.Row.Key, name, fold)))
             .Select(entry => (entry.Row.Key, Row: entry.Row));
 
         if (includeOverrides && _overrides.Count > 0)
         {
             var overrideRows = _overrides.Values
-                .Where(entry => !ShadowsCatalog(entry.Key) && PricingKeys.Matches(PricingKeys.Unlabeled(entry.Key), name) && !entry.Key.StartsWith('['))
+                .Where(entry => !ShadowsCatalog(entry.Key) && PricingKeys.Matches(PricingKeys.Unlabeled(entry.Key), name, fold) && !entry.Key.StartsWith('['))
                 .Select(entry => ResolveOverride(entry.Key))
                 .OfType<ModelPricing>()
                 .Select(row => (row.Key, Row: row));
@@ -829,7 +946,7 @@ public sealed partial class PricingCatalog
                     bestNotLonger = entry;
                 }
 
-                equalSegment |= PricingKeys.Identity(rowSegment) == segment;
+                equalSegment |= PricingKeys.Identity(rowSegment, fold) == segment;
             }
         }
 
@@ -865,16 +982,32 @@ public sealed partial class PricingCatalog
 
     // ---- nadpisania ----
 
-    /// <summary>Klucz nadpisania dla nazwy: <c>[źródło] nazwa</c>, nazwa, alias, sufiksy ścieżki, nazwa bez etykiety (ccusage <c>label_id</c>).</summary>
-    private string? LabelOverride(string name, string? source)
+    /// <summary>
+    /// Klucz nadpisania dla nazwy; najpierw z rozróżnianiem wielkości liter, potem bez (ccusage <c>overrides.rs</c> <c>label_id</c>).
+    /// <c>Folded</c> = dopasowane dopiero bez rozróżniania wielkości liter.
+    /// </summary>
+    private (string Key, bool Folded)? LabelOverride(string name, string? source)
     {
         if (_overrides.Count == 0)
         {
             return null;
         }
 
-        string? Find(string candidate) =>
-            _overrides.TryGetValue(PricingKeys.Identity(candidate), out var entry) ? entry.Key : null;
+        foreach (var fold in Folds)
+        {
+            if (LabelOverride(name, source, fold) is { } key)
+            {
+                return (key, fold);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Klucz nadpisania: <c>[źródło] nazwa</c>, nazwa, alias, sufiksy ścieżki, nazwa bez etykiety (ccusage <c>label_id_with_case</c>).</summary>
+    private string? LabelOverride(string name, string? source, bool fold)
+    {
+        string? Find(string candidate) => FindOverride(candidate, fold);
 
         if (source is not null && Find($"[{source}] {PricingKeys.Unlabeled(name)}") is { } scoped)
         {
@@ -884,10 +1017,29 @@ public sealed partial class PricingCatalog
         return Find(name)
                ?? (ConfiguredAlias(name) is { } alias ? Find(alias) : null)
                ?? PricingKeys.Suffixes(name).Select(Find).FirstOrDefault(key => key is not null)
-               ?? (PricingKeys.Unlabeled(name) is var unlabeled && unlabeled != name ? LabelOverride(unlabeled, null) : null);
+               ?? (PricingKeys.Unlabeled(name) is var unlabeled && unlabeled != name ? LabelOverride(unlabeled, null, fold) : null);
     }
 
-    /// <summary>Nadpisanie przesłaniające wiersz katalogu o tej samej tożsamości lub ID u dostawcy (ccusage <c>shadow</c>).</summary>
+    /// <summary>
+    /// Klucz nadpisania o tej samej tożsamości co nazwa (ccusage <c>id_identity</c>): z rozróżnianiem wielkości liter albo bez —
+    /// wtedy najpierw klucz równy nazwie z dokładnością do wielkości liter, potem porządek porządkowy.
+    /// </summary>
+    private string? FindOverride(string name, bool fold)
+    {
+        if (!fold)
+        {
+            return _overrides.TryGetValue(PricingKeys.Normalized(name), out var entry) ? entry.Key : null;
+        }
+
+        return _foldedOverrides.TryGetValue(PricingKeys.Identity(name), out var keys)
+            ? keys.OrderBy(key => !key.Equals(name, StringComparison.OrdinalIgnoreCase)).ThenBy(key => key, StringComparer.Ordinal).First()
+            : null;
+    }
+
+    /// <summary>
+    /// Nadpisanie przesłaniające wiersz katalogu o tej samej tożsamości lub ID u dostawcy; najpierw z rozróżnianiem wielkości
+    /// liter (ccusage <c>shadow</c>).
+    /// </summary>
     private ModelPricing Shadowed(ModelPricing row)
     {
         if (_overrides.Count == 0 || row.Source == PricingSource.Override)
@@ -895,17 +1047,19 @@ public sealed partial class PricingCatalog
             return row;
         }
 
-        if (_overrides.TryGetValue(PricingKeys.Identity(row.Key), out var entry) ||
-            (row.VendorId is { } vendor && _overrides.TryGetValue(PricingKeys.Identity(vendor), out entry)))
+        foreach (var fold in Folds)
         {
-            return ResolveOverride(entry.Key) ?? row;
+            if ((FindOverride(row.Key, fold) ?? (row.VendorId is { } vendor ? FindOverride(vendor, fold) : null)) is { } key)
+            {
+                return ResolveOverride(key) ?? row;
+            }
         }
 
         return row;
     }
 
-    private bool ShadowsCatalog(string key) => _primary.Identity.ContainsKey(PricingKeys.Identity(key)) ||
-                                               _primary.Vendor.ContainsKey(PricingKeys.Identity(key));
+    private bool ShadowsCatalog(string key) => _primary.Folded.Identity.ContainsKey(PricingKeys.Identity(key)) ||
+                                               _primary.Folded.Vendor.ContainsKey(PricingKeys.Identity(key));
 
     /// <summary>
     /// Wiersz nadpisania (ccusage <c>resolve_override</c>): baza z katalogu dla klucza (lub modelu bez etykiety), na niej pola
@@ -913,11 +1067,13 @@ public sealed partial class PricingCatalog
     /// </summary>
     private ModelPricing? ResolveOverride(string key) => _overrideRows.GetOrAdd(key, _ =>
     {
-        var value = _overrides[PricingKeys.Identity(key)].Value;
+        var value = _overrides[PricingKeys.Normalized(key)].Value;
         var model = PricingKeys.Unlabeled(key);
+        // ccusage overrides.rs override_base: baza z rozróżnianiem wielkości liter, potem bez.
         ModelPricing? FindBase(string name) =>
-            Names(name).Select(spelling => Authoritative(spelling, Lookup.Pricing, hosted: false, _ => true)).FirstOrDefault(row => row is not null)
-            ?? Names(name).Select(spelling => DevExact(spelling, Lookup.Pricing)).FirstOrDefault(row => row is not null);
+            Folds.SelectMany(fold => Names(name).Select(spelling => Authoritative(spelling, Lookup.Pricing, hosted: false, _ => true, fold: fold)))
+                .FirstOrDefault(row => row is not null)
+            ?? Folds.SelectMany(fold => Names(name).Select(spelling => DevExact(spelling, Lookup.Pricing, fold))).FirstOrDefault(row => row is not null);
 
         var basePricing = FindBase(key) ?? (model != key ? FindBase(model) ?? SearchRequest([model], model, null, Lookup.Pricing)?.Row : null);
         var explicitRates = new RateSet

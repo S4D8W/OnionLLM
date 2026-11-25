@@ -77,7 +77,8 @@ internal static class BuiltinPricing
         new("zai", "glm-5.1", 1.4, 4.4, 0, 0.26, null),
 
         // NOTE(ccusage, 2026-11-20): Alibaba liczy wyjście thinking drożej dla qwen-plus, qwen-turbo i qwen3-8b/14b/30b-a3b —
-        // id z sufiksem -thinking ma własny wiersz (słowo „thinking” nie jest dla tych modeli neutralne cenowo).
+        // id z sufiksem -thinking ma własny wiersz (słowo „thinking” nie jest dla tych modeli neutralne cenowo). Żadne źródło nie
+        // rozpoznaje trybu thinking — wiersz pasuje tylko do id -thinking zapisanego w logu (ccusage builtin_pricing.rs:277-353).
         new("dashscope", "qwen-plus-thinking", 0.4, 4, 0.5, 0.08, null) { Tier = QwenPlusThinkingTier },
         new("dashscope", "qwen-plus-latest-thinking", 0.4, 4, 0.5, 0.08, null) { Tier = QwenPlusThinkingTier },
         new("dashscope", "qwen-plus-2025-12-01-thinking", 0.4, 4, 0.5, 0.08, null) { Tier = QwenPlusThinkingTier },
