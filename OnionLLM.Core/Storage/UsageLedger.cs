@@ -188,18 +188,77 @@ public sealed class UsageLedger
                 command.Parameters.AddWithValue("$s" + index, source);
                 return "$s" + index;
             });
-            conditions.Add($"source IN ({string.Join(',', names)})");
+            // Z zakresem dat wąski jest indeks ts; „+source” nie pozwala planiście wybrać szerszego indeksu (source, dedupe_key).
+            var column = fromMs is not null || toMs is not null ? "+source" : "source";
+            conditions.Add($"{column} IN ({string.Join(',', names)})");
         }
 
         command.CommandText = $"""
-            SELECT source, ts, session_id, project, project_path, model, fallback_model, input, output,
-                   cache_create, cache_create_1h, cache_read, reasoning, recorded_cost, speed, credits,
-                   dedupe_key, is_summary, mirror_of, aggregate, provider, preference, source_data
+            SELECT {EntryColumns}
             FROM Entries
             {(conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "")}
             ORDER BY ts, file_path
             """;
+        return ReadEntries(command);
+    }
 
+    /// <summary>
+    /// Wpisy źródła spoza przedziału [fromMs, toMs), których <see cref="UsageEntry.DedupeKey"/> zaczyna się od jednego
+    /// z <paramref name="prefixes"/> — przed deduplikacją, w kolejności <see cref="Query"/>. Klucz jest dla ledgera
+    /// nieprzezroczysty: prefiksy wyznacza źródło (<see cref="IUsageSource.ReconcileKeyPrefixes"/>); wyszukiwanie
+    /// zakresami indeksu <c>(source, dedupe_key)</c>, bez przeglądania całej historii.
+    /// </summary>
+    public List<UsageEntry> QueryKeyPrefixesOutside(string source, IReadOnlyCollection<string> prefixes, long? fromMs, long? toMs)
+    {
+        // Górna granica zakresu: prefiks z ostatnim znakiem większym o 1 (porównanie BINARY na UTF-8 = kolejność punktów kodowych).
+        var bounds = prefixes
+            .Where(prefix => prefix.Length > 0 && prefix[^1] < (char)0xD7FF)
+            .Distinct(StringComparer.Ordinal)
+            .Select(prefix => new[] { prefix, prefix[..^1] + (char)(prefix[^1] + 1) })
+            .ToArray();
+        if (bounds.Length == 0)
+        {
+            return [];
+        }
+
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.Parameters.AddWithValue("$source", source);
+        command.Parameters.AddWithValue("$bounds", System.Text.Json.JsonSerializer.Serialize(bounds));
+        var outside = new List<string>();
+        if (fromMs is not null)
+        {
+            outside.Add("e.ts < $from");
+            command.Parameters.AddWithValue("$from", fromMs.Value);
+        }
+
+        if (toMs is not null)
+        {
+            outside.Add("e.ts >= $to");
+            command.Parameters.AddWithValue("$to", toMs.Value);
+        }
+
+        // CROSS JOIN wymusza pętlę zewnętrzną po prefiksach (planista bywa skłonny skanować wszystkie wpisy źródła).
+        command.CommandText = $"""
+            SELECT {EntryColumns}
+            FROM json_each($bounds) AS b
+            CROSS JOIN Entries AS e
+            WHERE e.source = $source
+                AND e.dedupe_key >= json_extract(b.value, '$[0]') AND e.dedupe_key < json_extract(b.value, '$[1]')
+                {(outside.Count > 0 ? "AND (" + string.Join(" OR ", outside) + ")" : "")}
+            ORDER BY e.ts, e.file_path
+            """;
+        return ReadEntries(command);
+    }
+
+    private const string EntryColumns = """
+        source, ts, session_id, project, project_path, model, fallback_model, input, output,
+        cache_create, cache_create_1h, cache_read, reasoning, recorded_cost, speed, credits,
+        dedupe_key, is_summary, mirror_of, aggregate, provider, preference, source_data
+        """;
+
+    private static List<UsageEntry> ReadEntries(SqliteCommand command)
+    {
         var result = new List<UsageEntry>();
         using var reader = command.ExecuteReader();
         while (reader.Read())
@@ -417,6 +476,7 @@ public sealed class UsageLedger
                 source_data TEXT);
             CREATE INDEX IF NOT EXISTS IX_Entries_ts ON Entries(ts);
             CREATE INDEX IF NOT EXISTS IX_Entries_file ON Entries(file_path);
+            CREATE INDEX IF NOT EXISTS IX_Entries_source_key ON Entries(source, dedupe_key);
             CREATE INDEX IF NOT EXISTS IX_SourceFiles_source ON SourceFiles(source);
             """;
         command.ExecuteNonQuery();

@@ -38,6 +38,29 @@ public class LedgerTests
     }
 
     [Fact]
+    public void Key_prefix_query_returns_only_matching_entries_outside_the_range()
+    {
+        using var directory = new TempDirectory();
+        directory.Write("projects/demo/a.jsonl", string.Join('\n',
+            TestData.ClaudeLine("2026-05-19T10:00:00Z", "m1", "r1", 1, 1),
+            TestData.ClaudeLine("2026-05-19T11:00:00Z", "m10", "r10", 1, 1),
+            TestData.ClaudeLine("2026-05-23T10:00:00Z", "m1", "r1b", 1, 1),
+            TestData.ClaudeLine("2026-05-26T10:00:00Z", "m1", "r1c", 1, 1)));
+        var ledger = new UsageLedger(Path.Combine(directory.Path, "ledger.db"));
+        ledger.Sync([new ClaudeSource()], TestData.ConfigWith("claude", directory.Path));
+        var prefix = ClaudeDedupeKey.MessagePrefix(ledger.Query().First(entry => entry.TimestampMs == Ms("2026-05-23T10:00:00Z")))!;
+
+        // „m1␟” nie obejmuje „m10␟”; wpis z zakresu [05-22, 05-24) nie jest zwracany.
+        var outside = ledger.QueryKeyPrefixesOutside("claude", [prefix], Ms("2026-05-22T00:00:00Z"), Ms("2026-05-24T00:00:00Z"));
+
+        Assert.Equal([Ms("2026-05-19T10:00:00Z"), Ms("2026-05-26T10:00:00Z")], outside.Select(entry => entry.TimestampMs));
+        Assert.Empty(ledger.QueryKeyPrefixesOutside("codex", [prefix], null, null));
+    }
+
+    private static long Ms(string timestamp) =>
+        DateTimeOffset.Parse(timestamp, System.Globalization.CultureInfo.InvariantCulture).ToUnixTimeMilliseconds();
+
+    [Fact]
     public void Source_data_survives_the_ledger_round_trip()
     {
         using var directory = new TempDirectory();

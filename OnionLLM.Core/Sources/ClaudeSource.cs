@@ -268,6 +268,26 @@ public sealed class ClaudeSource : UsageSourceBase
     public override IReadOnlyList<UsageEntry> Reconcile(IReadOnlyList<UsageEntry> entries) => ClaudeDedupe.Apply(entries);
 
     /// <summary>
+    /// ID wiadomości (z separatorem) wpisów z zakresu: każde dopasowanie <see cref="ClaudeDedupe"/> wymaga tej samej wiadomości,
+    /// więc dociągnięte wpisy spoza zakresu z tymi prefiksami wystarczą, by raport z zakresem dat liczył jak pełna historia.
+    /// Odpowiednik ccusage, który deduplikuje wszystkie wczytane pliki (także powiązane sesje sprzed <c>--since</c>) i dopiero
+    /// potem nakłada okno dat (<c>daily.rs:113-129</c> <c>finish_daily_files</c>, <c>paths.rs:133-252</c> <c>read_files_since</c>, #1794).
+    /// </summary>
+    public override IReadOnlyCollection<string>? ReconcileKeyPrefixes(IReadOnlyList<UsageEntry> entries)
+    {
+        var prefixes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entry in entries)
+        {
+            if (ClaudeDedupeKey.MessagePrefix(entry) is { } prefix)
+            {
+                prefixes.Add(prefix);
+            }
+        }
+
+        return prefixes;
+    }
+
+    /// <summary>
     /// ID sesji ze ścieżki względem <c>projects</c> (<c>paths.rs:extract_session_parts</c>):
     /// <c>{projekt}/{sesja}.jsonl</c> → nazwa pliku; <c>…/{sesja}/subagents/…</c> → katalog przed <c>subagents</c>;
     /// w pozostałych przypadkach katalog nadrzędny pliku.

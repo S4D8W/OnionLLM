@@ -145,6 +145,16 @@ public sealed class UsageEngine : IDisposable
             : [];
         var ranged = enabled.Except(fullHistory, StringComparer.OrdinalIgnoreCase).ToArray();
         var entries = ranged.Length > 0 ? WithSettings(Ledger.Query(fromMs, toMs, ranged)) : [];
+
+        // Pozostałe źródła mogą wskazać wpisy spoza zakresu, z którymi uzgadniają wpisy z zakresu (ReconcileKeyPrefixes);
+        // dociągamy tylko je, a zakres nakładamy po deduplikacji — wynik jak przy pełnej historii, bez jej wczytywania.
+        var related = bounded ? LoadReconcileRelated(entries, fromMs, toMs) : [];
+        if (related.Count > 0)
+        {
+            // Stabilnie po czasie: dociągnięte wpisy leżą poza zakresem, więc kolejność (ts, plik) jest jak w pełnej historii.
+            entries = entries.Concat(related).OrderBy(entry => entry.TimestampMs).ToList();
+        }
+
         if (fullHistory.Length > 0)
         {
             entries.AddRange(WithSettings(Ledger.Query(null, null, fullHistory)));
@@ -170,7 +180,7 @@ public sealed class UsageEngine : IDisposable
         }
 
         var result = Deduplicator.Apply(entries, FindSource);
-        if (targets.Length == 0 && fullHistory.Length == 0)
+        if (targets.Length == 0 && fullHistory.Length == 0 && related.Count == 0)
         {
             return result;
         }
@@ -183,6 +193,24 @@ public sealed class UsageEngine : IDisposable
     }
 
     private const long MirrorWindowMs = 24 * 60 * 60 * 1000;
+
+    /// <summary>
+    /// Wpisy spoza zakresu [fromMs, toMs), które <see cref="IUsageSource.Reconcile"/> może połączyć z wpisami z zakresu
+    /// (<see cref="IUsageSource.ReconcileKeyPrefixes"/>, np. oryginał kopii Claude sprzed <c>--since</c>).
+    /// </summary>
+    private List<UsageEntry> LoadReconcileRelated(List<UsageEntry> entries, long? fromMs, long? toMs)
+    {
+        var related = new List<UsageEntry>();
+        foreach (var group in entries.GroupBy(entry => entry.Source, StringComparer.OrdinalIgnoreCase))
+        {
+            if (FindSource(group.Key)?.ReconcileKeyPrefixes(group.ToList()) is { Count: > 0 } prefixes)
+            {
+                related.AddRange(WithSettings(Ledger.QueryKeyPrefixesOutside(group.Key, prefixes, fromMs, toMs)));
+            }
+        }
+
+        return related;
+    }
 
     /// <summary>Ustawienia źródeł stosowane przy odczycie (<see cref="IUsageSource.ApplySettings"/>).</summary>
     private List<UsageEntry> WithSettings(List<UsageEntry> entries)
