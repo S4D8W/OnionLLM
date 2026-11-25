@@ -1,0 +1,19 @@
+<Shell
+    x:Class="OnionLLM.AppShell"
+    xmlns:local="clr-namespace:OnionLLM"
+    xmlns:pages="clr-namespace:OnionLLM.Pages"
+    Title="OnionLLM"
+    Shell.TabBarBackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#151821}"
+    Shell.TabBarForegroundColor="#5B4BFF"
+    Shell.TabBarTitleColor="#5B4BFF"
+    Shell.TabBarUnselectedColor="{AppThemeBinding Light=#8B909C, Dark=#707582}">
+
+    <TabBar>
+        <ShellContent Title="Dziś" ContentTemplate="{DataTemplate local:MainPage}" Route="MainPage" />
+        <ShellContent Title="Raporty" ContentTemplate="{DataTemplate pages:ReportsPage}" Route="Reports" />
+        <ShellContent Title="Sesje" ContentTemplate="{DataTemplate pages:SessionsPage}" Route="Sessions" />
+        <ShellContent Title="Bloki" ContentTemplate="{DataTemplate pages:BlocksPage}" Route="Blocks" />
+        <ShellContent Title="Ustawienia" ContentTemplate="{DataTemplate pages:SettingsPage}" Route="Settings" />
+    </TabBar>
+
+</Shell>

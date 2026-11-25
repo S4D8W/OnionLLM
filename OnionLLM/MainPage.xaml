@@ -1,0 +1,300 @@
+﻿<ContentPage x:Class="OnionLLM.MainPage"
+             Shell.NavBarIsVisible="False"
+             Title="Dziś"
+             BackgroundColor="{AppThemeBinding Light=#F2F4F8, Dark=#0C0E13}">
+
+    <Grid RowDefinitions="Auto,*,Auto"
+          Padding="16,14,16,10"
+          RowSpacing="12">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Border WidthRequest="42"
+                    HeightRequest="42"
+                    StrokeThickness="0"
+                    BackgroundColor="#5B4BFF">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="13" />
+                </Border.StrokeShape>
+                <Label Text="O"
+                       FontSize="21"
+                       FontAttributes="Bold"
+                       TextColor="White"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center" />
+            </Border>
+            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                <Label Text="OnionLLM"
+                       FontSize="18"
+                       FontAttributes="Bold" />
+                <Label Text="Token &amp; cost monitor"
+                       FontSize="10"
+                       CharacterSpacing="1.2"
+                       TextTransform="Uppercase"
+                       TextColor="{AppThemeBinding Light=#7A7F8C, Dark=#8F94A3}" />
+            </VerticalStackLayout>
+            <Button Grid.Column="2"
+                    Text="↻"
+                    Command="{Binding RefreshCommand}"
+                    FontSize="20"
+                    Padding="0"
+                    WidthRequest="42"
+                    HeightRequest="42"
+                    CornerRadius="13"
+                    BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}"
+                    TextColor="{AppThemeBinding Light=#313541, Dark=White}"
+                    SemanticProperties.Description="Odśwież" />
+        </Grid>
+
+        <CollectionView Grid.Row="1"
+                        ItemsSource="{Binding Providers}"
+                        SelectionMode="None"
+                        CanReorderItems="True"
+                        ReorderCompleted="OnProvidersReordered"
+                        VerticalScrollBarVisibility="Never">
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
+            </CollectionView.ItemsLayout>
+
+            <CollectionView.Header>
+                <VerticalStackLayout Spacing="10" Padding="0,0,0,10">
+                    <!-- Podsumowanie dnia -->
+                    <Border Padding="20,17" StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="22" />
+                        </Border.StrokeShape>
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#171B2D" Offset="0" />
+                                <GradientStop Color="#4F3FD5" Offset="0.62" />
+                                <GradientStop Color="#7767F5" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                            <VerticalStackLayout Spacing="3">
+                                <HorizontalStackLayout Spacing="7">
+                                    <Border WidthRequest="7" HeightRequest="7" BackgroundColor="#8DFFB3" StrokeThickness="0" VerticalOptions="Center">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="4" />
+                                        </Border.StrokeShape>
+                                    </Border>
+                                    <Label Text="DZISIAJ" FontSize="10" FontAttributes="Bold" CharacterSpacing="1.4" TextColor="#D9D6FF" />
+                                </HorizontalStackLayout>
+                                <Label Text="{Binding TodayCost}" FontSize="34" FontAttributes="Bold" TextColor="White" />
+                                <Label FontSize="12" TextColor="#CBC7EE">
+                                    <Label.FormattedText>
+                                        <FormattedString>
+                                            <Span Text="{Binding TodayTokens}" FontAttributes="Bold" />
+                                            <Span Text=" tokenów (z cache)" />
+                                        </FormattedString>
+                                    </Label.FormattedText>
+                                </Label>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" HorizontalOptions="End" Spacing="3">
+                                <Label Text="{Binding ActiveProviders}" FontSize="13" FontAttributes="Bold" TextColor="White" HorizontalTextAlignment="End" />
+                                <Label Text="{Binding WeekSummary}" FontSize="10" TextColor="#CBC7EE" HorizontalTextAlignment="End" />
+                                <Label Text="{Binding MonthSummary}" FontSize="10" TextColor="#CBC7EE" HorizontalTextAlignment="End" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Border>
+
+                    <!-- Aktywny blok 5h Claude -->
+                    <Border IsVisible="{Binding HasActiveBlock}"
+                            Padding="16,13"
+                            StrokeThickness="1"
+                            Stroke="{AppThemeBinding Light=#E2E5EC, Dark=#282C37}"
+                            BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="19" />
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Spacing="1">
+                                    <Label Text="AKTYWNY BLOK CLAUDE" FontSize="9" FontAttributes="Bold" CharacterSpacing="1"
+                                           TextColor="{AppThemeBinding Light=#6861A4, Dark=#9D97DA}" />
+                                    <Label FontSize="15" FontAttributes="Bold">
+                                        <Label.FormattedText>
+                                            <FormattedString>
+                                                <Span Text="zostało " />
+                                                <Span Text="{Binding BlockRemaining}" />
+                                            </FormattedString>
+                                        </Label.FormattedText>
+                                    </Label>
+                                    <Label Text="{Binding BlockEnds}" FontSize="10" TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" Spacing="1" HorizontalOptions="End">
+                                    <Label Text="{Binding BlockCost}" FontSize="20" FontAttributes="Bold" HorizontalTextAlignment="End" />
+                                    <Label Text="{Binding BlockTokens}" FontSize="10" HorizontalTextAlignment="End"
+                                           TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
+                                </VerticalStackLayout>
+                            </Grid>
+                            <ProgressBar Progress="{Binding BlockLimitProgress}" ProgressColor="#D97757" HeightRequest="5"
+                                         BackgroundColor="{AppThemeBinding Light=#EBEDF2, Dark=#2B2F3A}" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Text="{Binding BlockLimitDisplay}" FontSize="9" TextColor="{AppThemeBinding Light=#8B8EAA, Dark=#777C9D}" />
+                                <Label Grid.Column="1" Text="{Binding Projection}" FontSize="9" TextColor="{AppThemeBinding Light=#8B8EAA, Dark=#777C9D}" />
+                            </Grid>
+                            <HorizontalStackLayout Spacing="6">
+                                <Label Text="🔥" FontSize="12" VerticalOptions="Center" />
+                                <Label Text="{Binding BurnRate}" FontSize="11" FontAttributes="Bold" VerticalOptions="Center" />
+                                <Label Text="{Binding BurnLevel}" FontSize="10" TextColor="{Binding BurnColor}" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+            </CollectionView.Header>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border Padding="0"
+                            StrokeThickness="1"
+                            Stroke="{AppThemeBinding Light=#E2E5EC, Dark=#282C37}"
+                            BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="19" />
+                        </Border.StrokeShape>
+                        <Grid ColumnDefinitions="4,*">
+                            <BoxView Color="{Binding AccentColor}" />
+                            <VerticalStackLayout Grid.Column="1" Padding="16,14,16,13" Spacing="11">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                    <Border WidthRequest="34" HeightRequest="34" StrokeThickness="0" BackgroundColor="{Binding AccentColor}">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="11" />
+                                        </Border.StrokeShape>
+                                        <Label Text="{Binding Initial}" TextColor="White" FontSize="14" FontAttributes="Bold"
+                                               HorizontalOptions="Center" VerticalOptions="Center" />
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                                        <Label Text="{Binding Name}" FontSize="15" FontAttributes="Bold" />
+                                        <Label Text="{Binding Description}" FontSize="10" TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
+                                    </VerticalStackLayout>
+                                    <Grid Grid.Column="2" ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+                                        <VerticalStackLayout Spacing="1" HorizontalOptions="End">
+                                            <Label Text="{Binding TotalTokensDisplay}" FontSize="20" FontAttributes="Bold" HorizontalTextAlignment="End" />
+                                            <Label Text="{Binding CostDisplay}" FontSize="11" FontAttributes="Bold" HorizontalTextAlignment="End"
+                                                   TextColor="{AppThemeBinding Light=#4F3FD5, Dark=#A99FFF}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1" Text="⋮⋮" FontSize="19" FontAttributes="Bold" VerticalOptions="Center"
+                                               TextColor="{AppThemeBinding Light=#B1B6C1, Dark=#626977}"
+                                               SemanticProperties.Description="Przeciągnij, aby zmienić kolejność" />
+                                    </Grid>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+                                    <VerticalStackLayout Spacing="3">
+                                        <Label Text="WEJŚCIE" FontSize="8" FontAttributes="Bold" CharacterSpacing="0.8" TextColor="{AppThemeBinding Light=#9499A5, Dark=#777D8B}" />
+                                        <Label Text="{Binding InputDisplay}" FontSize="14" FontAttributes="Bold" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="3">
+                                        <Label Text="WYJŚCIE" FontSize="8" FontAttributes="Bold" CharacterSpacing="0.8" TextColor="{AppThemeBinding Light=#9499A5, Dark=#777D8B}" />
+                                        <Label Text="{Binding OutputDisplay}" FontSize="14" FontAttributes="Bold" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="2" Spacing="3">
+                                        <Label Text="CACHE ZAPIS" FontSize="8" FontAttributes="Bold" CharacterSpacing="0.8" TextColor="{AppThemeBinding Light=#9499A5, Dark=#777D8B}" />
+                                        <Label Text="{Binding CacheWriteDisplay}" FontSize="14" FontAttributes="Bold" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="3" Spacing="3">
+                                        <Label Text="CACHE ODCZYT" FontSize="8" FontAttributes="Bold" CharacterSpacing="0.8" TextColor="{AppThemeBinding Light=#9499A5, Dark=#777D8B}" />
+                                        <Label Text="{Binding CacheReadDisplay}" FontSize="14" FontAttributes="Bold" />
+                                    </VerticalStackLayout>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <ProgressBar Progress="{Binding CacheShare}" ProgressColor="{Binding AccentColor}" HeightRequest="5" VerticalOptions="Center"
+                                                 BackgroundColor="{AppThemeBinding Light=#EBEDF2, Dark=#2B2F3A}" />
+                                    <Label Grid.Column="1" Text="{Binding CacheShareDisplay}" FontSize="9" TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
+                                </Grid>
+
+                                <Label Text="{Binding ModelsDisplay}" FontSize="10" LineBreakMode="TailTruncation"
+                                       TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
+
+                                <Label Text="{Binding CreditsDisplay}" IsVisible="{Binding HasCredits}" FontSize="10" FontAttributes="Bold"
+                                       LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#4F3FD5, Dark=#A99FFF}" />
+
+                                <Border IsVisible="{Binding ShowLimitsBox}" Padding="11,9" StrokeThickness="0"
+                                        BackgroundColor="{AppThemeBinding Light=#F0F1FF, Dark=#1E2032}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="11" />
+                                    </Border.StrokeShape>
+                                    <VerticalStackLayout Spacing="8">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                            <Label Text="LIMIT 5H" FontSize="9" FontAttributes="Bold" CharacterSpacing="0.8" TextColor="{AppThemeBinding Light=#6861A4, Dark=#9D97DA}" />
+                                            <ProgressBar Grid.Column="1" Progress="{Binding FiveHourProgress}" IsVisible="{Binding HasLimits}" ProgressColor="{Binding AccentColor}"
+                                                         BackgroundColor="{AppThemeBinding Light=#DADCF0, Dark=#34364A}" VerticalOptions="Center" HeightRequest="5" />
+                                            <Label Grid.Column="2" Text="{Binding FiveHourDisplay}" FontSize="11" FontAttributes="Bold" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <Label Text="{Binding FiveHourReset}" FontSize="8" TextColor="{AppThemeBinding Light=#8B8EAA, Dark=#777C9D}" />
+                                            <Label Grid.Column="1" Text="{Binding LimitStatus}" FontSize="8" TextColor="{AppThemeBinding Light=#8B8EAA, Dark=#777C9D}" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                            <Label Text="LIMIT 7D" FontSize="9" FontAttributes="Bold" CharacterSpacing="0.8" TextColor="{AppThemeBinding Light=#6861A4, Dark=#9D97DA}" />
+                                            <ProgressBar Grid.Column="1" Progress="{Binding SevenDayProgress}" IsVisible="{Binding HasLimits}" ProgressColor="{Binding AccentColor}"
+                                                         BackgroundColor="{AppThemeBinding Light=#DADCF0, Dark=#34364A}" VerticalOptions="Center" HeightRequest="5" />
+                                            <Label Grid.Column="2" Text="{Binding SevenDayDisplay}" FontSize="11" FontAttributes="Bold" />
+                                        </Grid>
+                                        <Label Text="{Binding SevenDayReset}" FontSize="8" TextColor="{AppThemeBinding Light=#8B8EAA, Dark=#777C9D}" />
+                                    </VerticalStackLayout>
+                                </Border>
+
+                                <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="7">
+                                    <HorizontalStackLayout Spacing="5" VerticalOptions="Center">
+                                        <Border WidthRequest="7" HeightRequest="7" BackgroundColor="#23C483" StrokeThickness="0" VerticalOptions="Center">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="4" />
+                                            </Border.StrokeShape>
+                                        </Border>
+                                        <Label Text="{Binding ActiveSessions}" FontSize="12" FontAttributes="Bold" />
+                                        <Label Text="aktywne" FontSize="10" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#7D8390, Dark=#969CA9}" />
+                                    </HorizontalStackLayout>
+                                    <HorizontalStackLayout Grid.Column="1" Spacing="5" VerticalOptions="Center">
+                                        <Border WidthRequest="7" HeightRequest="7" BackgroundColor="{AppThemeBinding Light=#B5BAC5, Dark=#626877}" StrokeThickness="0" VerticalOptions="Center">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="4" />
+                                            </Border.StrokeShape>
+                                        </Border>
+                                        <Label Text="{Binding CompletedSessions}" FontSize="12" FontAttributes="Bold" />
+                                        <Label Text="zakończone" FontSize="10" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#7D8390, Dark=#969CA9}" />
+                                    </HorizontalStackLayout>
+                                    <Label Grid.Column="2" Text="{Binding ActiveWindowDisplay}" FontSize="8" HorizontalTextAlignment="End" VerticalOptions="Center"
+                                           TextColor="{AppThemeBinding Light=#A0A5AF, Dark=#686E7C}" />
+                                </Grid>
+
+                                <Border Padding="10,8" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light=#F5F7FA, Dark=#20232D}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="10" />
+                                    </Border.StrokeShape>
+                                    <VerticalStackLayout Spacing="4">
+                                        <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="6">
+                                            <Label Text="7d" FontSize="9" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#9A9FAB, Dark=#777D8B}" />
+                                            <Label Grid.Column="1" Text="{Binding Last7Display}" FontSize="11" FontAttributes="Bold" VerticalOptions="Center" />
+                                            <Label Grid.Column="2" Text="30d" FontSize="9" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#9A9FAB, Dark=#777D8B}" />
+                                            <Label Grid.Column="3" Text="{Binding Last30Display}" FontSize="11" FontAttributes="Bold" VerticalOptions="Center" />
+                                        </Grid>
+                                        <Label Text="{Binding Status}" FontSize="9" MaxLines="1" LineBreakMode="TailTruncation"
+                                               TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+
+            <CollectionView.Footer>
+                <Button Text="{Binding UndetectedToggleText}"
+                        Command="{Binding ToggleUndetectedCommand}"
+                        FontSize="11"
+                        Margin="0,6,0,0"
+                        BackgroundColor="Transparent"
+                        TextColor="{AppThemeBinding Light=#6861A4, Dark=#9D97DA}" />
+            </CollectionView.Footer>
+        </CollectionView>
+
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+            <ActivityIndicator IsRunning="{Binding IsRefreshing}" IsVisible="{Binding IsRefreshing}" Color="#6C5CE7" WidthRequest="14" HeightRequest="14" />
+            <Label Grid.Column="1" Text="{Binding LastUpdated}" FontSize="9" VerticalOptions="Center" LineBreakMode="TailTruncation"
+                   TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
+            <Label Grid.Column="2" Text="Lokalnie · prywatnie" FontSize="9" VerticalOptions="Center"
+                   TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
+        </Grid>
+    </Grid>
+</ContentPage>

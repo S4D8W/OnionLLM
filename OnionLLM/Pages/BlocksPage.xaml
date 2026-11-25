@@ -1,0 +1,47 @@
+<ContentPage x:Class="OnionLLM.Pages.BlocksPage"
+             Shell.NavBarIsVisible="False"
+             Title="Bloki"
+             BackgroundColor="{AppThemeBinding Light=#F2F4F8, Dark=#0C0E13}">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="16,14,16,10" RowSpacing="10">
+        <VerticalStackLayout Spacing="2">
+            <Label Text="Bloki 5-godzinne (Claude)" FontSize="20" FontAttributes="Bold" />
+            <Label Text="Okna rozliczeniowe odtworzone z historii; aktywny blok z burn rate i prognozą." FontSize="10"
+                   TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
+        </VerticalStackLayout>
+        <Picker Grid.Row="1" ItemsSource="{Binding Ranges}" SelectedIndex="{Binding RangeIndex}" FontSize="12" Title="Zakres" />
+
+        <CollectionView Grid.Row="2" ItemsSource="{Binding Blocks}" SelectionMode="None">
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border Padding="0" StrokeThickness="1" Opacity="{Binding Opacity}" Stroke="{AppThemeBinding Light=#E2E5EC, Dark=#282C37}"
+                            BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="13" />
+                        </Border.StrokeShape>
+                        <Grid ColumnDefinitions="4,*">
+                            <BoxView Color="{Binding Accent}" />
+                            <VerticalStackLayout Grid.Column="1" Padding="12,10" Spacing="3">
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                                    <Label Text="{Binding Title}" FontSize="13" FontAttributes="Bold" />
+                                    <Label Grid.Column="1" Text="{Binding Tokens}" FontSize="12" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
+                                    <Label Grid.Column="2" Text="{Binding Cost}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#4F3FD5, Dark=#A99FFF}" />
+                                </Grid>
+                                <Label Text="{Binding Subtitle}" FontSize="10" TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
+                                <Label Text="{Binding Extra}" IsVisible="{Binding HasExtra}" FontSize="10" FontAttributes="Bold" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#6C5CE7" WidthRequest="14" HeightRequest="14" />
+            <Label Grid.Column="1" Text="{Binding Summary}" FontSize="9" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
+        </Grid>
+    </Grid>
+</ContentPage>

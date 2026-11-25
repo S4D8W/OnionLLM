@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OnionLLM configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "timezone": { "type": ["string", "null"], "description": "Strefa czasowa (IANA lub Windows), np. Europe/Warsaw, UTC. Brak = systemowa." },
+    "costMode": { "enum": ["auto", "calculate", "display"], "default": "auto", "description": "auto: koszt zapisany przez narzędzie, inaczej wyliczony; calculate: zawsze z tokenów; display: tylko zapisany." },
+    "offline": { "type": "boolean", "default": false, "description": "Nie pobieraj cennika z sieci." },
+    "startOfWeek": { "enum": ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"], "default": "monday" },
+    "sessionLengthHours": { "type": "number", "exclusiveMinimum": 0, "maximum": 168, "default": 5, "description": "Długość bloku rozliczeniowego Claude (godziny)." },
+    "tokenLimit": { "type": "string", "default": "max", "description": "Limit tokenów bloku: liczba lub 'max' (największy zakończony blok)." },
+    "projectAliases": { "type": ["string", "null"], "description": "Aliasy projektów: 'klucz=Nazwa,klucz2=Nazwa2'." },
+    "refreshIntervalSeconds": { "type": "integer", "minimum": 5, "default": 30 },
+    "activeSessionMinutes": { "type": "integer", "minimum": 1, "default": 15, "description": "Po ilu minutach bez aktywności sesja jest zakończona." },
+    "sources": {
+      "type": "object",
+      "description": "Ustawienia źródeł (klucz = id źródła: claude, codex, copilot, gemini, …).",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean", "default": true },
+          "paths": { "type": "array", "items": { "type": "string" }, "description": "Własne katalogi danych (mają pierwszeństwo przed zmiennymi środowiskowymi)." },
+          "speed": { "type": ["string", "null"], "enum": ["auto", "standard", "flex", "fast", null], "description": "Codex: poziom szybkości do wyceny (auto = z logów, potem config.toml)." },
+          "includeClaudeAgent": { "type": "boolean", "default": false, "description": "OpenCode: licz tury claude-agent, które Claude Code już liczy." },
+          "agentDirs": { "type": "array", "items": { "type": "string" }, "description": "pi: katalogi agenta (czytany jest katalog sessions każdego z nich)." },
+          "stores": {
+            "type": "array",
+            "description": "pi: dodatkowe nazwane magazyny sesji w formacie pi.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}$" },
+                "path": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "pricingOverrides": {
+      "type": "object",
+      "description": "Własne ceny modeli (USD za token, pola jak pricingOverrides w ccusage). Klucz: nazwa modelu, 'dostawca/model', alias lub '[źródło] model'.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "inputCostPerToken": { "type": "number", "minimum": 0 },
+          "outputCostPerToken": { "type": "number", "minimum": 0 },
+          "cacheCreationInputTokenCost": { "type": "number", "minimum": 0 },
+          "cacheCreationInputTokenCostAbove1hr": { "type": "number", "minimum": 0, "description": "Zapis do cache z TTL 1 h." },
+          "cacheCreationInputTokenCostAbove1h": { "type": "number", "minimum": 0, "description": "Dawna nazwa cacheCreationInputTokenCostAbove1hr." },
+          "cacheReadInputTokenCost": { "type": "number", "minimum": 0 },
+          "inputCostPerTokenAbove200kTokens": { "type": "number", "minimum": 0 },
+          "outputCostPerTokenAbove200kTokens": { "type": "number", "minimum": 0 },
+          "cacheCreationInputTokenCostAbove200kTokens": { "type": "number", "minimum": 0 },
+          "cacheReadInputTokenCostAbove200kTokens": { "type": "number", "minimum": 0 },
+          "maxInputTokens": { "type": "integer", "minimum": 1 },
+          "fastMultiplier": { "type": "number", "minimum": 0, "description": "Mnożnik ceny w trybie fast." },
+          "flexMultiplier": { "type": "number", "minimum": 0, "description": "Mnożnik ceny w trybie flex." }
+        }
+      }
+    },
+    "modelAliases": {
+      "type": "object",
+      "description": "Aliasy modeli do wyceny: nazwa z logu → model w cenniku (odpowiednik CCUSAGE_MODEL_ALIASES). 'x-fast' korzysta z aliasu 'x'.",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "modelLabelAliases": {
+      "type": "object",
+      "description": "Statusline Claude Code: nazwa modelu z hooka (dokładnie) → krótka etykieta, np. ARN profilu Bedrock → claude-opus-4-6 (ccusage modelLabelAliases).",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  }
+}

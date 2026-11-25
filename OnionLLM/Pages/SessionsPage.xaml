@@ -1,0 +1,69 @@
+<ContentPage x:Class="OnionLLM.Pages.SessionsPage"
+             x:Name="Root"
+             Shell.NavBarIsVisible="False"
+             Title="Sesje"
+             BackgroundColor="{AppThemeBinding Light=#F2F4F8, Dark=#0C0E13}">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,14,16,10" RowSpacing="10">
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <Label Text="Sesje" FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="JSON" Command="{Binding ExportJsonCommand}" FontSize="11" Padding="10,0" HeightRequest="32" CornerRadius="10"
+                    BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}" />
+            <Button Grid.Column="2" Text="CSV" Command="{Binding ExportCommand}" FontSize="11" Padding="10,0" HeightRequest="32" CornerRadius="10"
+                    BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}" />
+        </Grid>
+        <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="8">
+            <Picker ItemsSource="{Binding Ranges}" SelectedIndex="{Binding RangeIndex}" FontSize="12" Title="Zakres" />
+            <Picker Grid.Column="1" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" FontSize="12" Title="Źródło" />
+            <Picker Grid.Column="2" ItemsSource="{Binding Sorts}" SelectedIndex="{Binding SortIndex}" FontSize="12" Title="Sortowanie" />
+        </Grid>
+        <Entry Grid.Row="2" Text="{Binding Search}" Placeholder="Szukaj: ID sesji, projekt, model, źródło…" FontSize="12" ClearButtonVisibility="WhileEditing" />
+
+        <CollectionView Grid.Row="3" ItemsSource="{Binding Sessions}" SelectionMode="None">
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border Padding="12,10" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E5EC, Dark=#282C37}"
+                            BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="13" />
+                        </Border.StrokeShape>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding BindingContext.ShowDetailsCommand, Source={x:Reference Root}}" CommandParameter="{Binding .}" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="3">
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                                <Label Text="{Binding Title}" FontSize="13" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                <Label Grid.Column="1" Text="{Binding Tokens}" FontSize="12" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
+                                <Label Grid.Column="2" Text="{Binding Cost}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#4F3FD5, Dark=#A99FFF}" />
+                            </Grid>
+                            <Label FontSize="10" TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{Binding Source}" FontAttributes="Bold" />
+                                        <Span Text="  ·  " />
+                                        <Span Text="{Binding When}" />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                            <Label Text="{Binding Models}" FontSize="10" LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
+                            <Label Text="{Binding Details}" FontSize="9" TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <VerticalStackLayout Grid.Row="4" Spacing="2">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#6C5CE7" WidthRequest="14" HeightRequest="14" />
+                <Label Grid.Column="1" Text="{Binding Total}" FontSize="10" FontAttributes="Bold" VerticalOptions="Center" />
+            </Grid>
+            <Label Text="{Binding PricingNote}" IsVisible="{Binding HasPricingNote}" FontSize="9" LineBreakMode="WordWrap"
+                   TextColor="{AppThemeBinding Light=#B26B00, Dark=#F5A524}" />
+            <Label Text="{Binding Status}" FontSize="9" LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>
