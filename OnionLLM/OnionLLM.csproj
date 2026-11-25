@@ -31,8 +31,9 @@
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
 
-		<!-- Widget Board requires an MSIX-registered COM provider. -->
-		<WindowsPackageType>MSIX</WindowsPackageType>
+		<!-- Keep local debugging unpackaged; packaged builds register the Widget Board COM provider. -->
+		<WindowsPackageType Condition="'$(Configuration)' == 'Debug'">None</WindowsPackageType>
+		<WindowsPackageType Condition="'$(Configuration)' != 'Debug'">MSIX</WindowsPackageType>
 		<EnableMsixTooling Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">true</EnableMsixTooling>
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>

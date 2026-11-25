@@ -12,6 +12,8 @@ public partial class SettingsPage : ContentPage
         BindingContext = _viewModel;
     }
 
+    private void OnMenuClicked(object? sender, EventArgs e) => Shell.Current.FlyoutIsPresented = true;
+
     protected override void OnAppearing()
     {
         base.OnAppearing();

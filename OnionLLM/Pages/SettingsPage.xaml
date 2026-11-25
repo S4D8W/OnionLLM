@@ -5,7 +5,12 @@
 
     <ScrollView>
         <VerticalStackLayout Padding="16,14,16,16" Spacing="12">
-            <Label Text="Ustawienia" FontSize="20" FontAttributes="Bold" />
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Button Text="☰" Clicked="OnMenuClicked" FontSize="20" Padding="0" WidthRequest="42" HeightRequest="42" CornerRadius="13"
+                        BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}"
+                        SemanticProperties.Description="Otwórz nawigację" />
+                <Label Grid.Column="1" Text="Ustawienia" FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
+            </Grid>
 
             <Border Padding="14,12" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
                 <Border.StrokeShape>

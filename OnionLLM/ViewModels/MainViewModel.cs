@@ -7,14 +7,28 @@ using OnionLLM.Core.Reports;
 namespace OnionLLM.ViewModels;
 
 /// <summary>Karta źródła na ekranie „Dziś”.</summary>
-public sealed class SourceCardViewModel
+public sealed class SourceCardViewModel : ObservableObject
 {
+    private bool _isDetailsExpanded;
+
     public SourceCardViewModel(SourceSummary summary)
     {
         Summary = summary;
+        ToggleDetailsCommand = new Command(() =>
+        {
+            IsDetailsExpanded = !IsDetailsExpanded;
+            OnPropertyChanged(nameof(DetailsToggleText));
+        });
     }
 
     public SourceSummary Summary { get; }
+    public Command ToggleDetailsCommand { get; }
+    public bool IsDetailsExpanded
+    {
+        get => _isDetailsExpanded;
+        private set => Set(ref _isDetailsExpanded, value);
+    }
+    public string DetailsToggleText => IsDetailsExpanded ? "Mniej szczegółów" : "Więcej szczegółów";
 
     public string Id => Summary.Id;
     public string Name => Summary.DisplayName;

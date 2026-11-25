@@ -41,6 +41,11 @@ public partial class MainPage : ContentPage
         base.OnDisappearing();
     }
 
+    private void OnMenuClicked(object? sender, EventArgs e)
+    {
+        Shell.Current.FlyoutIsPresented = true;
+    }
+
     private void OnProvidersReordered(object? sender, EventArgs e)
     {
         _viewModel.SaveProviderOrder();

@@ -5,11 +5,14 @@
              BackgroundColor="{AppThemeBinding Light=#F2F4F8, Dark=#0C0E13}">
 
     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,14,16,10" RowSpacing="10">
-        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-            <Label Text="Sesje" FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="JSON" Command="{Binding ExportJsonCommand}" FontSize="11" Padding="10,0" HeightRequest="32" CornerRadius="10"
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+            <Button Text="☰" Clicked="OnMenuClicked" FontSize="20" Padding="0" WidthRequest="42" HeightRequest="42" CornerRadius="13"
+                    BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}"
+                    SemanticProperties.Description="Otwórz nawigację" />
+            <Label Grid.Column="1" Text="Sesje" FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
+            <Button Grid.Column="2" Text="JSON" Command="{Binding ExportJsonCommand}" FontSize="11" Padding="10,0" HeightRequest="32" CornerRadius="10"
                     BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}" />
-            <Button Grid.Column="2" Text="CSV" Command="{Binding ExportCommand}" FontSize="11" Padding="10,0" HeightRequest="32" CornerRadius="10"
+            <Button Grid.Column="3" Text="CSV" Command="{Binding ExportCommand}" FontSize="11" Padding="10,0" HeightRequest="32" CornerRadius="10"
                     BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}" />
         </Grid>
         <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="8">

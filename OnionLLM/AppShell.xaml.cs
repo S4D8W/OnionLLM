@@ -5,6 +5,12 @@ namespace OnionLLM
         public AppShell()
         {
             InitializeComponent();
+            SizeChanged += (_, _) =>
+            {
+                FlyoutBehavior = Width >= 900
+                    ? FlyoutBehavior.Locked
+                    : FlyoutBehavior.Flyout;
+            };
         }
     }
 }

@@ -1,7 +1,7 @@
 {
   "profiles": {
-    "Windows Machine (MSIX)": {
-      "commandName": "MsixPackage",
+    "Windows Machine": {
+      "commandName": "Project",
       "nativeDebugging": false,
       "allowLocalNetworkLoopback": true
     }

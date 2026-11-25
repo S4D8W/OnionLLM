@@ -14,10 +14,10 @@ namespace OnionLLM
             var window = new Window(new AppShell())
             {
                 Title = "OnionLLM · Token Monitor",
-                Width = 470,
-                Height = 760,
-                MinimumWidth = 420,
-                MinimumHeight = 520
+                Width = 1200,
+                Height = 820,
+                MinimumWidth = 680,
+                MinimumHeight = 560
             };
 
 #if WINDOWS
