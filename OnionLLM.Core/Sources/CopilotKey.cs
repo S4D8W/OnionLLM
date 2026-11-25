@@ -15,9 +15,9 @@ internal enum CopilotEntryKind
 }
 
 /// <summary>
-/// Klucz deduplikacji Copilota: tożsamość wpisu oraz pola pomocnicze potrzebne przy uzgadnianiu między plikami
-/// (identyfikatory wywołania, liczba żądań, surowa nazwa modelu). Pola są oddzielone znakiem U+001F, więc tożsamość
-/// pozostaje porównywalna, nawet gdy kopie wpisu różnią się polami.
+/// Dane wpisu Copilota: tożsamość w <see cref="UsageEntry.DedupeKey"/> (z prefiksem rodzaju) oraz pola pomocnicze potrzebne
+/// przy uzgadnianiu między plikami (identyfikatory wywołania, liczba żądań, surowa nazwa modelu) w <see cref="UsageEntry.SourceData"/>.
+/// Kopie o tej samej tożsamości, ale różnych polach, uzgadnia <see cref="CopilotSource.Reconcile"/>.
 /// </summary>
 internal static class CopilotKey
 {
@@ -46,9 +46,10 @@ internal static class CopilotKey
     public const string ShutdownPrefix = "shutdown:";
     public const string CreditsPrefix = "credits:";
 
-    public static string Compose(string identity, params (string Name, string? Value)[] fields)
+    /// <summary>Wartość <see cref="UsageEntry.SourceData"/> z pól niebędących null; null, gdy żadnego nie ma.</summary>
+    public static string? Data(params (string Name, string? Value)[] fields)
     {
-        var builder = new System.Text.StringBuilder(identity);
+        var builder = new System.Text.StringBuilder();
         foreach (var (name, value) in fields)
         {
             if (value is not null)
@@ -57,18 +58,12 @@ internal static class CopilotKey
             }
         }
 
-        return builder.ToString();
+        return builder.Length == 0 ? null : builder.ToString();
     }
 
-    public static string Identity(string key)
+    public static string? Field(UsageEntry entry, string name)
     {
-        var separator = key.IndexOf(Separator);
-        return separator < 0 ? key : key[..separator];
-    }
-
-    public static string? Field(string? key, string name)
-    {
-        if (key is null)
+        if (entry.SourceData is not { } key)
         {
             return null;
         }
@@ -85,8 +80,8 @@ internal static class CopilotKey
         return end < 0 ? key[start..] : key[start..end];
     }
 
-    public static long? LongField(string? key, string name) =>
-        long.TryParse(Field(key, name), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
+    public static long? LongField(UsageEntry entry, string name) =>
+        long.TryParse(Field(entry, name), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
 
     /// <summary>Rodzaj wpisu; wiersze bazy (poziom 0) i obce klucze nie podlegają uzgadnianiu.</summary>
     public static CopilotEntryKind KindOf(UsageEntry entry)

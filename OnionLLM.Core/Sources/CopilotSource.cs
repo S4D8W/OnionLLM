@@ -55,7 +55,7 @@ public sealed partial class CopilotSource : UsageSourceBase
     public override string AccentColor => "#7C5CFC";
 
     /// <summary>4: usage_record, przedziały shutdown, kredyty, normalizacja modeli, identyfikatory wywołań w kluczu.</summary>
-    public override int ParserVersion => 4;
+    public override int ParserVersion => 5;
 
     protected override string[] EnvironmentVariables => ["COPILOT_HOME"];
 
@@ -140,7 +140,7 @@ public sealed partial class CopilotSource : UsageSourceBase
     /// <summary>Najpierw surowa nazwa z logu (np. <c>claude-opus-4.6-1m-internal</c>), potem znormalizowana (ccusage <c>loader.rs:174-180</c>).</summary>
     public override IEnumerable<string> PricingCandidates(UsageEntry entry)
     {
-        var raw = CopilotKey.Field(entry.DedupeKey, CopilotKey.RawModel);
+        var raw = CopilotKey.Field(entry, CopilotKey.RawModel);
         if (raw is not null)
         {
             yield return raw;
@@ -175,7 +175,7 @@ public sealed partial class CopilotSource : UsageSourceBase
 
     /// <summary>Ranga kopii <c>usage_record</c> (niższa lepsza): czy sesja pliku różni się od <c>sourceSessionId</c>, potem ID sesji.</summary>
     private static (bool Foreign, string Session) RecordRank(UsageEntry entry) =>
-        (CopilotKey.Field(entry.DedupeKey, CopilotKey.SourceSession) != entry.SessionId, entry.SessionId);
+        (CopilotKey.Field(entry, CopilotKey.SourceSession) != entry.SessionId, entry.SessionId);
 
     /// <summary>
     /// Nazwa modelu do raportów i deduplikacji: bez sufiksów <c>-1m-internal</c> / <c>-1m</c> (ccusage <c>parser.rs:111-124</c>).
@@ -307,7 +307,8 @@ public sealed partial class CopilotSource : UsageSourceBase
                     RecordedCostUsd = nanoAiu * NanoAiuToUsd,
                     Credits = nanoAiu / NanoAiuPerCredit,
                     // Treść zamiast id wiersza — ta sama sesja bywa w dwóch bazach (CLI i Visual Studio).
-                    DedupeKey = CopilotKey.Compose($"{sessionId}:{createdAt}:{model}:{input}:{output}", (CopilotKey.RawModel, logged))
+                    DedupeKey = $"{sessionId}:{createdAt}:{model}:{input}:{output}",
+                    SourceData = CopilotKey.Data((CopilotKey.RawModel, logged))
                 });
             }
         }

@@ -229,7 +229,7 @@ internal static class Statusline
         // Kontekst głównego wątku: ostatni wpis spoza sidechain/subagenta (Preference == 1), bez wpisów advisora.
         var last = sessionEntries
             .Where(entry => entry.Model is not null && entry.Preference == 1 &&
-                            (entry.DedupeKey is null || !entry.DedupeKey.Contains(":advisor:", StringComparison.Ordinal)))
+                            !ClaudeSource.IsAdvisor(entry))
             .MaxBy(entry => entry.TimestampMs);
         if (tokens is null && last is not null)
         {

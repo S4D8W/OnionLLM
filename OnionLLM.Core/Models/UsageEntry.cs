@@ -60,8 +60,19 @@ public sealed record UsageEntry
     /// <summary>Kredyty / AIU (Copilot). Informacyjnie.</summary>
     public double? Credits { get; init; }
 
-    /// <summary>Klucz deduplikacji w obrębie źródła; null = wpis nie podlega deduplikacji.</summary>
+    /// <summary>
+    /// Tożsamość wpisu w obrębie źródła (np. ID wiadomości i żądania); null = wpis nie podlega deduplikacji.
+    /// Nie zawiera danych pomocniczych — te są w <see cref="SourceData"/>.
+    /// </summary>
     public string? DedupeKey { get; init; }
+
+    /// <summary>
+    /// Dane pomocnicze źródła potrzebne przy uzgadnianiu i wycenie (np. surowa nazwa modelu z logu, identyfikatory żądania,
+    /// flagi), w formacie znanym tylko temu źródłu. Poza źródłem nie należy ich parsować ani wyświetlać.
+    /// <see cref="Storage.Deduplicator"/> łączy od razu tylko wpisy o równych <see cref="DedupeKey"/> i <see cref="SourceData"/>;
+    /// kopie o tej samej tożsamości, ale innych danych pomocniczych, rozstrzyga <see cref="Sources.IUsageSource.Reconcile"/>.
+    /// </summary>
+    public string? SourceData { get; init; }
 
     /// <summary>
     /// Poziom szczegółowości wpisu w obrębie sesji: 0 = per wywołanie (najdokładniejszy),

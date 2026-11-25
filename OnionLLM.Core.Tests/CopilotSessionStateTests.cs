@@ -84,7 +84,7 @@ public class CopilotSessionStateTests
 
         Assert.Equal("gpt-5.4", entry.Model);
         Assert.Equal(0, entry.TotalTokens);
-        Assert.Equal("2", CopilotKey.Field(entry.DedupeKey, CopilotKey.Requests));
+        Assert.Equal("2", CopilotKey.Field(entry, CopilotKey.Requests));
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public class CopilotSessionStateTests
 
         Assert.Equal("gpt-5.4", entry.Model);
         Assert.Equal(0, entry.TotalTokens);
-        Assert.Equal(CopilotKey.UsageRecordPrefix + "session-1:1", CopilotKey.Identity(entry.DedupeKey!));
+        Assert.Equal(CopilotKey.UsageRecordPrefix + "session-1:1", entry.DedupeKey);
     }
 
     [Fact]

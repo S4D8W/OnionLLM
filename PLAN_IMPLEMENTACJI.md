@@ -537,7 +537,8 @@ Fala 1 była realizowana równolegle przez agentów w izolowanych kopiach; poni�
 - [ ] 11.9.3 **Ś** Claude: dopasowanie kopii między plikami (`Reconcile`) działa na wpisach z wczytanego zakresu dat — rodzic spoza zakresu nie jest dopasowany. Pełna historia (jak Copilot, `ReconcileNeedsFullHistory`) celowo wyłączona ze względu na wydajność; do zmierzenia.
 - [ ] 11.9.4 **N** Cennik: przebiegi dopasowania z rozróżnianiem wielkości liter z ccusage nie są przeniesione (wyszukiwanie zawsze bez rozróżniania).
 - [ ] 11.9.5 **N** Wiersze Qwen `-thinking` (wymagają rozpoznania trybu thinking w źródłach).
-- [ ] 11.9.6 Kontrakt Core: `DedupeKey` w części źródeł (Claude, Copilot, Antigravity, OpenClaw, Kimi) przenosi dane pomocnicze po separatorze U+001F — nie parsować ani nie wyświetlać poza źródłem. Rozważyć osobne pole zamiast kodowania w kluczu.
+- [x] 11.9.6 Kontrakt Core: `DedupeKey` w części źródeł (Claude, Copilot, Antigravity, OpenClaw, Kimi) przenosi dane pomocnicze po separatorze U+001F — nie parsować ani nie wyświetlać poza źródłem. Rozważyć osobne pole zamiast kodowania w kluczu.
+  - Nowe pole `UsageEntry.SourceData` (kolumna `source_data`, ledger schemat 5). `DedupeKey` to sama tożsamość; dane pomocnicze są w `SourceData`: Claude — flagi sidechain i podziału cache, Copilot — identyfikatory żądania, liczba żądań, surowy model, Antigravity — ranga czasu, numer API, nazwa z logu i identyfikatory, OpenClaw — koszt i id zdarzenia, Kimi — surowy model. `Deduplicator` łączy od razu tylko wpisy o równych `DedupeKey` i `SourceData` (jak dotąd pełny klucz), więc wyniki się nie zmieniły. Statusline nie parsuje już klucza (`ClaudeSource.IsAdvisor`). Wersje parserów tych pięciu źródeł podniesione. Sprawdzone na prawdziwych danych: raport miesięczny i 78 sesji identyczne jak przed zmianą.
 
 ---
 

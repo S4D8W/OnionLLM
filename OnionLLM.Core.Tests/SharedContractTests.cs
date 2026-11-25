@@ -38,6 +38,35 @@ public class SharedContractTests
     }
 
     [Fact]
+    public void Exact_duplicates_need_equal_key_and_source_data()
+    {
+        // Kopie o tej samej tożsamości, ale innych danych pomocniczych, rozstrzyga Reconcile źródła — tu (bez źródła) obie zostają.
+        var first = TestData.Entry("2026-11-24T10:00:00Z", 100, 10, source: "test") with { DedupeKey = "k", SourceData = "a" };
+        var sameData = first with { SessionId = "copy" };
+        var otherData = first with { SourceData = "b" };
+
+        Assert.Single(Deduplicator.Apply([first, sameData], _ => null));
+        Assert.Equal(2, Deduplicator.Apply([first, otherData], _ => null).Count);
+    }
+
+    [Fact]
+    public void Dedupe_keys_carry_no_helper_data_after_a_unit_separator()
+    {
+        // 11.9.6: dane pomocnicze (flagi, surowe nazwy modeli, identyfikatory żądań) są w SourceData, nie w kluczu.
+        var claude = TestData.Entry("2026-11-24T10:00:00Z", 1, 1) with
+        {
+            DedupeKey = new ClaudeDedupeKey("m", "r", "s", 1_000, null, true, true).Format(),
+            SourceData = new ClaudeDedupeKey("m", "r", "s", 1_000, null, true, true).Data
+        };
+        var parsed = ClaudeDedupeKey.Parse(claude)!;
+
+        Assert.Equal("sc", claude.SourceData);
+        Assert.True(parsed.IsSidechain);
+        Assert.True(parsed.HasCacheSplit);
+        Assert.Equal(new ClaudeDedupeKey("m", "r", "s", 1_000, null, false, false).Format(), claude.DedupeKey);
+    }
+
+    [Fact]
     public void Session_totals_are_used_only_by_unbounded_session_report()
     {
         var total = TestData.Entry("2026-11-24T10:00:00Z", 1000, 100, source: OpenCodeSource.SourceId, session: "oc-1") with { IsSessionSummary = true };

@@ -348,7 +348,8 @@ public class ClaudeTranscriptTests
         Speed = speed,
         RecordedCostUsd = cost,
         Preference = sidechain ? 0 : 1,
-        DedupeKey = new ClaudeDedupeKey("m", "r", "s", 1_000, null, sidechain, split).Format()
+        DedupeKey = new ClaudeDedupeKey("m", "r", "s", 1_000, null, sidechain, split).Format(),
+        SourceData = new ClaudeDedupeKey("m", "r", "s", 1_000, null, sidechain, split).Data
     };
 
     [Fact]
@@ -403,6 +404,8 @@ public class ClaudeTranscriptTests
         Assert.Equal(999, advisor.CacheCreation1hTokens);
         Assert.Null(advisor.RecordedCostUsd);
         Assert.StartsWith("msg-1:advisor:0", advisor.DedupeKey);
+        Assert.True(ClaudeSource.IsAdvisor(advisor));
+        Assert.False(ClaudeSource.IsAdvisor(main));
     }
 
     [Fact]

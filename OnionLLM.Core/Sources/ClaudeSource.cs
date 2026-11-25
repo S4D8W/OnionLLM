@@ -29,7 +29,7 @@ public sealed class ClaudeSource : UsageSourceBase
     public override string DisplayName => "Claude Code";
     public override string Vendor => "Anthropic";
     public override string AccentColor => "#D97757";
-    public override int ParserVersion => 3;
+    public override int ParserVersion => 4;
 
     protected override string[] EnvironmentVariables => ["CLAUDE_CONFIG_DIR"];
 
@@ -199,7 +199,7 @@ public sealed class ClaudeSource : UsageSourceBase
         for (var index = 0; index < record.Advisors.Count; index++)
         {
             var advisor = record.Advisors[index];
-            var advisorMessage = record.MessageId is null ? null : $"{record.MessageId}:advisor:{index}";
+            var advisorMessage = record.MessageId is null ? null : $"{record.MessageId}{AdvisorMarker}{index}";
             entries.Add(Build(record, advisor.Usage, advisor.Model, advisorMessage, null, session, response, pathSession, project, cwd));
         }
 
@@ -207,27 +207,38 @@ public sealed class ClaudeSource : UsageSourceBase
     }
 
     private static UsageEntry Build(ClaudeRecord record, ClaudeUsage usage, string? rawModel, string? messageId, double? cost,
-        string session, string? response, string pathSession, string? project, string? cwd) => new()
+        string session, string? response, string pathSession, string? project, string? cwd)
     {
-        Source = SourceId,
-        TimestampMs = record.TimestampMs,
-        SessionId = pathSession,
-        Project = project,
-        ProjectPath = cwd,
-        Model = DisplayModel(rawModel, usage.Speed),
-        InputTokens = usage.Input,
-        OutputTokens = usage.Output,
-        CacheCreationTokens = usage.CacheCreation,
-        CacheCreation1hTokens = usage.CacheCreation1h,
-        CacheReadTokens = usage.CacheRead,
-        ReasoningTokens = usage.Reasoning,
-        RecordedCostUsd = cost,
-        Speed = usage.Speed,
-        Preference = record.IsSidechain ? 0 : 1,
-        DedupeKey = messageId is null
+        var key = messageId is null
             ? null
-            : new ClaudeDedupeKey(messageId, record.RequestId, session, record.TimestampMs, response, record.IsSidechain, usage.HasCacheSplit).Format()
-    };
+            : new ClaudeDedupeKey(messageId, record.RequestId, session, record.TimestampMs, response, record.IsSidechain, usage.HasCacheSplit);
+        return new UsageEntry
+        {
+            Source = SourceId,
+            TimestampMs = record.TimestampMs,
+            SessionId = pathSession,
+            Project = project,
+            ProjectPath = cwd,
+            Model = DisplayModel(rawModel, usage.Speed),
+            InputTokens = usage.Input,
+            OutputTokens = usage.Output,
+            CacheCreationTokens = usage.CacheCreation,
+            CacheCreation1hTokens = usage.CacheCreation1h,
+            CacheReadTokens = usage.CacheRead,
+            ReasoningTokens = usage.Reasoning,
+            RecordedCostUsd = cost,
+            Speed = usage.Speed,
+            Preference = record.IsSidechain ? 0 : 1,
+            DedupeKey = key?.Format(),
+            SourceData = key?.Data
+        };
+    }
+
+    /// <summary>True dla wpisu z iteracji advisora (<c>usage.iterations[]</c> typu <c>advisor_message</c>, #1423).</summary>
+    public static bool IsAdvisor(UsageEntry entry) =>
+        entry.Source == SourceId && entry.DedupeKey?.Contains(AdvisorMarker, StringComparison.Ordinal) == true;
+
+    private const string AdvisorMarker = ":advisor:";
 
     /// <summary>Model do wyświetlenia: bez <c>&lt;synthetic&gt;</c>, z przyrostkiem <c>-fast</c> dla wpisów fast.</summary>
     internal static string? DisplayModel(string? rawModel, SpeedTier speed) => rawModel switch

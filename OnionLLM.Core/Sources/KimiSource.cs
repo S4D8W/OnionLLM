@@ -31,11 +31,8 @@ public sealed class KimiSource : UsageSourceBase
     public override string Vendor => "Moonshot AI";
     public override string AccentColor => "#1783FF";
 
-    /// <summary>2: surowa nazwa modelu z logu Kimi Code w kluczu deduplikacji (kandydat cennika).</summary>
-    public override int ParserVersion => 2;
-
-    /// <summary>Oddziela w <see cref="UsageEntry.DedupeKey"/> surową nazwę modelu z logu (np. <c>kimi-code/x</c>).</summary>
-    private const char LoggedModelSeparator = '\u001f';
+    /// <summary>2: surowa nazwa modelu z logu Kimi Code (kandydat cennika); 3: ta nazwa w <see cref="UsageEntry.SourceData"/>.</summary>
+    public override int ParserVersion => 3;
 
     /// <summary>
     /// Najpierw dokładna nazwa z logu (<c>kimi-code/x</c>), potem <c>moonshot/x</c>, <c>kimi/x</c> i <c>x</c>
@@ -50,10 +47,10 @@ public sealed class KimiSource : UsageSourceBase
         }
 
         List<string> candidates = [];
-        var separator = entry.DedupeKey?.LastIndexOf(LoggedModelSeparator) ?? -1;
-        if (separator >= 0)
+        // SourceData: surowa nazwa modelu z logu (np. kimi-code/x), gdy różni się od znormalizowanej.
+        if (entry.SourceData is { } logged)
         {
-            candidates.Add(entry.DedupeKey![(separator + 1)..]);
+            candidates.Add(logged);
         }
 
         candidates.AddRange([$"moonshot/{entry.Model}", $"kimi/{entry.Model}", entry.Model]);
@@ -243,8 +240,8 @@ public sealed class KimiSource : UsageSourceBase
             OutputTokens = output,
             CacheCreationTokens = cacheWrite,
             CacheReadTokens = cacheRead,
-            DedupeKey = $"{sessionId}:{messageId}:{timestamp}:{model}:{input}:{replayOutput}:{cacheWrite}:{cacheRead}:{replayRemainder}" +
-                        (loggedModel is null ? "" : LoggedModelSeparator + loggedModel)
+            DedupeKey = $"{sessionId}:{messageId}:{timestamp}:{model}:{input}:{replayOutput}:{cacheWrite}:{cacheRead}:{replayRemainder}",
+            SourceData = loggedModel
         };
     }
 

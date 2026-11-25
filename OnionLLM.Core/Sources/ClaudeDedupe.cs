@@ -3,9 +3,9 @@ using OnionLLM.Core.Models;
 namespace OnionLLM.Core.Sources;
 
 /// <summary>
-/// Opis wpisu Claude Code zapisany w <see cref="UsageEntry.DedupeKey"/>: ID wiadomości (advisor: <c>msg:advisor:N</c>),
-/// <c>requestId</c>, sesja efektywna (<c>sessionId</c> z linii albo ze ścieżki), timestamp, klucz odpowiedzi
-/// (łańcuch bez <c>requestId</c>), sidechain i obecność podziału cache 5 min/1 h.
+/// Opis wpisu Claude Code. Tożsamość w <see cref="UsageEntry.DedupeKey"/>: ID wiadomości (advisor: <c>msg:advisor:N</c>),
+/// <c>requestId</c>, sesja efektywna (<c>sessionId</c> z linii albo ze ścieżki), timestamp i klucz odpowiedzi (łańcuch bez
+/// <c>requestId</c>). Flagi sidechain i podziału cache 5 min/1 h są w <see cref="UsageEntry.SourceData"/>.
 /// Identyczne opisy łączy <see cref="Storage.Deduplicator"/> (regułą <see cref="ClaudeDedupe.Comparer"/>);
 /// pozostałe dopasowania (kopie między sesjami, bloki jednej odpowiedzi, replaye sidechain) robi
 /// <see cref="ClaudeDedupe"/> w <see cref="ClaudeSource.Reconcile"/>.
@@ -19,28 +19,32 @@ internal sealed record ClaudeDedupeKey(
     bool IsSidechain,
     bool HasCacheSplit)
 {
-    private const char Separator = '\u001F';
+    private const char Separator = '';
 
+    /// <summary>Wartość <see cref="UsageEntry.DedupeKey"/>.</summary>
     public string Format() => string.Join(Separator,
-        MessageId, RequestId ?? "", Session, TimestampMs.ToString(System.Globalization.CultureInfo.InvariantCulture),
-        Response ?? "", (IsSidechain ? "s" : "m") + (HasCacheSplit ? "c" : "-"));
+        MessageId, RequestId ?? "", Session, TimestampMs.ToString(System.Globalization.CultureInfo.InvariantCulture), Response ?? "");
 
-    public static ClaudeDedupeKey? Parse(string? text)
+    /// <summary>Wartość <see cref="UsageEntry.SourceData"/>: <c>s</c>/<c>m</c> (sidechain / wątek główny) i <c>c</c>/<c>-</c> (podział cache).</summary>
+    public string Data => (IsSidechain ? "s" : "m") + (HasCacheSplit ? "c" : "-");
+
+    public static ClaudeDedupeKey? Parse(UsageEntry entry)
     {
-        if (text is null)
+        if (entry.DedupeKey is not { } text)
         {
             return null;
         }
 
         var parts = text.Split(Separator);
-        if (parts.Length != 6 || parts[0].Length == 0 || parts[5].Length != 2 ||
+        if (parts.Length != 5 || parts[0].Length == 0 ||
             !long.TryParse(parts[3], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var timestamp))
         {
             return null;
         }
 
+        var flags = entry.SourceData is { Length: 2 } data ? data : "m-";
         return new ClaudeDedupeKey(parts[0], parts[1].Length == 0 ? null : parts[1], parts[2], timestamp,
-            parts[4].Length == 0 ? null : parts[4], parts[5][0] == 's', parts[5][1] == 'c');
+            parts[4].Length == 0 ? null : parts[4], flags[0] == 's', flags[1] == 'c');
     }
 }
 
@@ -78,8 +82,8 @@ internal sealed class ClaudeDedupe
     /// <summary>Reguła wyboru między duplikatami (wynik &gt; 0, gdy pierwszy wpis jest lepszy).</summary>
     public static IComparer<UsageEntry> Comparer { get; } = Comparer<UsageEntry>.Create((left, right) =>
     {
-        var leftSplit = ClaudeDedupeKey.Parse(left.DedupeKey)?.HasCacheSplit ?? false;
-        var rightSplit = ClaudeDedupeKey.Parse(right.DedupeKey)?.HasCacheSplit ?? false;
+        var leftSplit = ClaudeDedupeKey.Parse(left)?.HasCacheSplit ?? false;
+        var rightSplit = ClaudeDedupeKey.Parse(right)?.HasCacheSplit ?? false;
         return Replaces(left, leftSplit, right, rightSplit) ? 1 : Replaces(right, rightSplit, left, leftSplit) ? -1 : 0;
     });
 
@@ -99,7 +103,7 @@ internal sealed class ClaudeDedupe
 
     public void Push(UsageEntry entry)
     {
-        var item = new Item(entry, ClaudeDedupeKey.Parse(entry.DedupeKey));
+        var item = new Item(entry, ClaudeDedupeKey.Parse(entry));
         if (item.Key is not { } key)
         {
             _deduped.Add(item);

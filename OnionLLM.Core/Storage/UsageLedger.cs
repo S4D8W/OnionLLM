@@ -28,7 +28,7 @@ public sealed record SyncReport(IReadOnlyList<SourceSyncReport> Sources, DateTim
 /// </summary>
 public sealed class UsageLedger
 {
-    private const int SchemaVersion = 4;
+    private const int SchemaVersion = 5;
     private const string MutexName = "Local\\OnionLLM.Ledger";
     private readonly string _connectionString;
     private bool _initialized;
@@ -194,7 +194,7 @@ public sealed class UsageLedger
         command.CommandText = $"""
             SELECT source, ts, session_id, project, project_path, model, fallback_model, input, output,
                    cache_create, cache_create_1h, cache_read, reasoning, recorded_cost, speed, credits,
-                   dedupe_key, is_summary, mirror_of, aggregate, provider, preference
+                   dedupe_key, is_summary, mirror_of, aggregate, provider, preference, source_data
             FROM Entries
             {(conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "")}
             ORDER BY ts, file_path
@@ -227,7 +227,8 @@ public sealed class UsageLedger
                 MirrorOf = reader.IsDBNull(18) ? null : reader.GetString(18),
                 IsAggregate = reader.GetInt64(19) != 0,
                 Provider = reader.IsDBNull(20) ? null : reader.GetString(20),
-                Preference = (int)reader.GetInt64(21)
+                Preference = (int)reader.GetInt64(21),
+                SourceData = reader.IsDBNull(22) ? null : reader.GetString(22)
             });
         }
 
@@ -278,14 +279,14 @@ public sealed class UsageLedger
             insert.CommandText = """
                 INSERT INTO Entries(file_path, source, ts, session_id, project, project_path, model, fallback_model,
                     input, output, cache_create, cache_create_1h, cache_read, reasoning, recorded_cost, speed, credits,
-                    dedupe_key, is_summary, mirror_of, aggregate, provider, preference)
+                    dedupe_key, is_summary, mirror_of, aggregate, provider, preference, source_data)
                 VALUES ($path, $source, $ts, $session, $project, $projectPath, $model, $fallback,
-                    $input, $output, $cc, $cc1h, $cr, $reasoning, $cost, $speed, $credits, $dedupe, $summary, $mirror, $aggregate, $provider, $preference)
+                    $input, $output, $cc, $cc1h, $cr, $reasoning, $cost, $speed, $credits, $dedupe, $summary, $mirror, $aggregate, $provider, $preference, $sourceData)
                 """;
             var parameters = new[]
             {
                 "$path", "$source", "$ts", "$session", "$project", "$projectPath", "$model", "$fallback", "$input",
-                "$output", "$cc", "$cc1h", "$cr", "$reasoning", "$cost", "$speed", "$credits", "$dedupe", "$summary", "$mirror", "$aggregate", "$provider", "$preference"
+                "$output", "$cc", "$cc1h", "$cr", "$reasoning", "$cost", "$speed", "$credits", "$dedupe", "$summary", "$mirror", "$aggregate", "$provider", "$preference", "$sourceData"
             }.ToDictionary(name => name, name => insert.Parameters.Add(name, SqliteType.Text));
             insert.Prepare();
 
@@ -314,6 +315,7 @@ public sealed class UsageLedger
                 parameters["$aggregate"].Value = entry.IsAggregate ? 1 : 0;
                 parameters["$provider"].Value = (object?)entry.Provider ?? DBNull.Value;
                 parameters["$preference"].Value = entry.Preference;
+                parameters["$sourceData"].Value = (object?)entry.SourceData ?? DBNull.Value;
                 insert.ExecuteNonQuery();
             }
         }
@@ -411,20 +413,23 @@ public sealed class UsageLedger
                 mirror_of TEXT,
                 aggregate INTEGER NOT NULL DEFAULT 0,
                 provider TEXT,
-                preference INTEGER NOT NULL DEFAULT 0);
+                preference INTEGER NOT NULL DEFAULT 0,
+                source_data TEXT);
             CREATE INDEX IF NOT EXISTS IX_Entries_ts ON Entries(ts);
             CREATE INDEX IF NOT EXISTS IX_Entries_file ON Entries(file_path);
             CREATE INDEX IF NOT EXISTS IX_SourceFiles_source ON SourceFiles(source);
             """;
         command.ExecuteNonQuery();
 
-        // Migracje: kolumny dodane po pierwszej wersji schematu (mirror_of — 2, aggregate — 3, provider i preference — 4).
+        // Migracje: kolumny dodane po pierwszej wersji schematu (mirror_of — 2, aggregate — 3, provider i preference — 4,
+        // source_data — 5; źródła, które z niego korzystają, mają podniesioną wersję parsera, więc ich wpisy są wczytywane ponownie).
         (string Column, string Definition)[] addedColumns =
         [
             ("mirror_of", "TEXT"),
             ("aggregate", "INTEGER NOT NULL DEFAULT 0"),
             ("provider", "TEXT"),
-            ("preference", "INTEGER NOT NULL DEFAULT 0")
+            ("preference", "INTEGER NOT NULL DEFAULT 0"),
+            ("source_data", "TEXT")
         ];
         foreach (var (column, definition) in addedColumns)
         {

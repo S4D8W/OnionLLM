@@ -63,6 +63,7 @@ public sealed partial class CopilotSource
             var sorted = group
                 .OrderBy(index => entries[index].TimestampMs)
                 .ThenBy(index => entries[index].DedupeKey, StringComparer.Ordinal)
+                .ThenBy(index => entries[index].SourceData, StringComparer.Ordinal)
                 .ToList();
             var start = otelCalls.TryGetValue(group.Key, out var calls) ? ReplacementStart(entries, sorted, calls) : null;
             cutoffs[group.Key] = start switch
@@ -120,16 +121,16 @@ public sealed partial class CopilotSource
         var rows = new List<OtelRow>();
         var copies = Enumerable.Range(0, entries.Count)
             .Where(index => kinds[index] == CopilotEntryKind.Otel)
-            .GroupBy(index => CopilotKey.Identity(entries[index].DedupeKey!), StringComparer.Ordinal);
+            .GroupBy(index => entries[index].DedupeKey!, StringComparer.Ordinal);
         foreach (var group in copies)
         {
             var ordered = group.OrderBy(index => entries[index].TimestampMs).ThenBy(index => index).ToList();
-            var keys = ordered.Select(index => entries[index].DedupeKey).ToList();
+            var copyEntries = ordered.Select(index => entries[index]).ToList();
             rows.Add(new OtelRow(
                 ordered[0],
                 entries[ordered[0]],
-                keys.Select(key => CopilotKey.Field(key, CopilotKey.ResponseId)).FirstOrDefault(id => id is not null),
-                keys.Select(key => CopilotKey.Field(key, CopilotKey.ServiceRequestId)).FirstOrDefault(id => id is not null)));
+                copyEntries.Select(copy => CopilotKey.Field(copy, CopilotKey.ResponseId)).FirstOrDefault(id => id is not null),
+                copyEntries.Select(copy => CopilotKey.Field(copy, CopilotKey.ServiceRequestId)).FirstOrDefault(id => id is not null)));
         }
 
         rows = rows.OrderBy(row => row.Entry.TimestampMs).ThenBy(row => row.Index).ToList();
@@ -160,7 +161,7 @@ public sealed partial class CopilotSource
                 continue;
             }
 
-            var identity = CopilotKey.Identity(entries[index].DedupeKey!);
+            var identity = entries[index].DedupeKey!;
             if (!best.TryGetValue(identity, out var kept))
             {
                 best[identity] = index;
@@ -176,7 +177,7 @@ public sealed partial class CopilotSource
         {
             var entry = entries[best[identity]];
             return new RecordRow(best[identity], entry, identity,
-                CopilotKey.Field(entry.DedupeKey, CopilotKey.ResponseId), CopilotKey.Field(entry.DedupeKey, CopilotKey.ServiceRequestId));
+                CopilotKey.Field(entry, CopilotKey.ResponseId), CopilotKey.Field(entry, CopilotKey.ServiceRequestId));
         }).ToList();
     }
 
@@ -246,7 +247,7 @@ public sealed partial class CopilotSource
     /// </summary>
     private static int? ReplacementStart(IReadOnlyList<UsageEntry> entries, List<int> sorted, List<long> calls)
     {
-        if (sorted.Any(index => CopilotKey.Field(entries[index].DedupeKey, CopilotKey.NoRequestCounts) is not null))
+        if (sorted.Any(index => CopilotKey.Field(entries[index], CopilotKey.NoRequestCounts) is not null))
         {
             return null;
         }
@@ -269,7 +270,7 @@ public sealed partial class CopilotSource
             if (start is not null)
             {
                 otelCalls += intervalCalls;
-                reportedCalls += CopilotKey.LongField(entry.DedupeKey, CopilotKey.Requests) ?? 0;
+                reportedCalls += CopilotKey.LongField(entry, CopilotKey.Requests) ?? 0;
             }
         }
 

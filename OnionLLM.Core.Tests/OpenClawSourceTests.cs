@@ -169,7 +169,7 @@ public class OpenClawSourceTests
 
         var entry = Assert.Single(LoadDeduplicated(directory));
 
-        Assert.EndsWith("evt-x", entry.DedupeKey);
+        Assert.EndsWith("evt-x", entry.SourceData);
     }
 
     [Fact]

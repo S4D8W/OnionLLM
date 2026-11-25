@@ -164,7 +164,8 @@ public sealed partial class CopilotSource
                 CacheCreationTokens = call.CacheWrite,
                 ReasoningTokens = call.Reasoning,
                 SessionTier = 1,
-                DedupeKey = CopilotKey.Compose(CopilotKey.OtelPrefix + (callKey ?? $"{call.Kind}:{session}:{call.Timestamp}:{call.Index}"),
+                DedupeKey = CopilotKey.OtelPrefix + (callKey ?? $"{call.Kind}:{session}:{call.Timestamp}:{call.Index}"),
+                SourceData = CopilotKey.Data(
                     (CopilotKey.ResponseId, responseId),
                     (CopilotKey.ServiceRequestId, serviceRequestId),
                     (CopilotKey.RawModel, rawModel))

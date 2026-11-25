@@ -5,7 +5,7 @@ namespace OnionLLM.Core.Storage;
 /// <summary>
 /// Usuwa duplikaty wpisów:
 /// <list type="number">
-/// <item>Wpisy z tym samym <c>(Source, DedupeKey)</c> — zostaje rekord „pełniejszy”
+/// <item>Wpisy z tym samym <c>(Source, DedupeKey, SourceData)</c> — zostaje rekord „pełniejszy”
 /// (fast &gt; standard &gt; nieznany, potem z cache_creation, potem z zapisanym kosztem; jak w ccusage #886).</item>
 /// <item>Uzgodnienie wpisów źródła z różnych plików (<see cref="Sources.IUsageSource.Reconcile"/>).</item>
 /// <item>Wpisy mniej szczegółowe (<see cref="UsageEntry.SessionTier"/>), gdy ta sama sesja ma wpisy dokładniejsze.</item>
@@ -28,7 +28,7 @@ public static class Deduplicator
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var cache = new Dictionary<string, IComparer<UsageEntry>>(StringComparer.OrdinalIgnoreCase);
         var result = new List<UsageEntry>();
-        var byKey = new Dictionary<(string Source, string Key), int>();
+        var byKey = new Dictionary<(string Source, string Key, string Data), int>();
 
         foreach (var entry in input)
         {
@@ -38,7 +38,8 @@ public static class Deduplicator
                 continue;
             }
 
-            var key = (entry.Source, entry.DedupeKey);
+            // Dane pomocnicze też muszą być równe: kopie różniące się nimi (np. identyfikatorami żądania) uzgadnia źródło.
+            var key = (entry.Source, entry.DedupeKey, entry.SourceData ?? "");
             if (byKey.TryGetValue(key, out var index))
             {
                 if (!cache.TryGetValue(entry.Source, out var comparer))

@@ -23,7 +23,8 @@ namespace OnionLLM.Core.Sources;
 /// JSONL pozostawionymi przez <c>openclaw doctor --fix</c> (SQLite może mieć poprawiony koszt). Kopia JSONL odpada, gdy
 /// SQLite ma zdarzenie o tej samej sesji, czasie, modelu i tokenach (bez kosztu). Zdarzenia SQLite z identyfikatorem
 /// deduplikowane są po <c>(sesja, id)</c>, bez identyfikatora i linie JSONL — po treści razem z kosztem.
-/// Klucz <see cref="UsageEntry.DedupeKey"/>: <c>treść␟koszt[␟id zdarzenia]</c>; resztę robi <see cref="Reconcile"/>.
+/// <see cref="UsageEntry.DedupeKey"/>: treść (sesja, czas, model, tokeny); <see cref="UsageEntry.SourceData"/>:
+/// <c>koszt[␟id zdarzenia]</c>. Resztę robi <see cref="Reconcile"/>.
 /// </remarks>
 public sealed class OpenClawSource : UsageSourceBase
 {
@@ -37,10 +38,10 @@ public sealed class OpenClawSource : UsageSourceBase
     public override string Vendor => "OpenClaw";
     public override string AccentColor => "#FF5A36";
 
-    /// <summary>2: dostawca, pierwszeństwo SQLite i klucze deduplikacji jak w ccusage.</summary>
-    public override int ParserVersion => 2;
+    /// <summary>2: dostawca, pierwszeństwo SQLite i klucze deduplikacji jak w ccusage; 3: koszt i id zdarzenia w <see cref="UsageEntry.SourceData"/>.</summary>
+    public override int ParserVersion => 3;
 
-    /// <summary>Separator części <see cref="UsageEntry.DedupeKey"/>.</summary>
+    /// <summary>Separator części <see cref="UsageEntry.SourceData"/>.</summary>
     private const char KeySeparator = '\u001f';
 
     /// <summary>
@@ -118,14 +119,20 @@ public sealed class OpenClawSource : UsageSourceBase
     /// <param name="Migration">Sesja, czas, model i tokeny — łączy kopię JSONL z jej zdarzeniem w SQLite.</param>
     private sealed record Key(string Migration, string Cost, string? EventId, bool Sqlite)
     {
-        public static string Format(string migration, double? cost, string? eventId) =>
-            migration + KeySeparator + (cost is { } value ? value.ToString("R", CultureInfo.InvariantCulture) : "-") +
+        /// <summary>Wartość <see cref="UsageEntry.SourceData"/>: koszt i opcjonalnie id zdarzenia SQLite.</summary>
+        public static string Data(double? cost, string? eventId) =>
+            (cost is { } value ? value.ToString("R", CultureInfo.InvariantCulture) : "-") +
             (eventId is null ? "" : KeySeparator + eventId);
 
         public static Key? Parse(UsageEntry entry)
         {
-            var parts = entry.DedupeKey?.Split(KeySeparator, 3);
-            return parts is { Length: >= 2 } ? new Key(parts[0], parts[1], parts.Length == 3 ? parts[2] : null, entry.Preference > 0) : null;
+            if (entry.DedupeKey is not { } migration || entry.SourceData is not { } data)
+            {
+                return null;
+            }
+
+            var parts = data.Split(KeySeparator, 2);
+            return new Key(migration, parts[0], parts.Length == 2 ? parts[1] : null, entry.Preference > 0);
         }
     }
 
@@ -412,7 +419,8 @@ public sealed class OpenClawSource : UsageSourceBase
             CacheCreationTokens = cacheWrite,
             CacheReadTokens = cacheRead,
             RecordedCostUsd = cost,
-            DedupeKey = Key.Format(migration, cost, fromDatabase ? root.Str("id") : null)
+            DedupeKey = migration,
+            SourceData = Key.Data(cost, fromDatabase ? root.Str("id") : null)
         };
     }
 

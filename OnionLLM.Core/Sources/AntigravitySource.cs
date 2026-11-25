@@ -25,7 +25,7 @@ namespace OnionLLM.Core.Sources;
 public sealed class AntigravitySource : UsageSourceBase
 {
     /// <summary>2: numer API (Vertex), nazwa modelu z logu i scalanie zdarzeń między bazami.</summary>
-    public override int ParserVersion => 2;
+    public override int ParserVersion => 3;
 
     public const string SourceId = "antigravity";
     public const string DefaultModel = "gemini-internal-model";
@@ -91,22 +91,27 @@ public sealed class AntigravitySource : UsageSourceBase
         return Deduplicate(events).Select(usage => ToEntry(usage, file.Path)).ToList();
     }
 
-    private static UsageEntry ToEntry(UsageEvent usage, string path) => new()
+    private static UsageEntry ToEntry(UsageEvent usage, string path)
     {
-        Source = SourceId,
-        TimestampMs = usage.Timestamp,
-        SessionId = usage.SessionId,
-        Project = "antigravity",
-        Model = usage.Model,
-        IsFallbackModel = usage.Model == DefaultModel,
-        InputTokens = usage.Input,
-        OutputTokens = usage.TotalOutput,
-        CacheCreationTokens = usage.CacheWrite,
-        CacheReadTokens = usage.CacheRead,
-        ReasoningTokens = usage.Reasoning,
-        Provider = usage.Provider == ApiProviderGoogleVertex ? Pricing.ProviderNames.Normalize("vertex") : null,
-        DedupeKey = EventKey.Format(usage, path)
-    };
+        var key = EventKey.Create(usage, path);
+        return new UsageEntry
+        {
+            Source = SourceId,
+            TimestampMs = usage.Timestamp,
+            SessionId = usage.SessionId,
+            Project = "antigravity",
+            Model = usage.Model,
+            IsFallbackModel = usage.Model == DefaultModel,
+            InputTokens = usage.Input,
+            OutputTokens = usage.TotalOutput,
+            CacheCreationTokens = usage.CacheWrite,
+            CacheReadTokens = usage.CacheRead,
+            ReasoningTokens = usage.Reasoning,
+            Provider = usage.Provider == ApiProviderGoogleVertex ? Pricing.ProviderNames.Normalize("vertex") : null,
+            DedupeKey = key.Format(),
+            SourceData = key.Data
+        };
+    }
 
     // ---------------------------------------------------------------- dostawca i cennik
 
@@ -130,7 +135,7 @@ public sealed class AntigravitySource : UsageSourceBase
             return [];
         }
 
-        var key = EventKey.Parse(entry.DedupeKey);
+        var key = EventKey.Parse(entry);
         var provider = key?.Provider;
         List<string> candidates = [];
         if (key?.LoggedModel is { } logged)
@@ -200,7 +205,7 @@ public sealed class AntigravitySource : UsageSourceBase
         var merged = false;
         foreach (var entry in entries)
         {
-            if (EventKey.Parse(entry.DedupeKey) is not { } key || key.Identities.Count == 0)
+            if (EventKey.Parse(entry) is not { } key || key.Identities.Count == 0)
             {
                 result.Add(entry);
                 continue;
@@ -290,43 +295,50 @@ public sealed class AntigravitySource : UsageSourceBase
             CacheCreationTokens = Math.Max(left.CacheCreationTokens, right.CacheCreationTokens),
             CacheReadTokens = Math.Max(left.CacheReadTokens, right.CacheReadTokens),
             Provider = left.Provider ?? right.Provider,
-            DedupeKey = key.Format()
+            DedupeKey = key.Format(),
+            SourceData = key.Data
         };
         return (entry, key);
     }
 
     /// <summary>
-    /// <see cref="UsageEntry.DedupeKey"/> wpisu Antigravity: najlepszy identyfikator (<c>response:</c>, <c>provider:</c>,
-    /// <c>message:</c>, <c>step:</c>, <c>gen:</c>), a po separatorze dane do scalania między bazami — plik (klucze z różnych
-    /// baz się różnią, scala je <see cref="Reconcile"/>), ranga czasu, numer API, nazwa z logu i wszystkie identyfikatory.
+    /// Opis wpisu Antigravity. <see cref="UsageEntry.DedupeKey"/>: najlepszy identyfikator (<c>response:</c>, <c>provider:</c>,
+    /// <c>message:</c>, <c>step:</c>, <c>gen:</c>) i plik (klucze z różnych baz się różnią, scala je <see cref="Reconcile"/>).
+    /// <see cref="UsageEntry.SourceData"/>: dane do scalania między bazami — ranga czasu, numer API, nazwa z logu i wszystkie identyfikatory.
     /// </summary>
     private sealed record EventKey(string Primary, string File, int TimestampRank, ulong? Provider, string? LoggedModel, List<string> Identities)
     {
         private const char Separator = '\u001f';
         private const char ListSeparator = '\u001e';
 
-        public static string Format(UsageEvent usage, string path) => new EventKey(
+        public static EventKey Create(UsageEvent usage, string path) => new(
             usage.MessageId is { } id
                 ? usage.MessageIdRank switch { 3 => "response:", 2 => "provider:", _ => "message:" } + id
                 : usage.Identities.FirstOrDefault() ?? "",
-            path, usage.TimestampRank, usage.Provider, usage.LoggedModel, usage.Identities).Format();
+            path, usage.TimestampRank, usage.Provider, usage.LoggedModel, usage.Identities);
 
-        public string Format() => string.Join(Separator,
-            Primary, File, TimestampRank.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        /// <summary>Wartość <see cref="UsageEntry.DedupeKey"/>.</summary>
+        public string Format() => Primary + Separator + File;
+
+        /// <summary>Wartość <see cref="UsageEntry.SourceData"/>.</summary>
+        public string Data => string.Join(Separator,
+            TimestampRank.ToString(System.Globalization.CultureInfo.InvariantCulture),
             Provider?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "", LoggedModel ?? "",
             string.Join(ListSeparator, Identities));
 
-        public static EventKey? Parse(string? key)
+        public static EventKey? Parse(UsageEntry entry)
         {
-            var parts = key?.Split(Separator);
-            if (parts is not { Length: 6 } || !int.TryParse(parts[2], System.Globalization.CultureInfo.InvariantCulture, out var rank))
+            var key = entry.DedupeKey?.Split(Separator, 2);
+            var parts = entry.SourceData?.Split(Separator);
+            if (key is not { Length: 2 } || parts is not { Length: 4 } ||
+                !int.TryParse(parts[0], System.Globalization.CultureInfo.InvariantCulture, out var rank))
             {
                 return null;
             }
 
-            ulong? provider = ulong.TryParse(parts[3], System.Globalization.CultureInfo.InvariantCulture, out var number) ? number : null;
-            return new EventKey(parts[0], parts[1], rank, provider, parts[4].Length == 0 ? null : parts[4],
-                parts[5].Split(ListSeparator, StringSplitOptions.RemoveEmptyEntries).ToList());
+            ulong? provider = ulong.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out var number) ? number : null;
+            return new EventKey(key[0], key[1], rank, provider, parts[2].Length == 0 ? null : parts[2],
+                parts[3].Split(ListSeparator, StringSplitOptions.RemoveEmptyEntries).ToList());
         }
     }
 

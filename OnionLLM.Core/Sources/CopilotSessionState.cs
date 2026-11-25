@@ -243,7 +243,8 @@ public sealed partial class CopilotSource
             // ccusage loader.rs:184-189 (#2365): tylko przedział z dokładnie jednym żądaniem może wejść w próg długiego kontekstu.
             IsAggregate = interval.Requests != 1,
             SessionTier = 1,
-            DedupeKey = CopilotKey.Compose(interval.Key,
+            DedupeKey = interval.Key,
+            SourceData = CopilotKey.Data(
                 (CopilotKey.Requests, interval.Requests.ToString(CultureInfo.InvariantCulture)),
                 (CopilotKey.NoRequestCounts, interval.NoRequestCounts ? "1" : null),
                 (CopilotKey.RawModel, interval.Logged))
@@ -264,7 +265,8 @@ public sealed partial class CopilotSource
             RecordedCostUsd = record.NanoAiu * NanoAiuToUsd,
             Credits = record.NanoAiu / NanoAiuPerCredit,
             SessionTier = 1,
-            DedupeKey = CopilotKey.Compose(record.Key,
+            DedupeKey = record.Key,
+            SourceData = CopilotKey.Data(
                 (CopilotKey.SourceSession, record.Source),
                 (CopilotKey.ResponseId, record.ResponseId),
                 (CopilotKey.ServiceRequestId, record.ServiceRequestId),
@@ -284,7 +286,8 @@ public sealed partial class CopilotSource
             SessionTier = 1,
             DedupeKey = gap.Snapshot.Key
         }));
-        return entries.OrderBy(entry => entry.TimestampMs).ThenBy(entry => entry.DedupeKey, StringComparer.Ordinal).ToList();
+        return entries.OrderBy(entry => entry.TimestampMs).ThenBy(entry => entry.DedupeKey, StringComparer.Ordinal)
+            .ThenBy(entry => entry.SourceData, StringComparer.Ordinal).ToList();
     }
 
     private static UsageRecordCall? ReadUsageRecord(JsonElement? data, string? eventId, long timestamp)
