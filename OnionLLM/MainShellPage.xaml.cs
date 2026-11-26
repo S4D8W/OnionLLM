@@ -122,6 +122,11 @@ public partial class MainShellPage : ContentPage
             await DebugSelfTest.PaletteAsync(_shell);
         }
 
+        if (Environment.GetEnvironmentVariable("ONIONLLM_PLATFORM_SELFTEST") is { Length: > 0 })
+        {
+            await DebugSelfTest.PlatformAsync(_shell);
+        }
+
         if (Environment.GetEnvironmentVariable("ONIONLLM_UI_SELFTEST") is { Length: > 0 })
         {
             await DebugSelfTest.UiAsync(_shell);

@@ -22,6 +22,7 @@
     <!-- Pure UI formatting rules (DESIGN.md §5.1–5.2, §8.3), shared with the MAUI app without referencing it. -->
     <Compile Include="..\OnionLLM\ViewModels\Fmt.Format.cs" Link="Ui\Fmt.Format.cs" />
     <Compile Include="..\OnionLLM\ViewModels\FuzzyMatch.cs" Link="Ui\FuzzyMatch.cs" />
+    <Compile Include="..\OnionLLM\ViewModels\Alerts.cs" Link="Ui\Alerts.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -76,6 +76,11 @@
     <x:Double x:Key="SizeThemeTile">160</x:Double>
     <x:Double x:Key="SizeThemePreview">72</x:Double>
     <x:Double x:Key="SizeOnboardingMinHeight">480</x:Double>
+    <x:Double x:Key="SizeMiniWidth">360</x:Double>
+    <x:Double x:Key="SizeMiniMinHeight">140</x:Double>
+    <x:Double x:Key="SizeMiniMaxHeight">520</x:Double>
+    <x:Double x:Key="SizeMiniHeader">36</x:Double>
+    <x:Double x:Key="SizeMiniRings">40</x:Double>
     <x:Double x:Key="SizeSettingsNav">220</x:Double>
     <x:Double x:Key="SizeFormMaxWidth">760</x:Double>
     <x:Double x:Key="SizeTextMaxWidth">560</x:Double>

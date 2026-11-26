@@ -176,7 +176,7 @@ STATIC_DOUBLES = {
     "SizeMinTarget": 24, "SizeStatusBarHeight": 28, "SizeLogoSidebar": 28,
     "SizeSidebarWide": 240, "SizeSidebarRail": 64, "SizeSidebarNarrow": 56,
     "SizeDrawerWidth": 420, "SizeDrawerMin": 360, "SizeDrawerMax": 640,
-    "SizeDialogSm": 440, "SizeDialogMd": 560, "SizeToastWidth": 360, "SizePaletteWidth": 640, "SizePaletteListMax": 400, "SizeThemeTile": 160, "SizeThemePreview": 72, "SizeOnboardingMinHeight": 480,
+    "SizeDialogSm": 440, "SizeDialogMd": 560, "SizeToastWidth": 360, "SizePaletteWidth": 640, "SizePaletteListMax": 400, "SizeThemeTile": 160, "SizeThemePreview": 72, "SizeOnboardingMinHeight": 480, "SizeMiniWidth": 360, "SizeMiniMinHeight": 140, "SizeMiniMaxHeight": 520, "SizeMiniHeader": 36, "SizeMiniRings": 40,
     "SizeSettingsNav": 220, "SizeFormMaxWidth": 760, "SizeTextMaxWidth": 560, "SizeOnboardingCard": 640,
     "SizeTokenBreakdownBar": 8, "SizeInlineBar": 4, "SizeModelTag": 20, "SizeStatusDot": 8,
     "SizeAvatarXs": 16, "SizeDotSm": 6, "SizeChartBarMax": 28, "SizeSourceCardMin": 320, "SizeTableHeight": 520, "SizeRingCard": 120, "SizeAccentBar": 3, "SizeChevron": 14, "SizeTabUnderline": 2, "SizeIllustration": 80, "SizeIllustrationInline": 24, "SizeHeroDot": 6, "SizeFormLabel": 280, "SizeFormField": 400, "SizeIndent": 24, "SizeStatTileMinCompact": 96, "SizePopoverMaxHeight": 360, "SizeSelectMinWidth": 160, "SizeCalendarCell": 32, "SizeEditorMinHeight": 120, "SizeBadge": 20, "SizeCheckbox": 18, "SizeStatTileMin": 112, "SizeAvatarLg": 48, "SizeChartAux": 160, "SizeSparkline": 28,

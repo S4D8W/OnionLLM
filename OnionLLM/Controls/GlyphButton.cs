@@ -79,7 +79,7 @@ public sealed class IconButton : GlyphButton
     private async void OnSpinningChanged(bool spinning)
     {
         // Only while attached to a window: animations on detached views complete synchronously and would spin the UI thread.
-        if (!spinning || _spinning || MotionTokens.Spin == 0 || Window is null)
+        if (!spinning || _spinning || MotionTokens.Spin == 0 || Window is null || Handler is null)
         {
             return;
         }
@@ -92,7 +92,11 @@ public sealed class IconButton : GlyphButton
                 Rotation = 0;
                 await this.RotateToAsync(360, MotionTokens.Spin, Easing.Linear);
             }
-            while (IsSpinning && MotionTokens.Spin > 0 && Window is not null);
+            while (IsSpinning && MotionTokens.Spin > 0 && Window is not null && Handler is not null);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The window was closed mid-animation (e.g. the mini view): nothing left to animate.
         }
         finally
         {

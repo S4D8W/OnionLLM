@@ -75,6 +75,16 @@
                     </controls:Section.Body>
                 </controls:Section>
 
+                <!-- §6.2 pkt 6: notification summary. -->
+                <controls:Section Title="Powiadomienia">
+                    <controls:Section.Actions>
+                        <Button Style="{StaticResource Button.Link}" Text="Zmień" Command="{Binding OpenBudgetSettingsCommand}" />
+                    </controls:Section.Actions>
+                    <controls:Section.Body>
+                        <Label Style="{StaticResource Text.Secondary}" Text="{Binding NotificationSummary}" AutomationId="Limits.Notifications" />
+                    </controls:Section.Body>
+                </controls:Section>
+
                 <controls:Section Title="Inne narzędzia" Description="Brak danych o limitach dla tych narzędzi" IsCollapsible="True"
                                   StateKey="limits.others" IsVisible="{Binding HasOtherSources}">
                     <controls:Section.Body>

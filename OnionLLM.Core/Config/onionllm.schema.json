@@ -29,7 +29,57 @@
       "description": "Zachowanie okna aplikacji (tylko GUI).",
       "additionalProperties": false,
       "properties": {
-        "alwaysOnTop": { "type": "boolean", "default": false, "description": "Okno główne zawsze na wierzchu." }
+        "alwaysOnTop": { "type": "boolean", "default": false, "description": "Okno główne zawsze na wierzchu." },
+        "closeToTray": { "type": "boolean", "default": true, "description": "Zamknięcie okna chowa je do zasobnika (gdy ikona jest włączona)." }
+      }
+    },
+    "tray": {
+      "type": "object",
+      "description": "Ikona w zasobniku Windows / pasku menu macOS (tylko GUI).",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "showCost": { "type": "boolean", "default": true, "description": "macOS: koszt dnia obok ikony." }
+      }
+    },
+    "miniView": {
+      "type": "object",
+      "description": "Mini-widok (tryb kompaktowy, tylko GUI).",
+      "additionalProperties": false,
+      "properties": {
+        "modules": { "type": "array", "items": { "enum": ["cost", "limits", "block", "sources"] }, "description": "Moduły w kolejności wyświetlania." },
+        "alwaysOnTop": { "type": "boolean", "default": true }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "description": "Powiadomienia systemowe (tylko GUI).",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "thresholds": {
+          "type": "object",
+          "description": "Progi per limit: fiveHour, sevenDay, block, dailyBudget, monthlyBudget.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "warn": { "type": "integer", "minimum": 50, "maximum": 100, "default": 80 },
+              "exceed": { "type": "integer", "minimum": 50, "maximum": 200, "default": 100 },
+              "enabled": { "type": "boolean", "default": true }
+            }
+          }
+        },
+        "burnHigh": { "type": "boolean", "default": true, "description": "Powiadomienie o wysokim tempie spalania bloku." },
+        "quietHours": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "from": { "type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$", "default": "22:00" },
+            "to": { "type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$", "default": "08:00" }
+          }
+        }
       }
     },
     "currency": {

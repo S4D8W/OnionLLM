@@ -186,6 +186,46 @@ internal static class DebugSelfTest
         Diagnostics.Trace($"ui selftest done: {failures} failures");
     }
 
+    /// <summary><c>ONIONLLM_PLATFORM_SELFTEST=1</c>: tray, notifications, mini view, hide to tray → „platform selftest done”.</summary>
+    public static async Task PlatformAsync(ShellViewModel shell)
+    {
+        var failures = 0;
+        void Check(bool condition, string what)
+        {
+            Diagnostics.Trace($"platform: {(condition ? "ok" : "FAIL")} {what}");
+            failures += condition ? 0 : 1;
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(6));
+        await LiveState.UpdateAsync(force: true);
+#if WINDOWS
+        Check(Platforms.Windows.TrayIcon.IsVisible, "tray icon shown");
+#endif
+        Diagnostics.Trace($"platform: tooltip „{LiveState.Summary}”, level {LiveState.Level?.ToString() ?? "ok"}, alerts {LiveState.Alerts.Count}");
+        Check(NotificationCenter.CanNotify, $"system notifications available (app notifications: {NotificationCenter.IsSystemAvailable})");
+        NotificationCenter.SendTest();
+
+        ShortcutService.Raise(new ShortcutAction(ShortcutCommand.MiniView));
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        Check(WindowService.IsMiniOpen && WindowService.IsMainHidden, "Ctrl+Shift+M opens the mini view and hides the main window");
+        if (WindowService.Mini?.Page is Views.MiniViewPage mini)
+        {
+            Diagnostics.Trace($"platform: mini window {WindowService.Mini.Width:0}×{WindowService.Mini.Height:0}");
+        }
+
+        WindowService.CloseMini(showMain: true);
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        Check(!WindowService.IsMiniOpen && !WindowService.IsMainHidden, "closing the mini view brings the main window back");
+
+        Check(WindowService.HideInsteadOfClose() && WindowService.IsMainHidden, "X hides the main window to the tray");
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        await WindowService.ShowMainAsync(Screen.Limits);
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        Check(!WindowService.IsMainHidden && shell.Navigation.Current == Screen.Limits, "tray/notification opens the main window on a screen");
+
+        Diagnostics.Trace($"platform selftest done: {failures} failures");
+    }
+
     public static async Task PaletteAsync(ShellViewModel shell)
     {
         var failures = 0;

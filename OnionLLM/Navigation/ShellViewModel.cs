@@ -138,6 +138,13 @@ public sealed class ShellViewModel : ObservableObject
 
     public Command ToggleSidebarCommand { get; }
 
+    /// <summary>Sidebar „Tryb kompaktowy” (§4.7.1, §7.2): opens the mini view.</summary>
+    public Command MiniViewCommand { get; } = new(WindowService.ToggleMini);
+
+    public string MiniViewShortcut => ShortcutService.Label("Shift+M");
+
+    public bool IsMiniViewAvailable => WindowService.TrayAvailable;
+
     public Command OpenSidebarCommand { get; }
 
     public Command CloseOverlayCommand { get; }
@@ -375,6 +382,9 @@ public sealed class ShellViewModel : ObservableObject
                 break;
             case ShortcutCommand.AlwaysOnTop:
                 WindowActions.ToggleAlwaysOnTop();
+                break;
+            case ShortcutCommand.MiniView:
+                WindowService.ToggleMini();
                 break;
             case ShortcutCommand.Escape when Controls.PopoverService.IsOpen:
                 Controls.PopoverService.Close();

@@ -4,6 +4,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:OnionLLM.Controls"
              xmlns:nav="clr-namespace:OnionLLM.Navigation"
+             xmlns:res="clr-namespace:OnionLLM.Resources"
              x:Class="OnionLLM.Controls.Sidebar"
              x:DataType="nav:ShellViewModel"
              BackgroundColor="{DynamicResource ColorBgSidebar}">
@@ -91,11 +92,19 @@
                 </VerticalStackLayout>
             </VerticalStackLayout>
 
-            <!-- Bottom: Ustawienia · Zwiń panel (Tryb kompaktowy: Wymaga platformy — not rendered) -->
+            <!-- Bottom: Ustawienia · Tryb kompaktowy (mini-widok, §7.2) · Zwiń panel -->
             <VerticalStackLayout Grid.Row="2" Spacing="{StaticResource Space050}">
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding FooterItems}"
                                      BindableLayout.ItemTemplate="{StaticResource NavEntryTemplate}"
                                      Spacing="{StaticResource Space050}" />
+                <controls:NavItem Style="{StaticResource NavItem}"
+                                  Glyph="{x:Static res:Icons.PictureInPicture2}"
+                                  Label="Tryb kompaktowy"
+                                  Shortcut="{Binding MiniViewShortcut}"
+                                  IsCollapsed="{Binding IsSidebarCollapsed}"
+                                  Command="{Binding MiniViewCommand}"
+                                  IsVisible="{Binding IsMiniViewAvailable}"
+                                  AutomationId="Sidebar.MiniView" />
                 <controls:NavItem Style="{StaticResource NavItem}"
                                   Glyph="{Binding ToggleSidebarGlyph}"
                                   Label="{Binding ToggleSidebarLabel}"

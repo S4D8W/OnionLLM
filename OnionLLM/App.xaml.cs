@@ -9,11 +9,13 @@ namespace OnionLLM
             InitializeComponent();
             AppearanceService.Apply(AppState.Config.Appearance);
             CurrencyService.Apply(AppState.Config.Currency);
+            Navigation.LiveState.Start();
+            Navigation.NotificationCenter.Start();
             AppState.Changed += (_, _) => MainThread.BeginInvokeOnMainThread(() =>
             {
                 AppearanceService.Apply(AppState.Config.Appearance);
                 CurrencyService.Apply(AppState.Config.Currency);
-                foreach (var window in Windows)
+                foreach (var window in Windows.Where(window => window.Page is MainShellPage))
                 {
                     ApplyWindowSettings(window);
                 }
@@ -36,6 +38,11 @@ namespace OnionLLM
             {
                 ApplyWindowSettings(window);
                 Navigation.ShortcutService.Attach(window);
+#if WINDOWS
+                // §7.1 / §7.3: tray icon on the main window, X hides to the tray when enabled.
+                Platforms.Windows.WindowPlatform.HookMainClosing(window);
+                Platforms.Windows.TrayIcon.Attach(window);
+#endif
             };
             ThemeService.ThemeChanged += (_, _) => ApplyWindowSettings(window);
             return window;

@@ -299,6 +299,23 @@ public static class CommandPaletteService
             "Teraz: " + (config.Appearance.Density == Core.Config.DensityPreference.Compact ? "kompaktowa" : "komfortowa")));
         items.Add(Action("top", "Zawsze na wierzchu", Icons.Pin, ShortcutService.Label("Shift+T"), Sync(WindowActions.ToggleAlwaysOnTop),
             config.Window.AlwaysOnTop ? "Włączone" : "Wyłączone"));
+        if (WindowService.TrayAvailable)
+        {
+            items.Add(Action("mini", "Tryb kompaktowy okna", Icons.PictureInPicture2, ShortcutService.Label("Shift+M"), Sync(WindowService.ToggleMini)));
+        }
+
+        items.Add(Action("mute", NotificationCenter.IsMuted ? "Wyłącz wyciszenie powiadomień" : "Wycisz powiadomienia na 1 godzinę", Icons.BellOff, null,
+            Sync(() =>
+            {
+                if (NotificationCenter.IsMuted)
+                {
+                    NotificationCenter.Unmute();
+                }
+                else
+                {
+                    NotificationCenter.Mute(TimeSpan.FromHours(1));
+                }
+            })));
         items.Add(Action("pricing", "Odśwież cennik", Icons.Tag, null, () => Shell.NavigateAsync(Screen.Settings, new ScreenAction(ScreenActions.RefreshPricing))));
         items.Add(Action("mismatches", "Sprawdź rozbieżności kosztu", Icons.Scale, null, () => Shell.NavigateAsync(Screen.Settings, new ScreenAction(ScreenActions.CheckMismatches))));
         items.Add(Action("data-folder", "Otwórz folder danych", Icons.FolderOpen, null, WindowActions.OpenDataFolderAsync));

@@ -199,6 +199,14 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _alwaysOnTop;
     private string _dailyBudget = "";
     private int _currencyIndex;
+    private bool _trayEnabled = true;
+    private bool _closeToTray = true;
+    private bool _miniAlwaysOnTop = true;
+    private bool _notificationsEnabled = true;
+    private bool _burnHigh = true;
+    private bool _quietEnabled;
+    private string _quietFrom = "22:00";
+    private string _quietTo = "08:00";
     private bool _rateAutomatic = true;
     private string _rate = "";
     private string _monthlyBudget = "";
@@ -393,6 +401,124 @@ public sealed class SettingsViewModel : ObservableObject
     }
 
     public bool IsRateStale => Design.CurrencyService.IsStale(AppState.Config.Currency) && AppState.Config.Currency.ParsedRateDate is not null;
+
+    // ===== §6.9.3 Okno i zasobnik =====
+
+    public bool IsTrayAvailable => Navigation.WindowService.TrayAvailable;
+
+    public bool TrayEnabled
+    {
+        get => _trayEnabled;
+        set
+        {
+            Field(ref _trayEnabled, value, "tray", immediate: true);
+            OnPropertyChanged(nameof(CanCloseToTray));
+        }
+    }
+
+    public bool CloseToTray { get => _closeToTray; set => Field(ref _closeToTray, value, "closeToTray", immediate: true); }
+
+    public bool CanCloseToTray => TrayEnabled;
+
+    public bool MiniAlwaysOnTop { get => _miniAlwaysOnTop; set => Field(ref _miniAlwaysOnTop, value, "miniAlwaysOnTop", immediate: true); }
+
+    /// <summary>„Mini-widok: moduły” — shown flag and order (↑/↓).</summary>
+    public ObservableCollection<MiniModuleRow> MiniModules { get; } = [];
+
+    public void ToggleMiniModule(MiniModuleRow row)
+    {
+        row.Shown = !row.Shown;
+        SaveMiniModules();
+    }
+
+    public void MoveMiniModule(MiniModuleRow row, int delta)
+    {
+        var index = MiniModules.IndexOf(row);
+        var target = index + delta;
+        if (index < 0 || target < 0 || target >= MiniModules.Count)
+        {
+            return;
+        }
+
+        MiniModules.Move(index, target);
+        SaveMiniModules();
+    }
+
+    private void SaveMiniModules()
+    {
+        try
+        {
+            var config = AppState.Config.Clone();
+            config.MiniView.Modules = MiniModules.Where(row => row.Shown).Select(row => row.Id).ToList();
+            AppState.SaveConfig(config);
+            LastSaved = string.Empty;
+            LastSaved = "miniModules";
+        }
+        catch (Exception exception) when (exception is ConfigException or IOException or UnauthorizedAccessException)
+        {
+            SaveError = "Nie zapisano: " + exception.Message;
+        }
+    }
+
+    // ===== §6.9.4 Powiadomienia =====
+
+    public bool NotificationsEnabled { get => _notificationsEnabled; set => Field(ref _notificationsEnabled, value, "notifications", immediate: true); }
+
+    public bool BurnHigh { get => _burnHigh; set => Field(ref _burnHigh, value, "burnHigh", immediate: true); }
+
+    public bool QuietEnabled { get => _quietEnabled; set => Field(ref _quietEnabled, value, "quietHours", immediate: true); }
+
+    public string QuietFrom { get => _quietFrom; set => Field(ref _quietFrom, value, "quietHours"); }
+
+    public string QuietTo { get => _quietTo; set => Field(ref _quietTo, value, "quietHours"); }
+
+    public string QuietError => Error("quietHours");
+
+    /// <summary>Thresholds table: 5 h, 7 dni, blok, budżet dzienny, budżet miesięczny × Ostrzeżenie · Przekroczenie · Powiadamiaj.</summary>
+    public ObservableCollection<ThresholdRow> Thresholds { get; } = [];
+
+    public string ThresholdError { get => _thresholdError; private set => Set(ref _thresholdError, value); }
+
+    private string _thresholdError = "";
+
+    public void SaveThresholds()
+    {
+        var parsed = new Dictionary<string, ThresholdSettings>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in Thresholds)
+        {
+            if (!int.TryParse(row.Warn, out var warn) || !int.TryParse(row.Exceed, out var exceed) || warn is < 50 or > 100 || exceed is < 50 or > 200 || warn > exceed)
+            {
+                ThresholdError = $"{row.Label}: ostrzeżenie 50–100%, przekroczenie 50–200% i nie mniej niż ostrzeżenie.";
+                return;
+            }
+
+            parsed[row.Id] = new ThresholdSettings { Warn = warn, Exceed = exceed, Enabled = row.Enabled };
+        }
+
+        ThresholdError = "";
+        try
+        {
+            var config = AppState.Config.Clone();
+            config.Notifications.Thresholds = parsed;
+            AppState.SaveConfig(config);
+            LastSaved = string.Empty;
+            LastSaved = "thresholds";
+        }
+        catch (Exception exception) when (exception is ConfigException or IOException or UnauthorizedAccessException)
+        {
+            SaveError = "Nie zapisano: " + exception.Message;
+        }
+    }
+
+    public string NotificationStatus => Navigation.NotificationCenter.IsSystemAvailable
+        ? "Powiadomienia systemu Windows."
+        : Navigation.NotificationCenter.CanNotify
+            ? "Powiadomienia z ikony w zasobniku (wersja bez instalatora). Bez ikony w zasobniku — tylko w aplikacji."
+            : "Powiadomienia systemowe są niedostępne — pokazujemy je w aplikacji.";
+
+    public Command SendTestNotificationCommand { get; } = new(Navigation.NotificationCenter.SendTest);
+
+    public Command OpenSystemNotificationSettingsCommand { get; } = new(async () => await Launcher.Default.OpenAsync(new Uri("ms-settings:notifications")));
 
     // ===== §6.9.4 Budżety (notifications: Wymaga platformy — not rendered) =====
 
@@ -601,6 +727,32 @@ public sealed class SettingsViewModel : ObservableObject
             _motionIndex = (int)config.Appearance.Motion;
             _alwaysOnTop = config.Window.AlwaysOnTop;
             _currencyIndex = Math.Max(0, Array.IndexOf(Currencies, config.Currency.Display));
+            _trayEnabled = config.Tray.Enabled;
+            _closeToTray = config.Window.CloseToTray;
+            _miniAlwaysOnTop = config.MiniView.AlwaysOnTop;
+            MiniModules.Clear();
+            foreach (var id in config.MiniView.Modules.Concat(MiniViewSettings.AllModules.Except(config.MiniView.Modules)))
+            {
+                MiniModules.Add(new MiniModuleRow(id) { Shown = config.MiniView.Modules.Contains(id) });
+            }
+
+            var notifications = config.Notifications;
+            _notificationsEnabled = notifications.Enabled;
+            _burnHigh = notifications.BurnHigh;
+            _quietEnabled = notifications.QuietHours.Enabled;
+            _quietFrom = notifications.QuietHours.From;
+            _quietTo = notifications.QuietHours.To;
+            Thresholds.Clear();
+            foreach (var limit in NotificationSettings.Limits)
+            {
+                var threshold = notifications.For(limit);
+                Thresholds.Add(new ThresholdRow(limit, ThresholdRow.LabelOf(limit))
+                {
+                    Warn = threshold.Warn.ToString(CultureInfo.InvariantCulture),
+                    Exceed = threshold.Exceed.ToString(CultureInfo.InvariantCulture),
+                    Enabled = threshold.Enabled
+                });
+            }
             _rateAutomatic = config.Currency.RateSource == "nbp";
             _rate = config.Currency.Rate is { } rate ? rate.ToString("0.####", CultureInfo.InvariantCulture) : "";
             _dailyBudget = AmountText(config.Budgets.DailyUsd);
@@ -714,6 +866,22 @@ public sealed class SettingsViewModel : ObservableObject
         config.Appearance.Density = (DensityPreference)DensityIndex;
         config.Appearance.Motion = (MotionPreference)MotionIndex;
         config.Window.AlwaysOnTop = AlwaysOnTop;
+        config.Window.CloseToTray = CloseToTray;
+        config.Tray.Enabled = TrayEnabled;
+        config.MiniView.AlwaysOnTop = MiniAlwaysOnTop;
+        config.Notifications.Enabled = NotificationsEnabled;
+        config.Notifications.BurnHigh = BurnHigh;
+        config.Notifications.QuietHours.Enabled = QuietEnabled;
+        if (TimeOnly.TryParseExact(QuietFrom.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _) &&
+            TimeOnly.TryParseExact(QuietTo.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+        {
+            config.Notifications.QuietHours.From = QuietFrom.Trim();
+            config.Notifications.QuietHours.To = QuietTo.Trim();
+        }
+        else
+        {
+            _errors["quietHours"] = "Podaj godziny w formacie GG:MM, np. 22:00.";
+        }
         config.CostMode = (CostMode)Math.Clamp(CostModeIndex, 0, 2);
         config.Offline = Offline;
         config.ProjectAliases = string.IsNullOrWhiteSpace(ProjectAliases) ? null : ProjectAliases.Trim();
@@ -1174,4 +1342,49 @@ public sealed record SourceBudgetRow(string Id, string Name, string Daily, strin
     public string DailyText => Daily.Length == 0 ? "—" : Daily + "\u00A0$";
 
     public string MonthlyText => Monthly.Length == 0 ? "—" : Monthly + "\u00A0$";
+}
+
+/// <summary>Mini view module row in Okno i zasobnik (§6.9.3).</summary>
+public sealed class MiniModuleRow(string id) : ObservableObject
+{
+    private bool _shown;
+
+    public string Id { get; } = id;
+
+    public string Label => Id switch
+    {
+        "cost" => "Koszt i tokeny dnia",
+        "limits" => "Limity 5 h / 7 dni",
+        "block" => "Aktywny blok i tempo",
+        _ => "Top 3 źródła dnia"
+    };
+
+    public bool Shown { get => _shown; set => Set(ref _shown, value); }
+}
+
+/// <summary>Notification threshold row (§6.9.4): percentages as typed.</summary>
+public sealed class ThresholdRow(string id, string label) : ObservableObject
+{
+    private string _warn = "80";
+    private string _exceed = "100";
+    private bool _enabled = true;
+
+    public string Id { get; } = id;
+
+    public string Label { get; } = label;
+
+    public string Warn { get => _warn; set => Set(ref _warn, value); }
+
+    public string Exceed { get => _exceed; set => Set(ref _exceed, value); }
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    public static string LabelOf(string limit) => limit switch
+    {
+        "fiveHour" => "Limit 5-godzinny",
+        "sevenDay" => "Limit 7-dniowy",
+        "block" => "Limit tokenów bloku",
+        "dailyBudget" => "Budżet dzienny",
+        _ => "Budżet miesięczny"
+    };
 }

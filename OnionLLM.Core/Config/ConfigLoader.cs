@@ -140,6 +140,15 @@ public static class ConfigLoader
             throw new ConfigException("currency.rate musi być większy od 0, a currency.rateSource mieć wartość manual lub nbp.");
         }
 
+        foreach (var (limit, threshold) in config.Notifications?.Thresholds ?? [])
+        {
+            if (!NotificationSettings.Limits.Contains(limit, StringComparer.OrdinalIgnoreCase) || threshold.Warn is < 50 or > 100 ||
+                threshold.Exceed is < 50 or > 200 || threshold.Warn > threshold.Exceed)
+            {
+                throw new ConfigException($"notifications.thresholds.{limit}: ostrzeżenie 50–100%, przekroczenie 50–200% i nie mniej niż ostrzeżenie.");
+            }
+        }
+
         var budgets = config.Budgets ?? new BudgetSettings();
         var amounts = new[] { budgets.DailyUsd, budgets.MonthlyUsd }
             .Concat(budgets.PerSource.Values.SelectMany(source => new[] { source.DailyUsd, source.MonthlyUsd }));
@@ -167,6 +176,12 @@ public static class ConfigLoader
         config.Window ??= new WindowSettings();
         config.Budgets ??= new BudgetSettings();
         config.Currency ??= new CurrencySettings();
+        config.Tray ??= new TraySettings();
+        config.MiniView ??= new MiniViewSettings();
+        config.MiniView.Modules = (config.MiniView.Modules ?? []).Where(module => MiniViewSettings.AllModules.Contains(module)).Distinct().ToList();
+        config.Notifications ??= new NotificationSettings();
+        config.Notifications.Thresholds = new Dictionary<string, ThresholdSettings>(config.Notifications.Thresholds ?? [], StringComparer.OrdinalIgnoreCase);
+        config.Notifications.QuietHours ??= new QuietHoursSettings();
         config.Currency.Display = (config.Currency.Display ?? "USD").Trim().ToUpperInvariant();
         config.Budgets.PerSource = new Dictionary<string, SourceBudget>(config.Budgets.PerSource ?? [], StringComparer.OrdinalIgnoreCase);
         config.Sources = new Dictionary<string, SourceSettings>(config.Sources ?? [], StringComparer.OrdinalIgnoreCase);

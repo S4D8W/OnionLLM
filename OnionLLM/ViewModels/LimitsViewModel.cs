@@ -128,7 +128,35 @@ public sealed class LimitsViewModel : ObservableObject
 
     public bool HasSourceBudgets => SourceBudgets.Count > 0;
 
-    public Command OpenBudgetSettingsCommand { get; } = new(() => _ = Navigation.ShellViewModel.Instance.NavigateAsync(Navigation.Screen.Settings, "Budżety"));
+    /// <summary>§6.2 pkt 6: „Ostrzeżenie przy 80%, przekroczenie przy 100% · powiadomienia systemowe włączone”.</summary>
+    public string NotificationSummary
+    {
+        get
+        {
+            var notifications = AppState.Config.Notifications;
+            if (!notifications.Enabled)
+            {
+                return "Powiadomienia wyłączone.";
+            }
+
+            var five = notifications.For("fiveHour");
+            var text = $"Ostrzeżenie przy {five.Warn}%, przekroczenie przy {five.Exceed}%";
+            text += Navigation.NotificationCenter.CanNotify ? " · powiadomienia systemowe włączone" : " · powiadomienia w aplikacji";
+            if (Navigation.NotificationCenter.MutedUntil is { } muted)
+            {
+                text += $" · wyciszone do {Fmt.Time(muted)}";
+            }
+
+            if (notifications.QuietHours.Enabled)
+            {
+                text += $" · ciche godziny {notifications.QuietHours.From}–{notifications.QuietHours.To}";
+            }
+
+            return text + ".";
+        }
+    }
+
+    public Command OpenBudgetSettingsCommand { get; } = new(() => _ = Navigation.ShellViewModel.Instance.NavigateAsync(Navigation.Screen.Settings, "Powiadomienia i budżety"));
 
     public string HistoryEmpty => "Historia pojawi się po kilku odczytach limitów (co 5 min, gdy aplikacja działa).";
 

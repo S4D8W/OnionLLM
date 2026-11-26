@@ -16,7 +16,7 @@ public sealed class SettingsView : ContentView, IScreenView
         ("Ogólne", "strefa czasowa początek tygodnia uruchamiaj przy starcie autostart"),
         ("Wygląd", "motyw jasny ciemny gęstość kompaktowa animacje ruch"),
         ("Okno i zasobnik", "zawsze na wierzchu okno"),
-        ("Budżety", "budżet dzienny miesięczny koszt limit wydatków powiadomienia"),
+        ("Powiadomienia i budżety", "powiadomienia progi ciche godziny tempo budżet dzienny miesięczny koszt wycisz"),
         ("Obliczenia", "tryb kosztu długość bloku limit tokenów odświeżanie sesja aktywna"),
         ("Projekty", "aliasy projektów nazwy"),
         ("Cennik", "litellm models.dev offline aliasy modeli nadpisania cen"),
@@ -208,7 +208,7 @@ public sealed class SettingsView : ContentView, IScreenView
         {
             "Wygląd" => Appearance(),
             "Okno i zasobnik" => WindowPage(),
-            "Budżety" => BudgetsPage(),
+            "Powiadomienia i budżety" => BudgetsPage(),
             "Obliczenia" => Calculations(),
             "Projekty" => Projects(),
             "Cennik" => Pricing(),
@@ -352,9 +352,52 @@ public sealed class SettingsView : ContentView, IScreenView
             preview);
     }
 
-    /// <summary>§6.9.3 Okno i zasobnik — only „Zawsze na wierzchu” (tray and mini view: Wymaga platformy).</summary>
-    private View WindowPage() => Stack(
-        Row("Zawsze na wierzchu", Toggle(nameof(SettingsViewModel.AlwaysOnTop)), "alwaysOnTop", "Okno główne pozostaje nad innymi oknami."));
+    /// <summary>§6.9.3 Okno i zasobnik: always on top, tray icon, close to tray, mini view modules (macOS menu bar: Mac only).</summary>
+    private View WindowPage()
+    {
+        var stack = Stack(Row("Zawsze na wierzchu", Toggle(nameof(SettingsViewModel.AlwaysOnTop)), "alwaysOnTop", "Okno główne pozostaje nad innymi oknami."));
+        if (_vm.IsTrayAvailable)
+        {
+            stack.Children.Add(Row("Pokazuj ikonę w zasobniku", Toggle(nameof(SettingsViewModel.TrayEnabled)), "tray", "Klik — mini-widok, dwuklik — okno, prawy klik — menu."));
+            var close = Row("Zamknięcie okna minimalizuje do zasobnika", Toggle(nameof(SettingsViewModel.CloseToTray)), "closeToTray", "Bez ikony w zasobniku zamknięcie okna kończy aplikację.");
+            close.SetBinding(IsEnabledProperty, nameof(SettingsViewModel.CanCloseToTray));
+            stack.Children.Add(close);
+        }
+
+        var modules = new VerticalStackLayout { Spacing = Ui.D("Space100") };
+        void Build()
+        {
+            modules.Children.Clear();
+            foreach (var row in _vm.MiniModules)
+            {
+                var check = new CheckBox { IsChecked = row.Shown, VerticalOptions = LayoutOptions.Center };
+                check.CheckedChanged += (_, e) => { if (e.Value != row.Shown) { _vm.ToggleMiniModule(row); } };
+                SemanticProperties.SetDescription(check, "Pokaż moduł " + row.Label);
+                var up = new IconButton { Glyph = Icons.ArrowUp }.Styled("IconButton.Ghost.Sm");
+                up.Clicked += (_, _) => _vm.MoveMiniModule(row, -1);
+                ToolTipProperties.SetText(up, "Przesuń w górę");
+                SemanticProperties.SetDescription(up, "Przesuń w górę: " + row.Label);
+                var down = new IconButton { Glyph = Icons.ArrowDown }.Styled("IconButton.Ghost.Sm");
+                down.Clicked += (_, _) => _vm.MoveMiniModule(row, 1);
+                ToolTipProperties.SetText(down, "Przesuń w dół");
+                SemanticProperties.SetDescription(down, "Przesuń w dół: " + row.Label);
+                var line = new Grid { ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto)], ColumnSpacing = Ui.D("Space200") };
+                var label = Ui.Text("Text.Body", row.Label);
+                label.VerticalOptions = LayoutOptions.Center;
+                line.Add(check);
+                line.Add(label, 1);
+                line.Add(up, 2);
+                line.Add(down, 3);
+                modules.Children.Add(line);
+            }
+        }
+
+        _vm.MiniModules.CollectionChanged += (_, _) => Build();
+        Build();
+        stack.Children.Add(Row("Mini-widok: moduły", modules, "miniModules", "Kolejność i widoczność modułów (także prawym przyciskiem w mini-widoku)."));
+        stack.Children.Add(Row("Mini-widok: zawsze na wierzchu", Toggle(nameof(SettingsViewModel.MiniAlwaysOnTop)), "miniAlwaysOnTop"));
+        return stack;
+    }
 
     /// <summary>
     /// §6.9.4 „Powiadomienia i budżety” — the budget part (system notifications and quiet hours need platform code,
@@ -398,11 +441,90 @@ public sealed class SettingsView : ContentView, IScreenView
         Build();
         var add = new Button { Text = "Dodaj budżet źródła", HorizontalOptions = LayoutOptions.Start, AutomationId = "Settings.AddSourceBudget" }.Styled("Button.Secondary");
         add.Command = _vm.AddSourceBudgetCommand;
+        // §6.9.4 notifications: master toggle, thresholds table, burn rate, quiet hours, test.
+        CancellationTokenSource? pending = null;
+        Grid ThresholdGrid() => new()
+        {
+            ColumnDefinitions = [new(GridLength.Star), new(new GridLength(Ui.D("SizeSelectMinWidth"))), new(new GridLength(Ui.D("SizeSelectMinWidth"))), new(GridLength.Auto)],
+            ColumnSpacing = Ui.D("Space200")
+        };
+        var status = Ui.Text("Text.Caption");
+        status.Text = _vm.NotificationStatus;
+        var systemLink = new Button { Text = "Ustawienia powiadomień systemu", HorizontalOptions = LayoutOptions.Start }.Styled("Button.Link");
+        systemLink.Command = _vm.OpenSystemNotificationSettingsCommand;
+        var thresholds = new VerticalStackLayout { Spacing = Ui.D("Space100") };
+        var head = ThresholdGrid();
+        head.Add(Ui.Text("Text.Overline", "LIMIT"));
+        head.Add(Ui.Text("Text.Overline", "OSTRZEŻENIE"), 1);
+        head.Add(Ui.Text("Text.Overline", "PRZEKROCZENIE"), 2);
+        head.Add(Ui.Text("Text.Overline", "POWIADAMIAJ"), 3);
+        thresholds.Children.Add(head);
+        foreach (var row in _vm.Thresholds)
+        {
+            var line = ThresholdGrid();
+            var name = Ui.Text("Text.Body", row.Label);
+            name.VerticalOptions = LayoutOptions.Center;
+            var warn = new TextField { Kind = TextFieldKind.Number, Suffix = "%", Text = row.Warn };
+            var exceed = new TextField { Kind = TextFieldKind.Number, Suffix = "%", Text = row.Exceed };
+            var enabled = new Switch { IsToggled = row.Enabled, VerticalOptions = LayoutOptions.Center };
+            SemanticProperties.SetDescription(enabled, "Powiadamiaj: " + row.Label);
+            warn.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(TextField.Text)) { row.Warn = warn.Text; DebouncedThresholds(); } };
+            exceed.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(TextField.Text)) { row.Exceed = exceed.Text; DebouncedThresholds(); } };
+            enabled.Toggled += (_, e) => { row.Enabled = e.Value; _vm.SaveThresholds(); };
+            line.Add(name);
+            line.Add(warn, 1);
+            line.Add(exceed, 2);
+            line.Add(enabled, 3);
+            thresholds.Children.Add(line);
+        }
+
+        var thresholdError = Ui.Text("Text.Caption").Dyn(Label.TextColorProperty, "ColorStatusDanger");
+        thresholdError.SetBinding(Label.TextProperty, nameof(SettingsViewModel.ThresholdError));
+        thresholds.Children.Add(thresholdError);
+        var quiet = new HorizontalStackLayout { Spacing = Ui.D("Space200") };
+        var from = new TextField { Kind = TextFieldKind.Number, Placeholder = "22:00" };
+        from.SetBinding(TextField.TextProperty, nameof(SettingsViewModel.QuietFrom), BindingMode.TwoWay);
+        var to = new TextField { Kind = TextFieldKind.Number, Placeholder = "08:00" };
+        to.SetBinding(TextField.TextProperty, nameof(SettingsViewModel.QuietTo), BindingMode.TwoWay);
+        quiet.Children.Add(Toggle(nameof(SettingsViewModel.QuietEnabled)));
+        quiet.Children.Add(new Label { Text = "od", VerticalOptions = LayoutOptions.Center }.Styled("Text.Body"));
+        quiet.Children.Add(from);
+        quiet.Children.Add(new Label { Text = "do", VerticalOptions = LayoutOptions.Center }.Styled("Text.Body"));
+        quiet.Children.Add(to);
+        var test = new Button { Text = "Wyślij powiadomienie testowe", HorizontalOptions = LayoutOptions.Start, AutomationId = "Settings.TestNotification" }.Styled("Button.Secondary");
+        test.Command = _vm.SendTestNotificationCommand;
+        var notifications = new VerticalStackLayout
+        {
+            Spacing = Ui.D("Space600"),
+            Children =
+            {
+                Row("Powiadomienia systemowe", new VerticalStackLayout { Spacing = Ui.D("Space100"), Children = { Toggle(nameof(SettingsViewModel.NotificationsEnabled)), status, systemLink } }, "notifications"),
+                Row("Progi", thresholds, "thresholds", "Raz na okno limitu: 5 h, 7 dni, blok, dzień, miesiąc."),
+                Row("Wysokie tempo spalania", Toggle(nameof(SettingsViewModel.BurnHigh)), "burnHigh"),
+                Row("Ciche godziny", quiet, "quietHours", "W tych godzinach powiadomienia czekają do końca ciszy.", nameof(SettingsViewModel.QuietError)),
+                test
+            }
+        };
+
+        async void DebouncedThresholds()
+        {
+            pending?.Cancel();
+            var token = (pending = new CancellationTokenSource()).Token;
+            try
+            {
+                await Task.Delay(Design.MotionTokens.AutosaveDelay, token);
+                _vm.SaveThresholds();
+            }
+            catch (TaskCanceledException)
+            {
+            }
+        }
+
         return Stack(
+            new Section { Title = "Powiadomienia", Body = notifications },
             Row("Budżet dzienny", Number(nameof(SettingsViewModel.DailyBudget), "$"), "dailyBudget", "Puste = bez budżetu. Kwoty w USD.", nameof(SettingsViewModel.DailyBudgetError)),
             Row("Budżet miesięczny", Number(nameof(SettingsViewModel.MonthlyBudget), "$"), "monthlyBudget", "Prognoza końca miesiąca pojawia się od 3. dnia.", nameof(SettingsViewModel.MonthlyBudgetError)),
-            new Section { Title = "Budżety per źródło", Body = new VerticalStackLayout { Spacing = Ui.D("Space300"), Children = { list, add } } },
-            Ui.Text("Text.Tertiary", "Powiadomienia systemowe o progach pojawią się razem z ikoną w zasobniku."));
+            new Section { Title = "Budżety per źródło", Body = new VerticalStackLayout { Spacing = Ui.D("Space300"), Children = { list, add } } });
     }
 
     /// <summary>§6.9.5 Obliczenia.</summary>

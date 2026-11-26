@@ -161,6 +161,79 @@ public sealed class WindowSettings
 {
     /// <summary>Okno główne zawsze na wierzchu (domyślnie wyłączone, DESIGN.md §7.1).</summary>
     public bool AlwaysOnTop { get; set; }
+
+    /// <summary>Zamknięcie okna chowa je do zasobnika, gdy ikona w zasobniku jest włączona (§7.1).</summary>
+    public bool CloseToTray { get; set; } = true;
+}
+
+/// <summary>Ikona w zasobniku Windows / pasku menu macOS (§7.3, §7.4).</summary>
+public sealed class TraySettings
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>macOS: koszt dnia obok ikony w pasku menu.</summary>
+    public bool ShowCost { get; set; } = true;
+}
+
+/// <summary>Tryb kompaktowy (mini-widok, §7.2).</summary>
+public sealed class MiniViewSettings
+{
+    /// <summary>Moduły w kolejności: <c>cost</c>, <c>limits</c>, <c>block</c>, <c>sources</c>.</summary>
+    public List<string> Modules { get; set; } = [.. AllModules];
+
+    public bool AlwaysOnTop { get; set; } = true;
+
+    public static readonly string[] AllModules = ["cost", "limits", "block", "sources"];
+}
+
+/// <summary>Progi powiadomień jednego limitu lub budżetu w procentach (§5.8).</summary>
+public sealed class ThresholdSettings
+{
+    public int Warn { get; set; } = 80;
+
+    public int Exceed { get; set; } = 100;
+
+    public bool Enabled { get; set; } = true;
+}
+
+/// <summary>Ciche godziny powiadomień, np. 22:00–08:00 (§5.8).</summary>
+public sealed class QuietHoursSettings
+{
+    public bool Enabled { get; set; }
+
+    public string From { get; set; } = "22:00";
+
+    public string To { get; set; } = "08:00";
+
+    /// <summary>Czy <paramref name="time"/> (czas lokalny) wypada w cichych godzinach (zakres może przechodzić przez północ).</summary>
+    public bool Contains(TimeOnly time)
+    {
+        if (!Enabled || !TimeOnly.TryParse(From, System.Globalization.CultureInfo.InvariantCulture, out var from) ||
+            !TimeOnly.TryParse(To, System.Globalization.CultureInfo.InvariantCulture, out var to) || from == to)
+        {
+            return false;
+        }
+
+        return from < to ? time >= from && time < to : time >= from || time < to;
+    }
+}
+
+/// <summary>Powiadomienia systemowe (§5.8, §7.6).</summary>
+public sealed class NotificationSettings
+{
+    public static readonly string[] Limits = ["fiveHour", "sevenDay", "block", "dailyBudget", "monthlyBudget"];
+
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Progi per limit (<see cref="Limits"/>); brak wpisu = 80% / 100%, włączone.</summary>
+    public Dictionary<string, ThresholdSettings> Thresholds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Powiadomienie o wysokim tempie spalania aktywnego bloku.</summary>
+    public bool BurnHigh { get; set; } = true;
+
+    public QuietHoursSettings QuietHours { get; set; } = new();
+
+    public ThresholdSettings For(string limit) => Thresholds.TryGetValue(limit, out var threshold) ? threshold : new ThresholdSettings();
 }
 
 /// <summary>Konfiguracja OnionLLM (plik JSON, camelCase).</summary>
@@ -211,6 +284,15 @@ public sealed class OnionConfig
     public AppearanceSettings Appearance { get; set; } = new();
 
     public WindowSettings Window { get; set; } = new();
+
+    /// <summary>Ikona w zasobniku / pasku menu (tylko GUI).</summary>
+    public TraySettings Tray { get; set; } = new();
+
+    /// <summary>Mini-widok (tylko GUI).</summary>
+    public MiniViewSettings MiniView { get; set; } = new();
+
+    /// <summary>Powiadomienia systemowe (tylko GUI).</summary>
+    public NotificationSettings Notifications { get; set; } = new();
 
     /// <summary>Waluta wyświetlania i kurs (tylko GUI).</summary>
     public CurrencySettings Currency { get; set; } = new();

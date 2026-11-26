@@ -15,7 +15,8 @@ public enum ShortcutCommand
     Search,
     Export,
     ToggleTheme,
-    AlwaysOnTop
+    AlwaysOnTop,
+    MiniView
 }
 
 /// <summary>Keys handled by the open command palette.</summary>
@@ -163,6 +164,11 @@ public static class ShortcutService
         else if (ctrl && !alt && shift && e.Key == Windows.System.VirtualKey.T)
         {
             action = new ShortcutAction(ShortcutCommand.AlwaysOnTop);
+        }
+        else if (ctrl && !alt && shift && e.Key == Windows.System.VirtualKey.M)
+        {
+            action = new ShortcutAction(ShortcutCommand.MiniView);
+            allowedInText = true;
         }
         else if (ctrl && !alt && !shift && key is >= (int)Windows.System.VirtualKey.Number1 and <= (int)Windows.System.VirtualKey.Number8)
         {

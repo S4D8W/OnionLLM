@@ -33,6 +33,9 @@ public sealed class OnboardingView : ContentView
     private readonly List<(IUsageSource Source, string? Folder, Switch Toggle)> _detected = [];
     private readonly List<IUsageSource> _missing = [];
     private readonly Switch _startup = new() { HorizontalOptions = LayoutOptions.Start, AutomationId = "Onboarding.Startup" };
+    private readonly Switch _tray = new() { HorizontalOptions = LayoutOptions.Start, IsToggled = AppState.Config.Tray.Enabled, AutomationId = "Onboarding.Tray" };
+    private readonly Switch _notify = new() { HorizontalOptions = LayoutOptions.Start, IsToggled = AppState.Config.Notifications.Enabled, AutomationId = "Onboarding.Notifications" };
+    private readonly TextField _budget = new() { Kind = TextFieldKind.Number, Suffix = "$", Placeholder = "brak", AutomationId = "Onboarding.Budget" };
     private ThemePreference _theme;
     private DensityPreference _density;
     private string _currency = AppState.Config.Currency.Display;
@@ -425,14 +428,16 @@ public sealed class OnboardingView : ContentView
 
     private View BackgroundStep()
     {
-        var hint = Ui.Text("Text.Tertiary", "Ikona w zasobniku, powiadomienia o limitach i budżet dzienny pojawią się w kolejnych wersjach.");
+        _budget.MaximumWidthRequest = Ui.D("SizeSelectMinWidth");
         return new VerticalStackLayout
         {
             Spacing = Ui.D("Space400"),
             Children =
             {
                 new FormRow { Label = "Uruchamiaj przy starcie systemu", Description = "OnionLLM startuje po zalogowaniu do Windows.", Field = _startup, IsHorizontal = true },
-                hint
+                new FormRow { Label = "Ikona w zasobniku", Description = "Podgląd kosztu i limitów, mini-widok jednym kliknięciem; zamknięcie okna chowa je do zasobnika.", Field = _tray, IsHorizontal = true },
+                new FormRow { Label = "Powiadomienia o limitach", Description = "Przy 80% i 100% limitów oraz budżetów; progi zmienisz w Ustawieniach.", Field = _notify, IsHorizontal = true },
+                new FormRow { Label = "Budżet dzienny (opcjonalnie)", Description = "W USD; puste = bez budżetu.", Field = _budget, IsHorizontal = true }
             }
         };
     }
@@ -448,6 +453,12 @@ public sealed class OnboardingView : ContentView
                 var config = AppState.Config.Clone();
                 config.Appearance.Theme = _theme;
                 config.Appearance.Density = _density;
+                config.Tray.Enabled = _tray.IsToggled;
+                config.Notifications.Enabled = _notify.IsToggled;
+                if (double.TryParse(_budget.Text.Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var budget) && budget > 0)
+                {
+                    config.Budgets.DailyUsd = budget;
+                }
                 if (config.Currency.Display != _currency)
                 {
                     config.Currency = new Core.Config.CurrencySettings { Display = _currency, RateSource = "nbp" };

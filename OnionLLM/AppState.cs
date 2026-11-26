@@ -125,7 +125,12 @@ public static class AppState
             {
             }
         }
+
+        Refreshed?.Invoke(null, EventArgs.Empty);
     }
+
+    /// <summary>Po udanym odświeżeniu danych, limitów i budżetów (mini-widok, zasobnik, powiadomienia).</summary>
+    public static event EventHandler? Refreshed;
 
     /// <summary>Collects progress from the sync thread; posts to the UI thread at most every poll interval and at source ends.</summary>
     private sealed class ProgressSink : IProgress<SyncProgress>

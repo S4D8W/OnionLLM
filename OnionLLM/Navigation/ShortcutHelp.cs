@@ -18,6 +18,7 @@ public static class ShortcutHelp
             (["F5", ShortcutService.Label("R")], "Odśwież dane"),
             ([ShortcutService.Label("B")], "Zwiń / rozwiń panel boczny"),
             ([ShortcutService.Label("Shift+T")], "Zawsze na wierzchu"),
+            ([ShortcutService.Label("Shift+M")], "Tryb kompaktowy (mini-widok)"),
             ([ShortcutService.Label("Shift+L")], "Przełącz motyw"),
             ([ShortcutService.BackLabel, ShortcutService.ForwardLabel], "Wstecz / Dalej"),
             (["?"], "Lista skrótów")
