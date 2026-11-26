@@ -2,7 +2,7 @@
 
 > **Dla kogo:** agenci i ludzie, którzy projektują lub implementują UI aplikacji OnionLLM (MAUI, desktop Windows + macOS).
 > **Status dokumentu:** obowiązujący, docelowy. Opisuje, jak aplikacja **ma** wyglądać i się zachowywać — nie jak wygląda dziś. Jeśli kod jest niezgodny z tym dokumentem, rację ma dokument, a kod jest do poprawy.
-> **Wersja:** 1.3 · 2026-11-26
+> **Wersja:** 1.4 · 2026-11-26
 
 ## Spis treści
 
@@ -1905,6 +1905,22 @@ Podgląd na żywo: mała karta przykładowa (StatTile + wiersz tabeli) pod polam
 
 **Mapowanie zbiorcze:** `SettingsViewModel.Status` / `IsBusy` → wskaźniki zapisu przy polach i StatusBar; `SaveCommand` → wywoływany przez autozapis (bez przycisku).
 
+### 6.10 Stan wdrożenia ekranów (Faza 12.3)
+
+Wszystkie ekrany §6.1–6.9 są zbudowane z komponentów §4 (pliki `Views/*View`, ViewModele w `ViewModels/`). Poniżej elementy, które **świadomie nie są renderowane** albo są uproszczone — każdy z powodem; reszta specyfikacji ekranu obowiązuje bez zmian.
+
+| Ekran | Nierenderowane / uproszczone | Powód |
+| --- | --- | --- |
+| Dziś (§6.1) | TrendDelta, sparkline 7/30 dni, budżet dnia; Alt+↑/↓ na karcie źródła (kolejność: przeciąganie i menu karty z „Przesuń w górę/dół”); oś bloku to odcinek start → teraz | Wymaga danych (§11.4); karty nie są fokusowalne; brak serii kosztu wewnątrz bloku |
+| Limity (§6.2) | Historia wykorzystania, prognozy 5 h / 7 d, Budżety, podsumowanie powiadomień | Wymaga danych |
+| Raporty (§6.3) | Heatmapa „Dni × godziny” (jest kalendarz 12 mies.), udział „Projekty” w donucie, TrendDelta KPI; kolumna „Modele” jako tekst zamiast ModelTagów | Wymaga danych; czytelność wiersza |
+| Sesje (§6.4) | Filtr „Tylko aktywne”, StatusBadge „Aktywna” w wierszu, „Przebieg” w drawerze | Wymaga danych (`SessionRow.IsActive`, seria w sesji) |
+| Bloki (§6.5) | Przerwy są wierszami tabeli (nieaktywnymi), nie osobnym separatorem; „Sesje w bloku” w drawerze | Ograniczenie DataTable; Wymaga danych |
+| Projekty (§6.6) | Eksport tylko „Kopiuj jako tabelę”; „Top projekty” jako paski ProgressBar zamiast BarChart poziomego | Brak eksportu projektów w Core; brak poziomego wariantu wykresu |
+| Modele (§6.7) | — (pełny zakres) | — |
+| Źródła (§6.8) | Kolumny „Ostatnia aktywność” i „Wpisy” | Wymaga danych (statystyki ledgera per źródło) |
+| Ustawienia (§6.9) | „Powiadomienia i budżety”, waluta, pozostałe pola „Okno i zasobnik” poza „Zawsze na wierzchu”, podgląd na żywo statusline, opcja „Bez limitu” limitu tokenów | Wymaga danych / platformy; podgląd wymaga renderera CLI; config zna tylko `max` lub liczbę |
+
 ---
 
 ## 7. Powierzchnie systemowe
@@ -2435,7 +2451,7 @@ Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls
 | BarChart (+ skumulowany, tryb %), LineChart/AreaChart, Sparkline, DonutChart | 4.8.2 | `Controls/Charts/Charts.cs` | Docelowe — wdrożone (1.3) |
 | Heatmap | 4.8.2 F | `Controls/Charts/Charts.cs` | Kalendarz: wdrożone (1.3); dni × godziny: Wymaga danych |
 | BlockTimeline | 4.8.2 H | `Controls/Charts/Charts.cs` | Docelowe — wdrożone (1.3) |
-| SourceCard | 6.1 | `Controls/SourceCard` | Docelowe (12.3) |
+| SourceCard | 6.1 | `Controls/SourceCard.cs` | Docelowe — wdrożone (1.4) |
 | MiniView | 7.2 | `Windows/MiniViewWindow` | Wymaga platformy |
 
 ### 11.4 Funkcje wymagające nowych danych
@@ -2452,9 +2468,11 @@ Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls
 | Historia limitów | zapisywanie odczytów limitów | tabela `limit_snapshots` w ledgerze (czas, limit, %, reset) |
 | Prognoza 5 h / 7 d | z historii odczytów | jak wyżej |
 | Heatmapa dni × godziny | agregacja godzinowa | raport `hourly` w `ReportModels` |
-| Trend per projekt, przebieg sesji, sesje w bloku | serie czasowe per encja | API w `UsageEngine` |
+| Trend per projekt — **dostarczone** (1.4, z raportu dziennego grupowanego po projekcie) | — | — |
+| Przebieg sesji, sesje w bloku, skumulowany koszt w bloku | serie czasowe per encja | API w `UsageEngine` |
+| Ostatnia aktywność i liczba wpisów per źródło (ekran Źródła) | statystyki ledgera per źródło | `UsageLedger.Statistics(source)` |
 | Flaga aktywności sesji w wierszu | `IsActive` w wierszu sesji | `SessionRow.IsActive` |
-| Rozbicie pól w VM | `WeekSummary`, `MonthSummary`, `Details`, `When`, `Extra`, `Diagnostics` jako struktury | refaktor ViewModeli (bez zmian w Core) |
+| Rozbicie pól w VM — **dostarczone** (1.4) | `WeekSummary`, `MonthSummary`, `Details`, `When`, `Extra`, `Diagnostics` jako struktury | refaktor ViewModeli (bez zmian w Core) |
 
 ### 11.5 Algorytm wariantów kolorów
 
@@ -2472,6 +2490,7 @@ Kontrast liczony wg WCAG 2.2 (luminancja względna sRGB). Skrypt referencyjny: `
 | Wersja | Data | Zmiana |
 | --- | --- | --- |
 | 1.0 | 2026-11-26 | Pierwsza wersja docelowego design systemu. |
+| 1.4 | 2026-11-26 | Faza 12.3 (ekrany): wszystkie ekrany §6.1–6.9 przebudowane na komponenty; nowe §6.10 (stan wdrożenia i świadome uproszczenia); SourceCard wdrożony; §11.4 — trend per projekt i rozbicie pól VM dostarczone, nowa pozycja „statystyki ledgera per źródło”. Wzorce runtime: widok nie może trafić do nowego rodzica, będąc w starym; nie przełączać `Shadow` na żywym przycisku WinUI. |
 | 1.3 | 2026-11-26 | Faza 12.2 (biblioteka komponentów): wdrożone komponenty §4 poza CommandPalette, TrendDelta i SourceCard (rejestr §11.3 z faktycznymi plikami), popovery (`PopoverService`), Drawer (`DrawerService`), routing klawiatury list (`KeyboardRouter`), wykresy na `ChartView`; Galeria komponentów i autotest (DEBUG) w checkliście §10.3; nowe tokeny (§11.1). |
 | 1.2 | 2026-11-26 | Faza 12.1 (struktura okna): host `MainShellPage` zamiast `Shell`, `Navigation/` (`ShellViewModel`, `NavigationService` z historią i M2, `ShortcutService`, `ToastService`, `DialogService`), ekrany w `Views/`; wdrożone Sidebar/NavItem, PageHeader, StatusBar, IconButton, Toast, Dialog; nowe tokeny `ColorHeroHover`, `ImageLogo`, `ScaleDialogEnter`, `PaddingToastHost`, `PaddingSidebarHeader`, styl `Divider.Edge`; etykiety StatusBar „Cennik: wbudowany, …”, „Błąd konfiguracji — Szczegóły”. |
 | 1.1 | 2026-11-26 | Faza 12.0 (fundament): generatory `tools/design/gen_tokens.py`, `palette.py`, `gen_logo.py`, `lint.py` i `tools/fonts/build_fonts.py`; nowe tokeny w §11.1 (`ColorTextOnDanger`, `ColorStateSelected`, `ColorHeroDecoration`, `ColorSwitchThumb`, `ColorTransparent`, `BrushHero`, `ColorSourceUnknown`, warianty promieni, `ScalePressed`, wymiary komponentów, `LayoutCardGap`, `LayoutRowPadding`, `SizeChartMain`); `appearance.*` i `window.alwaysOnTop` mają warstwę danych w Core (§11.4). |
