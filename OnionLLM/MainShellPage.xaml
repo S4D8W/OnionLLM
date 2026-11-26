@@ -37,6 +37,7 @@
                               ZIndex="10" />
         </Grid>
 
+        <controls:PopoverHost />
         <controls:ToastHost Padding="{StaticResource PaddingToastHost}" />
         <controls:DialogHost />
     </Grid>

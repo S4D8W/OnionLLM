@@ -22,6 +22,18 @@ public static class MotionTokens
 
     public static event EventHandler? Changed;
 
+    /// <summary>Search filtering debounce (§4.2.2).</summary>
+    public static TimeSpan SearchDebounce { get; } = TimeSpan.FromMilliseconds(150);
+
+    /// <summary>Text-field autosave delay after the last keystroke (§5.10).</summary>
+    public static TimeSpan AutosaveDelay { get; } = TimeSpan.FromMilliseconds(600);
+
+    /// <summary>How long „Zapisano” / the copy check mark stays visible (§5.10, §5.12).</summary>
+    public static TimeSpan FeedbackVisible { get; } = TimeSpan.FromMilliseconds(1500);
+
+    /// <summary>Toast auto-close (§4.6.3).</summary>
+    public static TimeSpan ToastVisible { get; } = TimeSpan.FromSeconds(5);
+
     /// <summary>Mode after combining the user setting with the OS reduce-motion preference.</summary>
     public static MotionPreference EffectiveMode { get; private set; } = MotionPreference.Full;
 

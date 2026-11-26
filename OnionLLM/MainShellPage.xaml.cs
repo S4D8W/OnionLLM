@@ -20,6 +20,9 @@ public partial class MainShellPage : ContentPage
         navigation.Register(Screen.Sessions, () => new SessionsView());
         navigation.Register(Screen.Blocks, () => new BlocksView());
         navigation.Register(Screen.Settings, () => new SettingsView());
+#if DEBUG
+        navigation.Register(Screen.Gallery, () => new GalleryView());
+#endif
         navigation.Attach(Presenter);
         _shell.HideUnavailable();
         ShortcutService.BuildMenuBar(this, navigation.IsAvailable);
@@ -39,6 +42,14 @@ public partial class MainShellPage : ContentPage
         _shell.UpdateLayout(Width);
         _shell.StartRefreshLoop(Dispatcher);
         _shell.UpdateStatus();
-        await _shell.NavigateAsync(Screen.Today);
+        var start = Screen.Today;
+#if DEBUG
+        // Developer aid: ONIONLLM_START_SCREEN=<Screen> opens a screen at start-up (e.g. Gallery).
+        if (Enum.TryParse<Screen>(Environment.GetEnvironmentVariable("ONIONLLM_START_SCREEN"), out var requested))
+        {
+            start = requested;
+        }
+#endif
+        await _shell.NavigateAsync(start);
     }
 }

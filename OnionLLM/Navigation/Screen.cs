@@ -13,7 +13,10 @@ public enum Screen
     Projects,
     Models,
     Sources,
-    Settings
+    Settings,
+
+    /// <summary>DEBUG-only component gallery (Faza 12.2).</summary>
+    Gallery
 }
 
 /// <summary>Sidebar group (§4.7.1).</summary>
@@ -38,7 +41,8 @@ public sealed record ScreenInfo(Screen Screen, string Label, string Glyph, strin
         new(Screen.Projects, "Projekty", Icons.FolderKanban, "Ctrl+6", NavGroup.Analysis),
         new(Screen.Models, "Modele", Icons.Cpu, "Ctrl+7", NavGroup.Analysis),
         new(Screen.Sources, "Źródła", Icons.Plug, "Ctrl+8", NavGroup.System),
-        new(Screen.Settings, "Ustawienia", Icons.Settings, ShortcutService.SettingsShortcutLabel, NavGroup.Footer)
+        new(Screen.Settings, "Ustawienia", Icons.Settings, ShortcutService.SettingsShortcutLabel, NavGroup.Footer),
+        new(Screen.Gallery, "Galeria komponentów", Icons.LayoutGrid, "", NavGroup.Footer)
     ];
 
     public static ScreenInfo Of(Screen screen) => All.First(info => info.Screen == screen);

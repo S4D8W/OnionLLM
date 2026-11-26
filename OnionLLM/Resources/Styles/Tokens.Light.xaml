@@ -69,6 +69,20 @@
     <Color x:Key="ColorHeroRingTrack">#33FFFFFF</Color>
     <Color x:Key="ColorHeroDecoration">#14FFFFFF</Color>
     <Color x:Key="ColorHeroHover">#1AFFFFFF</Color>
+    <Color x:Key="ColorHeroPillBg">#1FFFFFFF</Color>
+    <Color x:Key="ColorHeroProgressWarning">#FFD27A</Color>
+    <Color x:Key="ColorHeroProgressDanger">#FF9A9A</Color>
+    <Color x:Key="ColorStripe">#33FFFFFF</Color>
+    <Color x:Key="ColorSegmentActive">#FFFFFF</Color>
+    <Color x:Key="ColorStatusSuccessBorder">#4D117A3C</Color>
+    <Color x:Key="ColorStatusWarningBorder">#4DA35A00</Color>
+    <Color x:Key="ColorStatusDangerBorder">#4DC4262E</Color>
+    <Color x:Key="ColorStatusInfoBorder">#4D1F64D1</Color>
+    <Color x:Key="ColorHeat0">#F3F2F6</Color>
+    <Color x:Key="ColorHeat1">#F5C6DF</Color>
+    <Color x:Key="ColorHeat2">#DA6AA7</Color>
+    <Color x:Key="ColorHeat3">#A23272</Color>
+    <Color x:Key="ColorHeat4">#6A214B</Color>
     <Color x:Key="ColorStateHover">#0A16151B</Color>
     <Color x:Key="ColorStatePressed">#1416151B</Color>
     <Color x:Key="ColorStateSelected">#FBE4F0</Color>
@@ -142,6 +156,20 @@
     <SolidColorBrush x:Key="ColorHeroRingTrackBrush" Color="#33FFFFFF" />
     <SolidColorBrush x:Key="ColorHeroDecorationBrush" Color="#14FFFFFF" />
     <SolidColorBrush x:Key="ColorHeroHoverBrush" Color="#1AFFFFFF" />
+    <SolidColorBrush x:Key="ColorHeroPillBgBrush" Color="#1FFFFFFF" />
+    <SolidColorBrush x:Key="ColorHeroProgressWarningBrush" Color="#FFD27A" />
+    <SolidColorBrush x:Key="ColorHeroProgressDangerBrush" Color="#FF9A9A" />
+    <SolidColorBrush x:Key="ColorStripeBrush" Color="#33FFFFFF" />
+    <SolidColorBrush x:Key="ColorSegmentActiveBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ColorStatusSuccessBorderBrush" Color="#4D117A3C" />
+    <SolidColorBrush x:Key="ColorStatusWarningBorderBrush" Color="#4DA35A00" />
+    <SolidColorBrush x:Key="ColorStatusDangerBorderBrush" Color="#4DC4262E" />
+    <SolidColorBrush x:Key="ColorStatusInfoBorderBrush" Color="#4D1F64D1" />
+    <SolidColorBrush x:Key="ColorHeat0Brush" Color="#F3F2F6" />
+    <SolidColorBrush x:Key="ColorHeat1Brush" Color="#F5C6DF" />
+    <SolidColorBrush x:Key="ColorHeat2Brush" Color="#DA6AA7" />
+    <SolidColorBrush x:Key="ColorHeat3Brush" Color="#A23272" />
+    <SolidColorBrush x:Key="ColorHeat4Brush" Color="#6A214B" />
     <SolidColorBrush x:Key="ColorStateHoverBrush" Color="#0A16151B" />
     <SolidColorBrush x:Key="ColorStatePressedBrush" Color="#1416151B" />
     <SolidColorBrush x:Key="ColorStateSelectedBrush" Color="#FBE4F0" />

@@ -32,6 +32,16 @@ namespace OnionLLM
                     handler.PlatformView.HorizontalContentAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Left;
                 }
             });
+
+            // TextField (DESIGN.md §4.2.0) draws its own frame; the inner WinUI TextBox must be borderless and transparent.
+            Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("OnionBareEntry", (handler, view) =>
+            {
+                if (view is Controls.BareEntry)
+                {
+                    handler.PlatformView.BorderThickness = new Microsoft.UI.Xaml.Thickness(0);
+                    handler.PlatformView.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+                }
+            });
 #endif
 
 #if DEBUG

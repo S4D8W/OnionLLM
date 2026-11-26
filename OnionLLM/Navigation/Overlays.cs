@@ -49,7 +49,6 @@ public sealed class ToastItem
 public static class ToastService
 {
     private const int MaxToasts = 3;
-    private static readonly TimeSpan AutoClose = TimeSpan.FromSeconds(5);
 
     public static ObservableCollection<ToastItem> Items { get; } = [];
 
@@ -82,7 +81,7 @@ public static class ToastService
 
     private static async Task CloseLaterAsync(ToastItem item)
     {
-        await Task.Delay(AutoClose);
+        await Task.Delay(Design.MotionTokens.ToastVisible);
         Close(item);
     }
 

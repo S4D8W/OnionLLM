@@ -269,6 +269,9 @@ public sealed class ShellViewModel : ObservableObject
             case ShortcutCommand.Forward:
                 await Navigation.GoForwardAsync();
                 break;
+            case ShortcutCommand.Escape when Controls.PopoverService.IsOpen:
+                Controls.PopoverService.Close();
+                break;
             case ShortcutCommand.Escape:
                 IsOverlayOpen = false;
                 break;
