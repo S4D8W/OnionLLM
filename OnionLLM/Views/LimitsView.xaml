@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Limity (DESIGN.md §6.2): one place for „ile mi zostało i kiedy reset?”. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             xmlns:charts="clr-namespace:OnionLLM.Controls.Charts"
+             xmlns:vm="clr-namespace:OnionLLM.ViewModels"
+             xmlns:res="clr-namespace:OnionLLM.Resources"
+             x:Class="OnionLLM.Views.LimitsView"
+             x:DataType="vm:LimitsViewModel">
+    <Grid RowDefinitions="Auto,Auto,*"
+          Padding="{DynamicResource LayoutPagePadding}"
+          RowSpacing="{StaticResource Space300}">
+        <controls:PageHeader Title="Limity" Subtitle="{Binding Subtitle}">
+            <Button Style="{StaticResource Button.Secondary.Sm}" Text="Odśwież limity" Command="{Binding RefreshLimitsCommand}" AutomationId="Limits.Refresh" />
+        </controls:PageHeader>
+
+        <controls:Banner Grid.Row="1" Kind="Info" IsVisible="{Binding ShowNoLimitsBanner}" Title="Limity Claude są niedostępne"
+                         Message="Zaloguj się ponownie w Claude Code (claude /login), aby odczytać limity konta." />
+
+        <ScrollView Grid.Row="2">
+            <VerticalStackLayout Spacing="{DynamicResource LayoutSectionGap}">
+                <controls:EmptyState IsVisible="{Binding HasClaude, Converter={StaticResource Invert}}" Glyph="{x:Static res:Icons.Gauge}"
+                                     Title="Brak źródeł z limitami" Description="Limity konta są dziś dostępne tylko dla Claude Code, którego nie wykryto na tym komputerze." />
+
+                <controls:Section Title="Claude" Description="Limity konta z API Anthropic i limit tokenów bloku liczony lokalnie" IsVisible="{Binding HasClaude}">
+                    <controls:Section.Body>
+                        <Grid x:Name="ClaudeGrid" ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource Space800}" RowSpacing="{DynamicResource LayoutGridGap}">
+                            <charts:OnionRings x:Name="Rings" Rings="{Binding Rings}"
+                                               WidthRequest="{StaticResource SizeChartAux}" HeightRequest="{StaticResource SizeChartAux}"
+                                               VerticalOptions="Start" AutomationId="Limits.Rings" />
+                            <VerticalStackLayout x:Name="Gauges" Grid.Column="1" Spacing="{StaticResource Space600}">
+                                <controls:LimitGauge Title="Limit 5-godzinny" Percent="{Binding FiveHour}" ResetText="{Binding FiveHourReset}"
+                                                     State="{Binding LimitState}" LiveTooltip="{Binding LiveTooltip}" AutomationId="Limits.FiveHour" />
+                                <controls:LimitGauge Title="Limit 7-dniowy" Percent="{Binding SevenDay}" ResetText="{Binding SevenDayReset}"
+                                                     State="{Binding LimitState}" LiveTooltip="{Binding LiveTooltip}" AutomationId="Limits.SevenDay" />
+                                <VerticalStackLayout Spacing="{StaticResource Space200}" IsVisible="{Binding HasActiveBlock}">
+                                    <controls:LimitGauge Title="Aktywny blok" Percent="{Binding BlockPercent}" ResetText="{Binding BlockReset}"
+                                                         ProjectionText="{Binding BlockProjection}" State="Estimated"
+                                                         UnavailableText="Limit tokenów bloku nie jest ustawiony." AutomationId="Limits.Block" />
+                                    <controls:BurnRateBadge IsVisible="{Binding HasBurnRate}" CostPerHour="{Binding BurnCostPerHour}"
+                                                            TokensPerMinute="{Binding BurnTokensPerMinute}" Level="{Binding BurnLevel}" />
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Grid>
+                    </controls:Section.Body>
+                </controls:Section>
+
+                <controls:Section Title="Inne narzędzia" Description="Brak danych o limitach dla tych narzędzi" IsCollapsible="True"
+                                  StateKey="limits.others" IsVisible="{Binding HasOtherSources}">
+                    <controls:Section.Body>
+                        <VerticalStackLayout x:Name="OthersList" BindableLayout.ItemsSource="{Binding OtherSources}" />
+                    </controls:Section.Body>
+                </controls:Section>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentView>

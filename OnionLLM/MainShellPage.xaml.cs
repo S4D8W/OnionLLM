@@ -16,6 +16,7 @@ public partial class MainShellPage : ContentPage
 
         var navigation = _shell.Navigation;
         navigation.Register(Screen.Today, () => new TodayView());
+        navigation.Register(Screen.Limits, () => new LimitsView());
         navigation.Register(Screen.Reports, () => new ReportsView());
         navigation.Register(Screen.Sessions, () => new SessionsView());
         navigation.Register(Screen.Blocks, () => new BlocksView());
