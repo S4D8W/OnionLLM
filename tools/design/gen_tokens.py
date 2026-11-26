@@ -178,7 +178,7 @@ STATIC_DOUBLES = {
     "SizeDialogSm": 440, "SizeDialogMd": 560, "SizeToastWidth": 360, "SizePaletteWidth": 640,
     "SizeSettingsNav": 220, "SizeFormMaxWidth": 760, "SizeTextMaxWidth": 560, "SizeOnboardingCard": 640,
     "SizeTokenBreakdownBar": 8, "SizeInlineBar": 4, "SizeModelTag": 20, "SizeStatusDot": 8,
-    "SizeAvatarXs": 16, "SizeDotSm": 6, "SizeAccentBar": 3, "SizeChevron": 14, "SizeTabUnderline": 2, "SizeIllustration": 80, "SizeIllustrationInline": 24, "SizeHeroDot": 6, "SizeFormLabel": 280, "SizeFormField": 400, "SizeIndent": 24, "SizeStatTileMinCompact": 96, "SizePopoverMaxHeight": 360, "SizeSelectMinWidth": 160, "SizeCalendarCell": 32, "SizeEditorMinHeight": 120, "SizeBadge": 20, "SizeCheckbox": 18, "SizeStatTileMin": 112, "SizeAvatarLg": 48, "SizeChartAux": 160, "SizeSparkline": 28,
+    "SizeAvatarXs": 16, "SizeDotSm": 6, "SizeChartBarMax": 28, "SizeAccentBar": 3, "SizeChevron": 14, "SizeTabUnderline": 2, "SizeIllustration": 80, "SizeIllustrationInline": 24, "SizeHeroDot": 6, "SizeFormLabel": 280, "SizeFormField": 400, "SizeIndent": 24, "SizeStatTileMinCompact": 96, "SizePopoverMaxHeight": 360, "SizeSelectMinWidth": 160, "SizeCalendarCell": 32, "SizeEditorMinHeight": 120, "SizeBadge": 20, "SizeCheckbox": 18, "SizeStatTileMin": 112, "SizeAvatarLg": 48, "SizeChartAux": 160, "SizeSparkline": 28,
     "BreakpointWide": 1280, "BreakpointMedium": 900, "BreakpointCards": 760,
 }
 STATIC_THICKNESS = {
@@ -206,7 +206,7 @@ DENSITY = {
     "SizeControlHeight": (36, 30), "SizeControlHeightSm": (28, 24), "SizeControlHeightLg": (44, 36),
     "SizeRowHeight": (44, 32), "SizeRowHeightDense": (36, 28), "SizeNavItem": (36, 32),
     "SizeHeaderHeight": (64, 52), "SizeAvatarMd": (32, 28), "SizeAvatarSm": (20, 18), "SizeProgressBar": (6, 4),
-    "SizeRingHero": (168, 136), "SizeChartMain": (240, 200),
+    "SizeRingHero": (168, 136), "SizeRingThickness": (10, 8), "SizeChartMain": (240, 200),
     "LayoutSectionGap": (32, 20), "LayoutGridGap": (16, 12), "LayoutContentMaxWidth": (1440, 1600),
     "LayoutCardGap": (12, 8),
 }

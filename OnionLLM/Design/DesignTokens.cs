@@ -21,8 +21,51 @@ public static class DesignTokens
     public static Thickness Thickness(string key) =>
         TryGet(key, out var value) && value is Thickness thickness ? thickness : default;
 
-    /// <summary>Font alias (e.g. <c>NumMedium</c>) — fonts are registered under the token name itself.</summary>
-    public static string Font(string alias) => alias;
+    private static readonly Dictionary<string, string> FontFamilies = [];
+
+#if WINDOWS
+    private static readonly Lazy<bool> Packaged = new(() =>
+    {
+        try
+        {
+            return Windows.ApplicationModel.Package.Current is not null;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    });
+
+    private static bool IsPackaged => Packaged.Value;
+#endif
+
+    /// <summary>
+    /// Font family usable by canvas drawing for an alias (e.g. <c>NumMedium</c>). Controls take the alias; Win2D needs the
+    /// resolved family (<c>ms-appx:///InterTnum-Medium.ttf#Inter Tnum</c>), which the MAUI font manager provides.
+    /// </summary>
+    public static string Font(string alias)
+    {
+        if (FontFamilies.TryGetValue(alias, out var family))
+        {
+            return family;
+        }
+
+#if WINDOWS
+        if (Application.Current?.Handler?.MauiContext?.Services.GetService(typeof(IFontManager)) is IFontManager fonts)
+        {
+            family = fonts.GetFontFamily(Microsoft.Maui.Font.OfSize(alias, 12)).Source;
+            // Win2D resolves ms-appx font URIs only with package identity (MSIX); unpackaged builds get the family name.
+            if (!IsPackaged && family.IndexOf('#') is var hash and >= 0)
+            {
+                family = family[(hash + 1)..];
+            }
+
+            FontFamilies[alias] = family;
+            return family;
+        }
+#endif
+        return alias;
+    }
 
     /// <summary>Theme-tuned colour of a source (<c>color.source.&lt;id&gt;</c>), never the raw brand hex from Core.</summary>
     public static Color SourceColor(string sourceId) => Color(SourceKey(sourceId));

@@ -1,5 +1,6 @@
 #if DEBUG
 using OnionLLM.Controls;
+using OnionLLM.Controls.Charts;
 using OnionLLM.Core.Config;
 using OnionLLM.Core.Reports;
 using OnionLLM.Design;
@@ -163,6 +164,7 @@ public sealed class GalleryView : ContentView, IScreenView
                             }
                         }
                     })),
+                Group("Wykresy", Charts()),
                 Group("DataTable i Drawer", Table()),
                 Group("Edytory", Columns(
                     new FormRow { Label = "Aliasy projektów", Field = new KeyValueEditor { Text = "onion-app=Onion,api=Backend API", Separator = ",", KeyPlaceholder = "katalog", ValuePlaceholder = "nazwa" } },
@@ -272,6 +274,32 @@ public sealed class GalleryView : ContentView, IScreenView
             await Task.Delay(TimeSpan.FromMilliseconds(400));
             ShellViewModel.Instance.UpdateLayout(1400);
         });
+        await Step("chart morph + percent", async () =>
+        {
+            var chart = Find<BarChart>(this).First();
+            chart.IsPercent = true;
+            var data = chart.Data;
+            chart.Data = new ChartData { Categories = data.Categories, Series = data.Series.Reverse().ToList(), Unit = data.Unit, LastInProgress = true };
+            await Task.Delay(TimeSpan.FromMilliseconds(400));
+            chart.IsPercent = false;
+        });
+        await Step("chart card table toggle", () =>
+        {
+            var card = Find<ChartCard>(this).First();
+            var toggle = Find<IconButton>(card).Last();
+            toggle.SendClicked();
+            toggle.SendClicked();
+            return Task.CompletedTask;
+        });
+        await Step("chart states", async () =>
+        {
+            var chart = Find<LineChart>(this).First();
+            foreach (var state in new[] { ChartState.Loading, ChartState.Error, ChartState.Ready })
+            {
+                chart.State = state;
+                await Task.Delay(TimeSpan.FromMilliseconds(200));
+            }
+        });
         Diagnostics.Trace("selftest done");
     }
 
@@ -296,6 +324,99 @@ public sealed class GalleryView : ContentView, IScreenView
     }
 
     public Task RefreshAsync(bool force) => AppState.RefreshDataAsync(force);
+
+    private static View Charts()
+    {
+        var days = Enumerable.Range(0, 26).Select(i => DateTime.Today.AddDays(i - 25)).ToList();
+        var random = new Random(7);
+        double[] Series(double scale) => days.Select(_ => Math.Round(random.NextDouble() * scale, 2)).ToArray();
+        var stacked = new ChartData
+        {
+            Categories = days.Select(Fmt.DayTick).ToList(),
+            CategoryDetails = days.Select(Fmt.DayDate).ToList(),
+            Unit = ChartUnit.Cost,
+            LastInProgress = true,
+            Description = "Wykres słupkowy kosztu dziennego według źródeł.",
+            Series =
+            [
+                new ChartSeries { Id = "claude", Label = "Claude Code", ColorKey = DesignTokens.SourceKey("claude"), Points = Series(12) },
+                new ChartSeries { Id = "codex", Label = "Codex CLI", ColorKey = DesignTokens.SourceKey("codex"), Points = Series(6) },
+                new ChartSeries { Id = "copilot", Label = "GitHub Copilot", ColorKey = DesignTokens.SourceKey("copilot"), Points = Series(3) }
+            ]
+        };
+        var single = new ChartData
+        {
+            Categories = stacked.Categories,
+            CategoryDetails = stacked.CategoryDetails,
+            LastInProgress = true,
+            ShowAverage = true,
+            Description = "Koszt dzienny.",
+            Series = [new ChartSeries { Id = "cost", Label = "Koszt", ColorKey = "ColorDataCost", Points = Series(20) }]
+        };
+        var line = new ChartData
+        {
+            Categories = stacked.Categories,
+            CategoryDetails = stacked.CategoryDetails,
+            ProjectionFrom = 18,
+            Thresholds = [new ChartThreshold(260, "Budżet 260 $", "ColorStatusWarning")],
+            Description = "Skumulowany koszt miesiąca z prognozą.",
+            Series = [new ChartSeries { Id = "sum", Label = "Koszt skumulowany", ColorKey = "ColorDataCost", Points = days.Select((_, i) => i * 11.0).ToArray() }]
+        };
+        var donut = new ChartData
+        {
+            Categories = ["30 dni"],
+            Description = "Udział źródeł w koszcie.",
+            Series = stacked.Series.Select(series => new ChartSeries { Id = series.Id, Label = series.Label, ColorKey = series.ColorKey, Points = [series.Total] }).ToList()
+        };
+        var stackedChart = new BarChart { Data = stacked, AutomationId = "Gallery.StackedChart" };
+        var percent = new SegmentedControl { ItemsSource = new[] { "Wartości", "%" }, IsSmall = true, Label = "Tryb" };
+        percent.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SegmentedControl.SelectedIndex)) { stackedChart.IsPercent = percent.SelectedIndex == 1; } };
+        var heat = Enumerable.Range(0, 120).Select(i => (DateTime.Today.AddDays(i - 119), i % 6 == 0 ? 0 : random.NextDouble() * 20)).ToList();
+        return new VerticalStackLayout
+        {
+            Spacing = Ui.D("LayoutGridGap"),
+            Children =
+            {
+                new ChartCard { Title = "W czasie", Subtitle = "1–26 lis 2026", Chart = stackedChart, Controls = percent, LegendStateKey = "gallery.stacked" },
+                Columns(
+                    new ChartCard { Title = "Koszt dzienny", Chart = new BarChart { Data = single }, ShowLegend = false },
+                    new ChartCard { Title = "Koszt miesiąca", Chart = new LineChart { Data = line }, ShowLegend = false }),
+                Columns(
+                    new ChartCard { Title = "Udział", Chart = new DonutChart { Data = donut, CenterLabel = "Koszt · 30 dni" } },
+                    new Card { Title = "Aktywność", Body = new Heatmap { Days = heat } },
+                    new Card
+                    {
+                        Title = "Pierścienie i blok",
+                        Body = new VerticalStackLayout
+                        {
+                            Spacing = Ui.D("Space400"),
+                            Children =
+                            {
+                                new Grid
+                                {
+                                    ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star)],
+                                    ColumnSpacing = Ui.D("Space400"),
+                                    Children =
+                                    {
+                                        new OnionRings { WidthRequest = Ui.D("SizeChartAux") * 0.75, HeightRequest = Ui.D("SizeChartAux") * 0.75, Rings = Rings() }
+                                    }
+                                }.With(grid => grid.Add(new RingLegend { Rings = Rings() }, 1)),
+                                new BlockTimeline { Cumulative = [0, 0.4, 1.1, 1.6, 2.6, 3.1], Now = 0.6, Projection = 5.4, Limit = 6 },
+                                new BlockTimeline { Cumulative = [0, 1, 2, 2.5], Now = 1, IsMini = true },
+                                new Sparkline { Points = Series(10) }
+                            }
+                        }
+                    })
+            }
+        };
+    }
+
+    private static IReadOnlyList<OnionRing> Rings() =>
+    [
+        new OnionRing("7 dni", 41, "ColorChartCat1", "reset w piątek 09:00"),
+        new OnionRing("5 h", 86, "ColorChartCat4", "reset za 2\u00A0h 14\u00A0min"),
+        new OnionRing("Aktywny blok", 48, DesignTokens.SourceKey("claude"))
+    ];
 
     private static View Table()
     {
