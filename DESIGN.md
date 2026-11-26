@@ -2,7 +2,7 @@
 
 > **Dla kogo:** agenci i ludzie, którzy projektują lub implementują UI aplikacji OnionLLM (MAUI, desktop Windows + macOS).
 > **Status dokumentu:** obowiązujący, docelowy. Opisuje, jak aplikacja **ma** wyglądać i się zachowywać — nie jak wygląda dziś. Jeśli kod jest niezgodny z tym dokumentem, rację ma dokument, a kod jest do poprawy.
-> **Wersja:** 1.7 · 2026-11-26
+> **Wersja:** 1.8 · 2026-11-26
 
 ## Spis treści
 
@@ -1924,14 +1924,14 @@ Wszystkie ekrany §6.1–6.9 są zbudowane z komponentów §4 (pliki `Views/*Vie
 | Ekran | Nierenderowane / uproszczone | Powód |
 | --- | --- | --- |
 | Dziś (§6.1) | TrendDelta i sparkline dla „30 dni” (snapshot ma tylko 30 dni, bez poprzednich 30) | Wymaga danych (seria 60 dni) |
-| Limity (§6.2) | „Powiadomienia” (podsumowanie progów); resety nie są zaznaczane na wykresie historii | Wymaga platformy (powiadomienia systemowe) |
+| Limity (§6.2) | Resety nie są zaznaczane na wykresie historii | uproszczenie wykresu |
 | Raporty (§6.3) | — (pełny zakres) | — |
 | Sesje (§6.4) | — (pełny zakres) | — |
 | Bloki (§6.5) | — (pełny zakres) | — |
 | Projekty (§6.6) | — (pełny zakres; §6.6 nie przewiduje eksportu — jest „Kopiuj jako tabelę”) | — |
 | Modele (§6.7) | — (pełny zakres) | — |
 | Źródła (§6.8) | — (pełny zakres) | — |
-| Ustawienia (§6.9) | Z „Powiadomienia i budżety” tylko budżety (podstrona „Budżety”); pola „Okno i zasobnik” poza „Zawsze na wierzchu”; opcje eksportu z kolumną w walucie wyświetlania | Wymaga platformy (powiadomienia, tray, mini-widok); eksport zawsze w USD (§5.1) |
+| Ustawienia (§6.9) | „Koszt dnia obok ikony w pasku menu” (macOS); kolejność modułów mini-widoku przyciskami ↑/↓ zamiast przeciągania; opcje eksportu z kolumną w walucie wyświetlania | Wymaga platformy (macOS); eksport zawsze w USD (§5.1) |
 
 ---
 
@@ -1947,7 +1947,9 @@ Wszystkie ekrany §6.1–6.9 są zbudowane z komponentów §4 (pliki `Views/*Vie
 | Zawsze na wierzchu | opcja, domyślnie **wyłączona** (Ustawienia → Okno i zasobnik; paleta poleceń; menu traya). Stan widoczny w StatusBar ikoną `pin` |
 | Zamknięcie (X) | gdy tray włączony i „Zamknięcie minimalizuje do zasobnika” — chowa okno; pierwszy raz pokazuje powiadomienie „OnionLLM działa w tle. Kliknij ikonę w zasobniku, aby otworzyć.” Inaczej — zamyka aplikację |
 
-### 7.2 Tryb kompaktowy (mini-widok) `Wymaga platformy`
+### 7.2 Tryb kompaktowy (mini-widok)
+
+**Stan wdrożenia (1.8, Windows):** `Views/MiniViewPage.cs` + `Navigation/WindowService.cs` + `Platforms/Windows/WindowPlatform.cs`. Osobne okno MAUI bez paska tytułu (`OverlappedPresenter.SetBorderAndTitleBar(true, false)`, cienka ramka systemowa daje cień), zaokrąglenia DWM (Windows 11), przeciąganie nagłówka natywnie (`WM_NCLBUTTONDOWN`), pozycja w `ViewState`, wysokość z pomiaru treści (140–520). Otwarcie mini-widoku chowa okno główne; „Rozwiń”, dwuklik nagłówka, zamknięcie i Ctrl+Shift+M przywracają je. Menu prawego przycisku: moduły i „Zawsze na wierzchu”. Dane z `Navigation/LiveState` (wspólnego dla zasobnika i powiadomień). macOS (popover z paska menu) — `Wymaga platformy`.
 
 **Cel:** stały, mały podgląd najważniejszych liczb — następca usuniętego widżetu Windows.
 
@@ -1969,7 +1971,9 @@ Wszystkie ekrany §6.1–6.9 są zbudowane z komponentów §4 (pliki `Views/*Vie
 
 **Stany:** każdy moduł obsługuje `S-LOAD` (skeleton 1–2 linii), `S-NOLIMITS` („Limity niedostępne”), `S-EMPTY` („Brak aktywności dziś”). Wszystkie moduły wyłączone → komunikat „Wybierz moduły (prawy przycisk)”.
 
-### 7.3 Zasobnik systemowy (Windows) `Wymaga platformy`
+### 7.3 Zasobnik systemowy (Windows)
+
+**Stan wdrożenia (1.8):** `Platforms/Windows/TrayIcon.cs` — Win32 `Shell_NotifyIcon` (wersja 4) z podklasą okna głównego (`SetWindowSubclass`), ikony `Resources/Raw/tray/tray-<light|dark>-<ok|warning|danger>.ico` generowane przez `tools/design/gen_tray.py` (16–32 px, kolor wg `SystemUsesLightTheme`), kropka wg najwyższego aktywnego alertu (`LiveState.Level`), ponowne dodanie po restarcie Eksploratora (`TaskbarCreated`). Pojedynczy klik czeka na czas dwukliku, żeby dwuklik nie przełączał mini-widoku. Mini-widok z kliknięcia otwiera się w swojej pozycji (nie „przy ikonie”). Zamknięcie okna (X) chowa je do zasobnika, gdy ikona jest włączona (§7.1), pierwszy raz z powiadomieniem.
 
 - **Ikona:** znak cebuli (§7.7) w wariancie monochromatycznym zgodnym z motywem paska zadań; nakładka-kropka statusu (prawy dolny róg): brak (OK), `status.warning`, `status.danger` — wg najwyższego aktywnego alertu (§5.8).
 - **Tooltip:** „OnionLLM · dziś 12,34 $ · 5 h: 62% · 7 dni: 41%”.
@@ -1978,6 +1982,8 @@ Wszystkie ekrany §6.1–6.9 są zbudowane z komponentów §4 (pliki `Views/*Vie
 - Implementacja: Win32 `Shell_NotifyIcon` lub biblioteka (np. H.NotifyIcon) — decyzja techniczna poza tym dokumentem; wygląd i zachowanie jak wyżej.
 
 ### 7.4 Pasek menu (macOS) `Wymaga platformy`
+
+**Stan (1.8):** nie wdrożone — wymaga mostka AppKit (bundle plugin) i budowy na Macu.
 
 - **NSStatusItem:** ikona szablonowa (template image) cebuli 18 pt + opcjonalnie koszt dnia obok („12,34 $”, font systemowy monospaced-digit — wyjątek od reguły fontów, bo pasek menu wymaga fontu systemowego).
 - Kolor tekstu wg stanu: domyślny; przy ostrzeżeniu dodatkowa kropka `status.warning`.
@@ -1994,13 +2000,17 @@ Pełnoekranowy kreator w oknie głównym (bez sidebaru), wyśrodkowana karta 640
 | 2 | „Wygląd i waluta” | Motyw (3 kafle z podglądem), Waluta wyświetlania, Gęstość. | „Dalej” |
 | 3 | „Praca w tle” | Toggle „Uruchamiaj przy starcie systemu”, „Ikona w zasobniku / pasku menu”, „Powiadomienia o limitach” (z prośbą o zgodę systemu przy włączeniu), opcjonalny budżet dzienny. | „Zacznij” (Primary `lg`) |
 
+**Zmiany 1.8:** krok 3 (Windows) ma „Uruchamiaj przy starcie systemu”, „Ikona w zasobniku”, „Powiadomienia o limitach” i opcjonalny „Budżet dzienny” (USD). Windows nie wymaga zgody na powiadomienia.
+
 **Zmiany 1.7:** krok 2 to „Wygląd i waluta” (USD · PLN · EUR, kurs NBP); import pokazuje OnionRings z postępem plików trzech pierwszych narzędzi i listę „Pliki X z Y · N wpisów” (zdarzenia `SyncProgress`); „Kontynuuj w tle” zostawia Banner `S-IMPORT` z bieżącym źródłem i liczbą wpisów nad treścią ekranów.
 
 **Stan wdrożenia (1.5, `Views/OnboardingView.cs`):** `S-FIRST` = brak znacznika ukończenia w `ViewState`; instalacje, których baza była już synchronizowana, są oznaczane jako ukończone bez kreatora. Pętla odświeżania startuje dopiero po kreatorze (pierwszy sync uwzględnia wybór narzędzi). Krok 2 nosi tytuł „Wygląd” — waluta `Wymaga danych`; motyw i gęstość działają na żywo (kafle z miniaturą okna rysowaną ze słownika tokenów danego motywu), „Pomiń” cofa podgląd. Krok 3 istnieje tylko na Windows i zawiera wyłącznie „Uruchamiaj przy starcie systemu” (zasobnik, powiadomienia i budżet — `Wymaga platformy` / `Wymaga danych`); na macOS kreator ma 2 kroki. Import: Spinner + lista śledzonych narzędzi zamiast pierścieni z postępem (postęp „pliki X z Y” wymaga zdarzeń postępu synchronizacji w Core — §11.4); Toast z liczbą wpisów i narzędzi po zakończeniu; „Kontynuuj w tle” zamyka kreator (Banner `S-IMPORT` nierenderowany z tego samego powodu). „Dodaj ścieżkę ręcznie” kończy kreator i otwiera Źródła.
 
 Po „Zacznij”: **import historii** — ekran z OnionRings animowanym jako wskaźnik postępu (pierścienie = źródła), lista źródeł z postępem (pliki X z Y, wpisy), tekst „Wczytywanie historii z dysku. Nic nie jest wysyłane do internetu.” Po zakończeniu — przejście do „Dziś” z Toastem „Wczytano 12 480 wpisów z 4 narzędzi”. Import można zminimalizować („Kontynuuj w tle”) — wtedy `S-IMPORT` na ekranach.
 
-### 7.6 Powiadomienia systemowe `Wymaga platformy`
+### 7.6 Powiadomienia systemowe
+
+**Stan wdrożenia (1.8):** progi i treści — `ViewModels/Alerts.cs` (`AlertEvaluator`, `AlertLog` — raz na okno limitu, wyciszenie, ciche godziny; testy `AlertTests`), wysyłka — `Navigation/NotificationCenter.cs` po każdej aktualizacji `LiveState`. Windows: App Notifications z przyciskami „Otwórz” / „Wycisz na 1 h” (`Platforms/Windows/WindowsNotifier.cs`) — działają w wydaniu MSIX; w niespakowanym buildzie Debug rejestracja się nie udaje (brak `Microsoft.WindowsAppRuntime.Insights.Resource.dll` w runtime), więc rezerwą jest powiadomienie z ikony w zasobniku (`NIF_INFO`: tytuł, treść, bez przycisków, klik otwiera właściwy ekran), a bez ikony — Toast w aplikacji. macOS (`UNUserNotificationCenter`) — nie wdrożone (wymaga Maca).
 
 - Windows: App Notifications (Windows App SDK); macOS: `UNUserNotificationCenter`.
 - Struktura: tytuł (stan) · treść (liczby + czas) · akcje: „Otwórz” (domyślna), „Wycisz na 1 h”.
@@ -2212,7 +2222,7 @@ Na macOS Ctrl → ⌘, Alt → ⌥. Skróty są pokazywane w tooltipach, menu i 
 | Alt+↑ / Alt+↓ | Przesuń kartę źródła | Dziś |
 | ? (Shift+/) | Lista skrótów (dialog) | globalny |
 
-**Stan wdrożenia (1.5):** działają wszystkie skróty z tabeli poza Ctrl+Shift+M (mini-widok — `Wymaga platformy`). Alt+↑/↓ (1.6) przesuwa kartę źródła, która ostatnio dostała kliknięcie lub fokus swojego przycisku „Więcej” (Tab); fokus wraca na kartę po przesunięciu. Ctrl+F i „/” ustawiają fokus w pierwszym widocznym SearchField ekranu, Ctrl+E otwiera menu pierwszego widocznego SplitButton („Eksportuj”); na ekranach bez nich skrót nic nie robi. Ctrl+Shift+L, Ctrl+Shift+T i „Przełącz gęstość” z palety zapisują konfigurację (`ViewModels/WindowActions.cs`) i pokazują Toast z nowym stanem; Ustawienia odświeżają te pola, żeby autozapis nie przywrócił starej wartości. Lista skrótów: `Navigation/ShortcutHelp.cs`; na macOS ⇧⌘/.
+**Stan wdrożenia (1.5):** działają wszystkie skróty z tabeli (Ctrl+Shift+M — mini-widok, Windows, 1.8). Alt+↑/↓ (1.6) przesuwa kartę źródła, która ostatnio dostała kliknięcie lub fokus swojego przycisku „Więcej” (Tab); fokus wraca na kartę po przesunięciu. Ctrl+F i „/” ustawiają fokus w pierwszym widocznym SearchField ekranu, Ctrl+E otwiera menu pierwszego widocznego SplitButton („Eksportuj”); na ekranach bez nich skrót nic nie robi. Ctrl+Shift+L, Ctrl+Shift+T i „Przełącz gęstość” z palety zapisują konfigurację (`ViewModels/WindowActions.cs`) i pokazują Toast z nowym stanem; Ustawienia odświeżają te pola, żeby autozapis nie przywrócił starej wartości. Lista skrótów: `Navigation/ShortcutHelp.cs`; na macOS ⇧⌘/.
 
 Implementacja: `Navigation/ShortcutService` z implementacjami platformowymi (Windows: `PreviewKeyDown` na korzeniu okna WinUI; macOS: menu „Widok” w pasku menu — `MenuBarItems` z `KeyboardAccelerator`, natywnie odkrywalne i zamieniane na `UIKeyCommand`; Wstecz/Dalej na macOS: ⌘[ / ⌘]). Skróty nie działają, gdy fokus jest w polu tekstowym, z wyjątkiem Ctrl+K, Esc, F5 i Ctrl+1–8.
 
@@ -2261,7 +2271,7 @@ Każdy PR zmieniający UI zawiera w opisie wypełnioną listę:
 - [ ] **Teksty** zgodne z §8 (ton, odmiana liczebników, słownik etykiet).
 - [ ] `AutomationId` na nowych elementach interaktywnych.
 - [ ] DESIGN.md zaktualizowany (lub „nie dotyczy” z uzasadnieniem).
-- [ ] Zmieniony ekran przechodzi test dymny (`ONIONLLM_START_SCREEN=<Ekran> ONIONLLM_SCREEN_SMOKE=1 ONIONLLM_DIAG_LOG=<plik>` → „smoke done”); zmiany w nawigacji, skrótach lub palecie — `ONIONLLM_PALETTE_SELFTEST=1` („palette selftest done: 0 failures”); w onboardingu — `ONIONLLM_ONBOARDING=1 ONIONLLM_ONBOARDING_SELFTEST=1` („onboarding selftest done”); wskaźniki paska bocznego, drawer, obrys nagłówka, filtry na narrow, klawiatura wykresów i tabel, Alt+↑/↓ — `ONIONLLM_UI_SELFTEST=1` („ui selftest done: 0 failures”).
+- [ ] Zmieniony ekran przechodzi test dymny (`ONIONLLM_START_SCREEN=<Ekran> ONIONLLM_SCREEN_SMOKE=1 ONIONLLM_DIAG_LOG=<plik>` → „smoke done”); zmiany w nawigacji, skrótach lub palecie — `ONIONLLM_PALETTE_SELFTEST=1` („palette selftest done: 0 failures”); w onboardingu — `ONIONLLM_ONBOARDING=1 ONIONLLM_ONBOARDING_SELFTEST=1` („onboarding selftest done”); zasobnik, powiadomienia, mini-widok, ukrywanie do zasobnika — `ONIONLLM_PLATFORM_SELFTEST=1` („platform selftest done: 0 failures”, pokazuje jedno powiadomienie testowe); wskaźniki paska bocznego, drawer, obrys nagłówka, filtry na narrow, klawiatura wykresów i tabel, Alt+↑/↓ — `ONIONLLM_UI_SELFTEST=1` („ui selftest done: 0 failures”).
 - [ ] Nowy lub zmieniony komponent ma przykład w Galerii komponentów (DEBUG); autotest galerii przechodzi (`ONIONLLM_START_SCREEN=Gallery ONIONLLM_GALLERY_SELFTEST=1 ONIONLLM_DIAG_LOG=<plik>` — w logu każdy krok „selftest ok”, na końcu „selftest done”).
 
 ---
@@ -2343,7 +2353,7 @@ Każdy PR zmieniający UI zawiera w opisie wypełnioną listę:
 
 **Prymitywy** (`Tokens.Primitives.xaml`): `PaletteOnion50` … `PaletteOnion950`, `PaletteHusk100` … `PaletteHusk700` (§2.1.1–2.1.2).
 
-**Statyczne** (`Tokens.Static.xaml`): `Space0`, `Space050`, `Space100`, `Space150`, `Space200`, `Space300`, `Space400`, `Space500`, `Space600`, `Space800`, `Space1000`, `Space1200`, `Space1600`; `RadiusXs` (4), `RadiusSm` (6), `RadiusMd` (8), `RadiusLg` (12), `RadiusXl` (16), `RadiusFull` (9999) + warianty `Radius<Nazwa>Corner` (`CornerRadius`, dla `RoundRectangle`) i `RadiusSmInt`/`RadiusMdInt`/`RadiusLgInt` (`Button.CornerRadius` jest typu `int`); `StrokeDefault` (1), `StrokeFocus` (2), `StrokeFocusOffset` (2); `IconSm` (16), `IconMd` (20), `IconLg` (24), `IconXl` (48); `OpacityDisabled` (0.45), `OpacityMuted` (0.6), `ScalePressed` (0.98, M9), `ScaleDialogEnter` (0.96, M7), `ScalePulse` (2.2) i `OpacityPulse` (0.5) dla M10, `TypeUnitScale` (0.6, jednostka przy liczbie), `TypeInitialScale` (0.45, inicjał SourceBadge), `OpacityInlineBar` (0.35), `OpacityHover` (0.4, wygaszenie kategorii przy najechaniu), `OpacityGhost` (0.85, słupki zakończonych okresów), `StrokeDash` (2); `IconXs` (12), `IconTable` (14); `Type<Nazwa>Size/LineHeight` dla tokenów niezależnych od gęstości i `Type<Nazwa>Tracking` dla wszystkich (`TypePaletteInput` 16 — pole palety poleceń). Wymiary komponentów (`comp.*`, aliasy wartości z §4): `SizeMinTarget` (24), `SizeStatusBarHeight` (28), `SizeLogoSidebar` (28), `SizeSidebarWide/Rail/Narrow` (240/64/56), `SizeDrawerWidth/Min/Max` (420/360/640), `SizeDialogSm/Md` (440/560), `SizeToastWidth` (360), `SizePaletteWidth` (640), `SizeSettingsNav` (220), `SizeFormMaxWidth` (760), `SizeTextMaxWidth` (560), `SizeOnboardingCard` (640), `SizeOnboardingMinHeight` (480), `SizeThemeTile` / `SizeThemePreview` (160/72 — kafel motywu w onboardingu), `SizePaletteListMax` (400 — lista wyników palety), `OpacityScrimPalette` (0.5), `RatioPaletteTop` (0.2) / `RatioPaletteMaxWidth` (0.9) — położenie i szerokość palety względem okna, `SizeTokenBreakdownBar` (8), `SizeInlineBar` (4), `SizeModelTag` (20), `SizeBadge` (20), `SizeCheckbox` (18), `SizeStatusDot` (8), `SizeAvatarXs/Lg` (16/48), `SizeStatTileMin` (112), `SizeChartAux` (160), `SizeSparkline` (28), `SizeChartBarMax` (28), `SizeDotSm` (6), `SizeAccentBar` (3), `SizeTabUnderline` (2), `SizeIllustration` / `SizeIllustrationInline` (80/24), `SizeHeroDot` (6), `SizeFormLabel` / `SizeFormField` (280/400), `SizeIndent` (24), `SizePopoverMaxHeight` (360), `SizeSelectMinWidth` (160), `SizeCalendarCell` (32), `SizeEditorMinHeight` (120), `BreakpointWide/Medium/Cards` (1280/900/760). Grubości (`Thickness`): `PaddingButtonSm/Button/ButtonLg` (10/14/20 poziomo), `PaddingInput` (10,0), `PaddingChip` (10,0), `PaddingBadge` (8,0), `PaddingBanner` (16,12), `PaddingKbd` (6,2), `PaddingTooltip` (10,8), `PaddingModelTag` (6,0), `PaddingSidebar` (8), `PaddingNavItem` (10,0), `PaddingDialog` (24), `PaddingMenu` (4), `PaddingSegmented` (2), `PaddingStatusBar` (16,0), `PaddingToastHost` (16,16,16,40 — stos toastów nad StatusBar), `PaddingSidebarHeader` (6,0), `PaddingRow` (16,0), `ThicknessZero`. Style powierzchni: `Divider.Edge` (pionowa krawędź pełnej wysokości — prawy obrys sidebaru).
+**Statyczne** (`Tokens.Static.xaml`): `Space0`, `Space050`, `Space100`, `Space150`, `Space200`, `Space300`, `Space400`, `Space500`, `Space600`, `Space800`, `Space1000`, `Space1200`, `Space1600`; `RadiusXs` (4), `RadiusSm` (6), `RadiusMd` (8), `RadiusLg` (12), `RadiusXl` (16), `RadiusFull` (9999) + warianty `Radius<Nazwa>Corner` (`CornerRadius`, dla `RoundRectangle`) i `RadiusSmInt`/`RadiusMdInt`/`RadiusLgInt` (`Button.CornerRadius` jest typu `int`); `StrokeDefault` (1), `StrokeFocus` (2), `StrokeFocusOffset` (2); `IconSm` (16), `IconMd` (20), `IconLg` (24), `IconXl` (48); `OpacityDisabled` (0.45), `OpacityMuted` (0.6), `ScalePressed` (0.98, M9), `ScaleDialogEnter` (0.96, M7), `ScalePulse` (2.2) i `OpacityPulse` (0.5) dla M10, `TypeUnitScale` (0.6, jednostka przy liczbie), `TypeInitialScale` (0.45, inicjał SourceBadge), `OpacityInlineBar` (0.35), `OpacityHover` (0.4, wygaszenie kategorii przy najechaniu), `OpacityGhost` (0.85, słupki zakończonych okresów), `StrokeDash` (2); `IconXs` (12), `IconTable` (14); `Type<Nazwa>Size/LineHeight` dla tokenów niezależnych od gęstości i `Type<Nazwa>Tracking` dla wszystkich (`TypePaletteInput` 16 — pole palety poleceń). Wymiary komponentów (`comp.*`, aliasy wartości z §4): `SizeMinTarget` (24), `SizeStatusBarHeight` (28), `SizeLogoSidebar` (28), `SizeSidebarWide/Rail/Narrow` (240/64/56), `SizeDrawerWidth/Min/Max` (420/360/640), `SizeDialogSm/Md` (440/560), `SizeToastWidth` (360), `SizePaletteWidth` (640), `SizeSettingsNav` (220), `SizeFormMaxWidth` (760), `SizeTextMaxWidth` (560), `SizeOnboardingCard` (640), `SizeMiniWidth` / `SizeMiniMinHeight` / `SizeMiniMaxHeight` (360/140/520), `SizeMiniHeader` (36), `SizeMiniRings` (40) — mini-widok, `SizeOnboardingMinHeight` (480), `SizeThemeTile` / `SizeThemePreview` (160/72 — kafel motywu w onboardingu), `SizePaletteListMax` (400 — lista wyników palety), `OpacityScrimPalette` (0.5), `RatioPaletteTop` (0.2) / `RatioPaletteMaxWidth` (0.9) — położenie i szerokość palety względem okna, `SizeTokenBreakdownBar` (8), `SizeInlineBar` (4), `SizeModelTag` (20), `SizeBadge` (20), `SizeCheckbox` (18), `SizeStatusDot` (8), `SizeAvatarXs/Lg` (16/48), `SizeStatTileMin` (112), `SizeChartAux` (160), `SizeSparkline` (28), `SizeChartBarMax` (28), `SizeDotSm` (6), `SizeAccentBar` (3), `SizeTabUnderline` (2), `SizeIllustration` / `SizeIllustrationInline` (80/24), `SizeHeroDot` (6), `SizeFormLabel` / `SizeFormField` (280/400), `SizeIndent` (24), `SizePopoverMaxHeight` (360), `SizeSelectMinWidth` (160), `SizeCalendarCell` (32), `SizeEditorMinHeight` (120), `BreakpointWide/Medium/Cards` (1280/900/760). Grubości (`Thickness`): `PaddingButtonSm/Button/ButtonLg` (10/14/20 poziomo), `PaddingInput` (10,0), `PaddingChip` (10,0), `PaddingBadge` (8,0), `PaddingBanner` (16,12), `PaddingKbd` (6,2), `PaddingTooltip` (10,8), `PaddingModelTag` (6,0), `PaddingSidebar` (8), `PaddingNavItem` (10,0), `PaddingDialog` (24), `PaddingMenu` (4), `PaddingSegmented` (2), `PaddingStatusBar` (16,0), `PaddingToastHost` (16,16,16,40 — stos toastów nad StatusBar), `PaddingSidebarHeader` (6,0), `PaddingRow` (16,0), `ThicknessZero`. Style powierzchni: `Divider.Edge` (pionowa krawędź pełnej wysokości — prawy obrys sidebaru).
 
 **Gęstość** (`Tokens.Comfortable.xaml` / `Tokens.Compact.xaml`): `SizeControlHeight` (36/30), `SizeControlHeightSm` (28/24), `SizeControlHeightLg` (44/36), `SizeRowHeight` (44/32), `SizeRowHeightDense` (36/28), `SizeNavItem` (36/32), `SizeHeaderHeight` (64/52), `SizeAvatarMd` (32/28), `SizeAvatarSm` (20/18), `SizeProgressBar` (6/4), `SizeRingHero` (168/136), `SizeRingThickness` (10/8), `LayoutPagePadding`, `LayoutSectionGap` (32/20), `LayoutGridGap` (16/12), `LayoutCardPadding` (16/12), `LayoutCardPaddingLg` (24/16), `LayoutContentMaxWidth` (1440/1600), `LayoutCardGap` (12/8), `LayoutRowPadding` (`16,12`/`16,8`), `SizeChartMain` (240/200, §4.8.4), `TypeBodySize` (14/13), `TypeBodyLineHeight`, `TypeLabelSize` (13/12), `TypeTableNumSize` (13/12), `TypeMetricMdSize` (20/18), `TypeDisplaySize` (44/40).
 
@@ -2457,6 +2467,8 @@ Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls
 | Menu | 4.6.6 | `Controls/Popover.cs` (`Menu`, `PopoverService`, `PopoverHost`); menu kontekstowe wierszy — `MenuFlyout` | Docelowe — wdrożone (1.3) |
 | CommandPalette | 4.6.7 | `Controls/CommandPalette.cs` + `Navigation/CommandPalette.cs` | Docelowe — wdrożone (1.5) |
 | Onboarding | 7.5 | `Views/OnboardingView.cs` | Docelowe — wdrożone (1.5, zakres w §7.5) |
+| Mini-widok | 7.2 | `Views/MiniViewPage.cs`, `Navigation/WindowService.cs` | Docelowe — wdrożone na Windows (1.8) |
+| Ikona w zasobniku | 7.3 | `Platforms/Windows/TrayIcon.cs`, `tools/design/gen_tray.py` | Docelowe — wdrożone (1.8) |
 | Sidebar, NavItem | 4.7.1–4.7.2 | `Controls/Sidebar`, `Controls/GlyphButton.cs` (`NavItem`) | Docelowe — wdrożone (1.2; wskaźniki stanu — 1.6: „Źródła” = liczba włączonych źródeł z pominiętymi plikami, „Limity” = kropka przy limicie 5 h / 7 dni ≥ 80% / ≥ 100%; na szynie licznik staje się kropką) |
 | PageHeader | 4.7.3 | `Controls/PageHeader` | Docelowe — wdrożone (1.2; dolny obrys po przewinięciu treści — 1.6; nagłówek leży poza obszarem przewijania, więc tło 92% nie jest potrzebne) |
 | FilterBar | 4.7.4 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3; na narrow ≥ 2 FilterChip zwijają się do „Filtry (N)” z popoverem, N = chipy różne od domyślnych — 1.6) |
@@ -2483,8 +2495,8 @@ Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls
 | Budżety — **dostarczone** (1.7: `OnionConfig.Budgets`, `UsageEngine.BuildBudgets`, `BudgetCalculator`) | kwoty | `budgets.dailyUsd`, `budgets.monthlyUsd`, `budgets.perSource.<id>.{dailyUsd,monthlyUsd}` |
 | Limit tokenów „Bez limitu” — **dostarczone** (1.7: `tokenLimit: "none"`, `OnionConfig.IsTokenLimitDisabled`) | tryb bez limitu | `tokenLimit` |
 | Podgląd statusline — **dostarczone** (1.7: `Core/Text/StatuslineComposer` wspólny dla CLI i Ustawień) | renderer linii statusu | — |
-| Powiadomienia | progi, kanały | `notifications.enabled`, `notifications.thresholds.<limit>.{warn,exceed,enabled}`, `notifications.burnHigh`, `notifications.quietHours.{from,to}` |
-| Okno, tray, mini-widok | zachowanie okna | `window.alwaysOnTop` (**dostarczone** w 1.1, `OnionConfig.Window`), `window.closeToTray`, `tray.enabled`, `tray.showCost` (macOS), `miniView.modules[]`, `miniView.alwaysOnTop` |
+| Powiadomienia — **dostarczone** (1.8, Windows: `OnionConfig.Notifications`, `AlertEvaluator`, `NotificationCenter`) | progi, kanały | `notifications.enabled`, `notifications.thresholds.<limit>.{warn,exceed,enabled}`, `notifications.burnHigh`, `notifications.quietHours.{enabled,from,to}`; wyciszenie w `ViewState` |
+| Okno, tray, mini-widok — **dostarczone** (1.8, Windows) | zachowanie okna | `window.alwaysOnTop`, `window.closeToTray`, `tray.enabled`, `tray.showCost` (macOS — nieużywane), `miniView.modules[]`, `miniView.alwaysOnTop` |
 | Trend vs wczoraj / średnia 7 dni — **dostarczone** (1.7: `DashboardSnapshot.DailyCost`, `YesterdayCost`, `Average7DaysCost`) | koszt wczoraj, średnia dzienna | — |
 | Porównanie z poprzednim zakresem (Raporty) — **dostarczone** (1.7: drugi raport dla zakresu tej samej długości) | suma poprzedniego zakresu | — |
 | Historia limitów — **dostarczone** (1.7: tabela `LimitSnapshots`, `UsageLedger.RecordLimits` / `LimitHistory`, 90 dni) | zapisywanie odczytów limitów | — |
@@ -2513,6 +2525,7 @@ Kontrast liczony wg WCAG 2.2 (luminancja względna sRGB). Skrypt referencyjny: `
 | Wersja | Data | Zmiana |
 | --- | --- | --- |
 | 1.0 | 2026-11-26 | Pierwsza wersja docelowego design systemu. |
+| 1.8 | 2026-11-26 | Faza 12.6 (platforma Windows): ikona w zasobniku z menu i kropką statusu, zamykanie do zasobnika, mini-widok (Ctrl+Shift+M, przycisk w Sidebarze, polecenie palety), powiadomienia systemowe z progami, wyciszeniem i cichymi godzinami (App Notifications w MSIX, rezerwa z zasobnika w buildzie niespakowanym), Ustawienia „Okno i zasobnik” i „Powiadomienia i budżety” w pełnym zakresie, podsumowanie powiadomień na Limitach, krok 3 onboardingu; §7.2–7.6 stan wdrożenia; macOS (pasek menu, powiadomienia) nadal `Wymaga platformy`. |
 | 1.7 | 2026-11-26 | Faza 12.5 (warstwa danych): aktywne sesje, statystyki źródeł, `tokenLimit: none`, postęp importu i `S-IMPORT`, serie czasowe (Dziś: trendy i sparkline, bloki: oś i sesje, sesje: przebieg, Raporty: dni × godziny, udział projektów, porównanie zakresów), budżety (§5.9), waluta wyświetlania (§5.1), historia i prognozy limitów, podgląd statusline; TrendDelta i HourHeatmap wdrożone; §6.10 i §11.4 zaktualizowane; nowe tokeny `ColorHeroTrendWorse` / `ColorHeroTrendBetter`. |
 | 1.6 | 2026-11-26 | Faza 12.5 (domknięcie UI): wskaźniki stanu w pasku bocznym, zmiana szerokości drawera, obrys PageHeader po przewinięciu, „Filtry (N)” na narrow, klawiatura wykresów, kalendarz dwumiesięczny, Alt+↑/↓ na kartach źródeł, wiersze-separatory DataTable (przerwy w Blokach), ModelTagi w Raportach, poziomy BarChart „Top projekty”, skrót Ctrl+E w podpowiedzi SplitButton; §6.10 zaktualizowane. |
 | 1.5 | 2026-11-26 | Faza 12.4 (powierzchnie globalne): CommandPalette wdrożona (§4.6.7 — stan wdrożenia), Dialog informacyjny, lista skrótów „?”, skróty Ctrl+K, Ctrl+F, /, Ctrl+E, Ctrl+Shift+L, Ctrl+Shift+T (§9.6 — stan wdrożenia), onboarding (§7.5 — stan wdrożenia), animacje M1 (stagger kart), M17 (crossfade zrzutu okna), M18 (szerokość panelu); nowe tokeny (§11.1); §11.4 — postęp importu; §10.3 — testy dymne i autotesty DEBUG. |
