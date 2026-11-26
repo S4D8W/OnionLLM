@@ -149,7 +149,9 @@ public sealed class MainViewModel : ObservableObject
         ? $"{Fmt.Cost(burn.CostPerHour)}/h · {Fmt.Number((long)burn.TokensPerMinute)} tok/min"
         : "za mało danych";
     public string BurnLevel => _snapshot?.ActiveBlock?.BurnRate is { } burn ? Fmt.BurnLevel(burn.Level) : "";
-    public string BurnColor => _snapshot?.ActiveBlock?.BurnRate is { } burn ? Fmt.BurnColor(burn.Level) : "#8B909C";
+    public Color BurnColor => Design.DesignTokens.Color(_snapshot?.ActiveBlock?.BurnRate is { } burn
+        ? Fmt.BurnColorKey(burn.Level)
+        : "ColorTextTertiary");
     public string Projection => _snapshot?.ActiveBlock?.Projection is { } projection
         ? $"prognoza: {Fmt.Tokens(projection.TotalTokens)} · {Fmt.Cost(projection.TotalCostUsd)}"
         : "";

@@ -144,6 +144,8 @@ public static class ConfigLoader
 
     private static void Normalize(OnionConfig config)
     {
+        config.Appearance ??= new AppearanceSettings();
+        config.Window ??= new WindowSettings();
         config.Sources = new Dictionary<string, SourceSettings>(config.Sources ?? [], StringComparer.OrdinalIgnoreCase);
         config.PricingOverrides = new Dictionary<string, PricingOverride>(config.PricingOverrides ?? [], StringComparer.OrdinalIgnoreCase);
         config.ModelAliases = new Dictionary<string, string>(

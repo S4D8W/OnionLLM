@@ -25,7 +25,8 @@
 12. [Faza 9 — dodatkowe źródła danych](#faza-9--dodatkowe-źródła-danych)
 13. [Faza 10 — opcjonalne / dokumentacja](#faza-10--opcjonalne--dokumentacja)
 14. [Faza 11 — luki względem ccusage (audyt 2026-11-25)](#faza-11--luki-względem-ccusage-audyt-2026-11-25)
-15. [Dziennik postępu](#dziennik-postępu)
+15. [Faza 12 — design system UI (DESIGN.md)](#faza-12--design-system-ui-designmd)
+16. [Dziennik postępu](#dziennik-postępu)
 
 ---
 
@@ -550,6 +551,16 @@ Fala 1 była realizowana równolegle przez agentów w izolowanych kopiach; poni�
 - [x] 11.9.6 Kontrakt Core: `DedupeKey` w części źródeł (Claude, Copilot, Antigravity, OpenClaw, Kimi) przenosi dane pomocnicze po separatorze U+001F — nie parsować ani nie wyświetlać poza źródłem. Rozważyć osobne pole zamiast kodowania w kluczu.
   - Nowe pole `UsageEntry.SourceData` (kolumna `source_data`, ledger schemat 5). `DedupeKey` to sama tożsamość; dane pomocnicze są w `SourceData`: Claude — flagi sidechain i podziału cache, Copilot — identyfikatory żądania, liczba żądań, surowy model, Antigravity — ranga czasu, numer API, nazwa z logu i identyfikatory, OpenClaw — koszt i id zdarzenia, Kimi — surowy model. `Deduplicator` łączy od razu tylko wpisy o równych `DedupeKey` i `SourceData` (jak dotąd pełny klucz), więc wyniki się nie zmieniły. Statusline nie parsuje już klucza (`ClaudeSource.IsAdvisor`). Wersje parserów tych pięciu źródeł podniesione. Sprawdzone na prawdziwych danych: raport miesięczny i 78 sesji identyczne jak przed zmianą.
 
+## Faza 12 — design system UI (DESIGN.md)
+
+Dostosowanie aplikacji do [DESIGN.md](DESIGN.md) (v1.x): tokeny, rejestr komponentów, struktura okna, wszystkie 9 ekranów z §6. `Wymaga danych` — tylko `appearance.*`, `window.alwaysOnTop` i rozbicie pól VM; pozostałe funkcje nie są renderowane. `Wymaga platformy` (tray, mini-widok, powiadomienia, pasek menu) — poza fazą. Postęp literałów: `python tools/design/lint.py --summary` (cel: 0).
+
+- [x] 12.0 Fundament (PR 1): fonty Inter / Inter Tabular / JetBrains Mono / Lucide (`tools/fonts/build_fonts.py`, wersje w `tools/fonts/VERSION`), `Resources/Icons.cs`; słowniki `Tokens.*.xaml` generowane z `tools/design/gen_tokens.py` (kolory źródeł sprawdzane `palette.py`); style `Styles.Text/Controls/Surfaces/Implicit`; `Design/` (`DesignTokens`, `MotionTokens`, `OnionEasing`, `ThemeService`, `DensityService`, `AppearanceService`); Core: `appearance.theme|density|motion`, `window.alwaysOnTop` (+ schemat, test); `Fmt` wg §5.1–5.2, §8.3 (testy `UiFormatTests` przez link pliku); okno 1280×840, tytuł „OnionLLM”, always-on-top tylko z ustawienia; znak cebuli (`tools/design/gen_logo.py`); lint §10.1 (`tools/design/lint.py`).
+- [ ] 12.1 Struktura okna i nawigacja (PR 2): host zamiast `Shell`, `ShellViewModel`, `NavigationService`, `LayoutState`, Sidebar/NavItem/PageHeader/StatusBar, `ShortcutService`.
+- [ ] 12.2 Biblioteka komponentów (PR 3–5): atomy i kontenery; DataTable, Drawer i nakładki; wykresy (`ChartDrawable`). Galeria komponentów (DEBUG).
+- [ ] 12.3 Ekrany (PR 6–13): Dziś, Raporty, Sesje, Bloki, Źródła + Ustawienia, Limity, Projekty, Modele.
+- [ ] 12.4 Paleta poleceń, skróty, onboarding (PR 14).
+
 ---
 
 ## Pozostało / znane ograniczenia
@@ -591,3 +602,4 @@ Fala 1 była realizowana równolegle przez agentów w izolowanych kopiach; poni�
 | 2026-11-25 | 11 — fala 2 | UI cennika: sekcja „Cennik” (LiteLLM + models.dev), edytory aliasów modeli, nadpisań cen i etykiet statusline; logika w `Config/ConfigTextFormats.cs` | 531/531 testów; GUI nieoglądane na żywo (11.7.8) |
 | 2026-11-25 | 11.1.1, 11.1.2 | `BuiltinPricing` (starsze Claude i inne modele bez wiersza w LiteLLM); `UsageEntry.SpansMultipleRequests` + kolumna `aggregate` (ledger schemat 3, Grok parser v2) — bez progu długiego kontekstu dla sum wielu żądań | 162/162 testów; całe rozwiązanie z MAUI i widżetem się buduje; migracja sprawdzona na prawdziwej bazie |
 | 2026-11-25 | 11.9 | `UsageEntry.SourceData` (ledger schemat 5) zamiast danych pomocniczych w `DedupeKey` (11.9.6); Codex: parowanie i rozliczanie kopii według głębokości forka (`CodexDedupe`), poziomy z wielu `CODEX_HOME`, linie z ucieczkami `\uXXXX` (11.9.1); Copilot OTel: kontekst śladu między plikami i reszta `total_tokens` (11.9.2); Claude: kopie spoza zakresu dat dopasowywane zapytaniem po prefiksie ID wiadomości (11.9.3); cennik: przebiegi z rozróżnianiem wielkości liter (11.9.4); wiersze `-thinking` potwierdzone (11.9.5) | 671/671 testów; całe rozwiązanie się buduje. Na prawdziwych danych (Claude, Copilot) raporty identyczne jak przed zmianami; Codex i Copilot OTel bez danych na tej maszynie — sprawdzone testami przeniesionymi z ccusage |
+| 2026-11-26 | 12.0 | Fundament design systemu: fonty i ikony Lucide, tokeny (generator), style, serwisy motywu/gęstości/ruchu, `appearance.*` i `window.alwaysOnTop` w configu, `Fmt` wg DESIGN.md, znak cebuli, lint literałów | 701/701 testów; build Windows bez ostrzeżeń; aplikacja startuje (okno „OnionLLM”). Lint: 835 naruszeń, wyłącznie w ekranach do przebudowy w 12.3 (przed: 938). Zrzuty ekranu z sesji agenta zablokowane uprawnieniami |

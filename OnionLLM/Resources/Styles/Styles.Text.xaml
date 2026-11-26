@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Label styles (DESIGN.md §2.2.2). Only token keys — no literals. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Numbers -->
+    <Style x:Key="Text.Display" TargetType="Label">
+        <Setter Property="FontFamily" Value="NumSemiBold" />
+        <Setter Property="FontSize" Value="{DynamicResource TypeDisplaySize}" />
+        <Setter Property="LineHeight" Value="{DynamicResource TypeDisplayLineHeight}" />
+        <Setter Property="CharacterSpacing" Value="{StaticResource TypeDisplayTracking}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorHeroText}" />
+    </Style>
+    <Style x:Key="Text.MetricLg" TargetType="Label">
+        <Setter Property="FontFamily" Value="NumSemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource TypeMetricLgSize}" />
+        <Setter Property="LineHeight" Value="{StaticResource TypeMetricLgLineHeight}" />
+        <Setter Property="CharacterSpacing" Value="{StaticResource TypeMetricLgTracking}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextPrimary}" />
+    </Style>
+    <Style x:Key="Text.MetricMd" TargetType="Label">
+        <Setter Property="FontFamily" Value="NumSemiBold" />
+        <Setter Property="FontSize" Value="{DynamicResource TypeMetricMdSize}" />
+        <Setter Property="LineHeight" Value="{DynamicResource TypeMetricMdLineHeight}" />
+        <Setter Property="CharacterSpacing" Value="{StaticResource TypeMetricMdTracking}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextPrimary}" />
+    </Style>
+    <Style x:Key="Text.MetricSm" TargetType="Label">
+        <Setter Property="FontFamily" Value="NumMedium" />
+        <Setter Property="FontSize" Value="{StaticResource TypeMetricSmSize}" />
+        <Setter Property="LineHeight" Value="{StaticResource TypeMetricSmLineHeight}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextPrimary}" />
+    </Style>
+    <Style x:Key="Text.TableNum" TargetType="Label">
+        <Setter Property="FontFamily" Value="NumMedium" />
+        <Setter Property="FontSize" Value="{DynamicResource TypeTableNumSize}" />
+        <Setter Property="LineHeight" Value="{DynamicResource TypeTableNumLineHeight}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextPrimary}" />
+        <Setter Property="HorizontalTextAlignment" Value="End" />
+    </Style>
+    <Style x:Key="Text.TableNum.Cost" TargetType="Label" BasedOn="{StaticResource Text.TableNum}">
+        <Setter Property="TextColor" Value="{DynamicResource ColorDataCost}" />
+    </Style>
+
+    <!-- Titles -->
+    <Style x:Key="Text.TitlePage" TargetType="Label">
+        <Setter Property="FontFamily" Value="InterSemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource TypeTitlePageSize}" />
+        <Setter Property="LineHeight" Value="{StaticResource TypeTitlePageLineHeight}" />
+        <Setter Property="CharacterSpacing" Value="{StaticResource TypeTitlePageTracking}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextPrimary}" />
+        <Setter Property="SemanticProperties.HeadingLevel" Value="Level1" />
+    </Style>
+    <Style x:Key="Text.TitleSection" TargetType="Label">
+        <Setter Property="FontFamily" Value="InterSemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource TypeTitleSectionSize}" />
+        <Setter Property="LineHeight" Value="{StaticResource TypeTitleSectionLineHeight}" />
+        <Setter Property="CharacterSpacing" Value="{StaticResource TypeTitleSectionTracking}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextPrimary}" />
+        <Setter Property="SemanticProperties.HeadingLevel" Value="Level2" />
+    </Style>
+    <Style x:Key="Text.TitleCard" TargetType="Label">
+        <Setter Property="FontFamily" Value="InterSemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource TypeTitleCardSize}" />
+        <Setter Property="LineHeight" Value="{StaticResource TypeTitleCardLineHeight}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextPrimary}" />
+        <Setter Property="SemanticProperties.HeadingLevel" Value="Level3" />
+    </Style>
+
+    <!-- Body -->
+    <Style x:Key="Text.Body" TargetType="Label">
+        <Setter Property="FontFamily" Value="InterRegular" />
+        <Setter Property="FontSize" Value="{DynamicResource TypeBodySize}" />
+        <Setter Property="LineHeight" Value="{DynamicResource TypeBodyLineHeight}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextPrimary}" />
+    </Style>
+    <Style x:Key="Text.BodyStrong" TargetType="Label">
+        <Setter Property="FontFamily" Value="InterMedium" />
+        <Setter Property="FontSize" Value="{DynamicResource TypeBodyStrongSize}" />
+        <Setter Property="LineHeight" Value="{DynamicResource TypeBodyStrongLineHeight}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextPrimary}" />
+    </Style>
+    <Style x:Key="Text.Secondary" TargetType="Label" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextSecondary}" />
+    </Style>
+    <Style x:Key="Text.Tertiary" TargetType="Label" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextTertiary}" />
+    </Style>
+    <Style x:Key="Text.Label" TargetType="Label">
+        <Setter Property="FontFamily" Value="InterMedium" />
+        <Setter Property="FontSize" Value="{DynamicResource TypeLabelSize}" />
+        <Setter Property="LineHeight" Value="{DynamicResource TypeLabelLineHeight}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextSecondary}" />
+    </Style>
+    <Style x:Key="Text.Caption" TargetType="Label">
+        <Setter Property="FontFamily" Value="InterRegular" />
+        <Setter Property="FontSize" Value="{StaticResource TypeCaptionSize}" />
+        <Setter Property="LineHeight" Value="{StaticResource TypeCaptionLineHeight}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextTertiary}" />
+    </Style>
+    <Style x:Key="Text.Caption.Secondary" TargetType="Label" BasedOn="{StaticResource Text.Caption}">
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextSecondary}" />
+    </Style>
+    <Style x:Key="Text.Overline" TargetType="Label">
+        <Setter Property="FontFamily" Value="InterSemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource TypeOverlineSize}" />
+        <Setter Property="LineHeight" Value="{StaticResource TypeOverlineLineHeight}" />
+        <Setter Property="CharacterSpacing" Value="{StaticResource TypeOverlineTracking}" />
+        <Setter Property="TextTransform" Value="Uppercase" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextTertiary}" />
+    </Style>
+    <Style x:Key="Text.Link" TargetType="Label" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="FontFamily" Value="InterMedium" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextLink}" />
+    </Style>
+
+    <!-- Technical -->
+    <Style x:Key="Text.Mono" TargetType="Label">
+        <Setter Property="FontFamily" Value="MonoRegular" />
+        <Setter Property="FontSize" Value="{StaticResource TypeMonoSize}" />
+        <Setter Property="LineHeight" Value="{StaticResource TypeMonoLineHeight}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextPrimary}" />
+    </Style>
+    <Style x:Key="Text.MonoSm" TargetType="Label">
+        <Setter Property="FontFamily" Value="MonoRegular" />
+        <Setter Property="FontSize" Value="{StaticResource TypeMonoSmSize}" />
+        <Setter Property="LineHeight" Value="{StaticResource TypeMonoSmLineHeight}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextSecondary}" />
+    </Style>
+    <Style x:Key="Text.Kbd" TargetType="Label">
+        <Setter Property="FontFamily" Value="MonoMedium" />
+        <Setter Property="FontSize" Value="{StaticResource TypeKbdSize}" />
+        <Setter Property="LineHeight" Value="{StaticResource TypeKbdLineHeight}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextSecondary}" />
+    </Style>
+
+    <!-- Icons (Lucide font). Colour follows adjacent text: secondary by default. -->
+    <Style x:Key="Text.Icon" TargetType="Label">
+        <Setter Property="FontFamily" Value="Lucide" />
+        <Setter Property="FontSize" Value="{StaticResource IconMd}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextSecondary}" />
+        <Setter Property="HorizontalTextAlignment" Value="Center" />
+        <Setter Property="VerticalTextAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="Text.Icon.Sm" TargetType="Label" BasedOn="{StaticResource Text.Icon}">
+        <Setter Property="FontSize" Value="{StaticResource IconSm}" />
+    </Style>
+    <Style x:Key="Text.Icon.Xs" TargetType="Label" BasedOn="{StaticResource Text.Icon}">
+        <Setter Property="FontSize" Value="{StaticResource IconXs}" />
+    </Style>
+
+    <!-- Hero (gradient surface, §2.1.5) -->
+    <Style x:Key="Text.Hero.Overline" TargetType="Label" BasedOn="{StaticResource Text.Overline}">
+        <Setter Property="TextColor" Value="{DynamicResource ColorHeroTextSecondary}" />
+    </Style>
+    <Style x:Key="Text.Hero.Body" TargetType="Label" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="TextColor" Value="{DynamicResource ColorHeroTextSecondary}" />
+    </Style>
+</ResourceDictionary>

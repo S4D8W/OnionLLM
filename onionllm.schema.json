@@ -14,6 +14,24 @@
     "projectAliases": { "type": ["string", "null"], "description": "Aliasy projektów: 'klucz=Nazwa,klucz2=Nazwa2'." },
     "refreshIntervalSeconds": { "type": "integer", "minimum": 5, "default": 30 },
     "activeSessionMinutes": { "type": "integer", "minimum": 1, "default": 15, "description": "Po ilu minutach bez aktywności sesja jest zakończona." },
+    "appearance": {
+      "type": "object",
+      "description": "Wygląd aplikacji (tylko GUI).",
+      "additionalProperties": false,
+      "properties": {
+        "theme": { "enum": ["system", "light", "dark"], "default": "system", "description": "Motyw: systemowy, jasny lub ciemny." },
+        "density": { "enum": ["comfortable", "compact"], "default": "comfortable", "description": "Gęstość interfejsu." },
+        "motion": { "enum": ["full", "reduced", "off"], "default": "full", "description": "Animacje: pełne (z poszanowaniem ustawień systemu), ograniczone lub wyłączone." }
+      }
+    },
+    "window": {
+      "type": "object",
+      "description": "Zachowanie okna aplikacji (tylko GUI).",
+      "additionalProperties": false,
+      "properties": {
+        "alwaysOnTop": { "type": "boolean", "default": false, "description": "Okno główne zawsze na wierzchu." }
+      }
+    },
     "sources": {
       "type": "object",
       "description": "Ustawienia źródeł (klucz = id źródła: claude, codex, copilot, gemini, …).",

@@ -1,0 +1,5 @@
+# Pinned font/icon sources (DESIGN.md §2.2.1, §2.6). Update together with build_fonts.py output.
+inter=4.1                https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
+jetbrains-mono=2.304     https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip
+lucide-static=1.69.0     npm pack lucide-static@1.69.0
+opentype-feature-freezer=1.32.2

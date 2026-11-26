@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Surface styles (DESIGN.md §2.5, §4.3.1, §4.3.6, §2.1.5). Only token keys — no literals. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Card (§4.3.1) -->
+    <Style x:Key="Card.Default" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{DynamicResource ColorSurface1}" />
+        <Setter Property="Stroke" Value="{DynamicResource ColorBorderDefaultBrush}" />
+        <Setter Property="StrokeThickness" Value="{StaticResource StrokeDefault}" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="{StaticResource RadiusLgCorner}" />
+        </Setter>
+        <Setter Property="Padding" Value="{DynamicResource LayoutCardPadding}" />
+        <Setter Property="Shadow" Value="{DynamicResource ShadowE1}" />
+    </Style>
+    <Style x:Key="Card.Flat" TargetType="Border" BasedOn="{StaticResource Card.Default}">
+        <Setter Property="Shadow" Value="{x:Null}" />
+    </Style>
+    <Style x:Key="Card.Inset" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{DynamicResource ColorSurface2}" />
+        <Setter Property="StrokeThickness" Value="{StaticResource Space0}" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="{StaticResource RadiusMdCorner}" />
+        </Setter>
+        <Setter Property="Padding" Value="{DynamicResource LayoutCardPadding}" />
+    </Style>
+
+    <!-- Hero card (§2.1.5, §4.3.3): the only large brand-coloured surface. -->
+    <Style x:Key="Card.Hero" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource BrushHero}" />
+        <Setter Property="Stroke" Value="{DynamicResource ColorHeroBorderBrush}" />
+        <Setter Property="StrokeThickness" Value="{StaticResource StrokeDefault}" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="{StaticResource RadiusXlCorner}" />
+        </Setter>
+        <Setter Property="Padding" Value="{DynamicResource LayoutCardPaddingLg}" />
+        <Setter Property="Shadow" Value="{DynamicResource ShadowHero}" />
+    </Style>
+
+    <!-- Overlay surfaces: menu, popover, dialog, palette (§2.5 elevation.2/3) -->
+    <Style x:Key="Surface.Overlay" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{DynamicResource ColorSurfaceOverlay}" />
+        <Setter Property="Stroke" Value="{DynamicResource ColorBorderDefaultBrush}" />
+        <Setter Property="StrokeThickness" Value="{StaticResource StrokeDefault}" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="{StaticResource RadiusLgCorner}" />
+        </Setter>
+        <Setter Property="Shadow" Value="{DynamicResource ShadowE2}" />
+    </Style>
+    <Style x:Key="Surface.Dialog" TargetType="Border" BasedOn="{StaticResource Surface.Overlay}">
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="{StaticResource RadiusXlCorner}" />
+        </Setter>
+        <Setter Property="Padding" Value="{StaticResource PaddingDialog}" />
+        <Setter Property="Shadow" Value="{DynamicResource ShadowE3}" />
+    </Style>
+
+    <!-- Divider (§4.3.6) -->
+    <Style x:Key="Divider" TargetType="BoxView">
+        <Setter Property="Color" Value="{DynamicResource ColorBorderSubtle}" />
+        <Setter Property="HeightRequest" Value="{StaticResource StrokeDefault}" />
+        <Setter Property="HorizontalOptions" Value="Fill" />
+    </Style>
+    <Style x:Key="Divider.Vertical" TargetType="BoxView">
+        <Setter Property="Color" Value="{DynamicResource ColorBorderDefault}" />
+        <Setter Property="WidthRequest" Value="{StaticResource StrokeDefault}" />
+        <Setter Property="HeightRequest" Value="{StaticResource IconMd}" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+</ResourceDictionary>

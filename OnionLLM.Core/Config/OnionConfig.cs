@@ -84,6 +84,46 @@ public sealed class PricingOverride
     public double? FlexMultiplier { get; set; }
 }
 
+/// <summary>Motyw aplikacji (DESIGN.md §3.4): systemowy, jasny lub ciemny.</summary>
+public enum ThemePreference
+{
+    System,
+    Light,
+    Dark
+}
+
+/// <summary>Gęstość interfejsu (DESIGN.md §2.8).</summary>
+public enum DensityPreference
+{
+    Comfortable,
+    Compact
+}
+
+/// <summary>Tryb animacji (DESIGN.md §2.7.4); <see cref="Full"/> respektuje systemowe ograniczenie ruchu.</summary>
+public enum MotionPreference
+{
+    Full,
+    Reduced,
+    Off
+}
+
+/// <summary>Ustawienia wyglądu aplikacji (klucz <c>appearance</c>); CLI ich nie używa.</summary>
+public sealed class AppearanceSettings
+{
+    public ThemePreference Theme { get; set; } = ThemePreference.System;
+
+    public DensityPreference Density { get; set; } = DensityPreference.Comfortable;
+
+    public MotionPreference Motion { get; set; } = MotionPreference.Full;
+}
+
+/// <summary>Zachowanie okna aplikacji (klucz <c>window</c>).</summary>
+public sealed class WindowSettings
+{
+    /// <summary>Okno główne zawsze na wierzchu (domyślnie wyłączone, DESIGN.md §7.1).</summary>
+    public bool AlwaysOnTop { get; set; }
+}
+
 /// <summary>Konfiguracja OnionLLM (plik JSON, camelCase).</summary>
 public sealed class OnionConfig
 {
@@ -128,6 +168,10 @@ public sealed class OnionConfig
 
     /// <summary>Po ilu minutach bez aktywności sesja jest uznawana za zakończoną.</summary>
     public int ActiveSessionMinutes { get; set; } = 15;
+
+    public AppearanceSettings Appearance { get; set; } = new();
+
+    public WindowSettings Window { get; set; } = new();
 
     public SourceSettings GetSource(string id) =>
         Sources.TryGetValue(id, out var settings) ? settings : new SourceSettings();

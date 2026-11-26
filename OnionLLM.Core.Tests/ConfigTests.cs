@@ -53,6 +53,35 @@ public class ConfigTests
     }
 
     [Fact]
+    public void Appearance_and_window_settings_parse_and_default()
+    {
+        using var directory = new TempDirectory();
+        var path = directory.Write("cfg.json", """
+            {
+              "appearance": { "theme": "dark", "density": "compact", "motion": "reduced" },
+              "window": { "alwaysOnTop": true }
+            }
+            """);
+
+        var config = ConfigLoader.Load(path);
+
+        Assert.Equal(ThemePreference.Dark, config.Appearance.Theme);
+        Assert.Equal(DensityPreference.Compact, config.Appearance.Density);
+        Assert.Equal(MotionPreference.Reduced, config.Appearance.Motion);
+        Assert.True(config.Window.AlwaysOnTop);
+
+        var defaults = new OnionConfig();
+        Assert.Equal(ThemePreference.System, defaults.Appearance.Theme);
+        Assert.Equal(DensityPreference.Comfortable, defaults.Appearance.Density);
+        Assert.Equal(MotionPreference.Full, defaults.Appearance.Motion);
+        Assert.False(defaults.Window.AlwaysOnTop);
+
+        var json = System.Text.Json.JsonSerializer.Serialize(config, ConfigLoader.JsonOptions);
+        Assert.Contains("\"theme\": \"dark\"", json);
+        Assert.Contains("\"alwaysOnTop\": true", json);
+    }
+
+    [Fact]
     public void Pricing_overrides_accept_ccusage_field_names_and_model_aliases()
     {
         using var directory = new TempDirectory();

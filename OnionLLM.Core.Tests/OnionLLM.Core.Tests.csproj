@@ -19,6 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Pure UI formatting rules (DESIGN.md §5.1–5.2, §8.3), shared with the MAUI app without referencing it. -->
+    <Compile Include="..\OnionLLM\ViewModels\Fmt.Format.cs" Link="Ui\Fmt.Format.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\OnionLLM.Core\OnionLLM.Core.csproj" />
     <ProjectReference Include="..\OnionLLM.Cli\OnionLLM.Cli.csproj" />
   </ItemGroup>

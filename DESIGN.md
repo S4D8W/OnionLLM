@@ -2,7 +2,7 @@
 
 > **Dla kogo:** agenci i ludzie, którzy projektują lub implementują UI aplikacji OnionLLM (MAUI, desktop Windows + macOS).
 > **Status dokumentu:** obowiązujący, docelowy. Opisuje, jak aplikacja **ma** wyglądać i się zachowywać — nie jak wygląda dziś. Jeśli kod jest niezgodny z tym dokumentem, rację ma dokument, a kod jest do poprawy.
-> **Wersja:** 1.0 · 2026-11-26
+> **Wersja:** 1.1 · 2026-11-26
 
 ## Spis treści
 
@@ -304,7 +304,7 @@ Każde z 20 źródeł zachowuje rozpoznawalny kolor marki, ale ma warianty dostr
 
 Tekst inicjału ma kontrast ≥ 4.5:1 do tła awatara w obu motywach.
 
-**Źródłem prawdy** dla kolorów marki jest `AccentColor` w `OnionLLM.Core/Sources/*Source.cs`. Warianty `light`/`dark`/`avatar` są tokenami UI (słownik `Tokens.Sources.xaml`, §3.2). Nowe źródło = nowy wiersz w tej tabeli z wariantami wyliczonymi tym samym algorytmem (zmiana jasności HSL krokiem 1% aż do osiągnięcia 3:1; patrz [§11.5](#115-algorytm-wariantów-kolorów)).
+**Źródłem prawdy** dla kolorów marki jest `AccentColor` w `OnionLLM.Core/Sources/*Source.cs`. Warianty `light`/`dark`/`avatar` są tokenami UI (słownik `Tokens.Sources.xaml`, §3.2) — wartości z tej tabeli są wpisane w `tools/design/gen_tokens.py`, który przy generowaniu sprawdza ich kontrast i ostrzega o źródle z Core bez wiersza tutaj (do tego czasu klucz `ColorSourceUnknown`). Nowe źródło = nowy wiersz w tej tabeli z wariantami wyliczonymi tym samym algorytmem (zmiana jasności HSL krokiem 1% aż do osiągnięcia 3:1; patrz [§11.5](#115-algorytm-wariantów-kolorów)).
 
 **Kolizje odcieni.** Grupy podobnych kolorów: czerwono-pomarańczowe (`claude`, `amp`, `openclaw`, `pi`, `qwen`), niebieskie (`cline`, `kimi`, `zcode`, `dsh`), fioletowe (`copilot`, `hermes`), zielone (`codex`, `antigravity`, `codebuff`). Gdy na jednym wykresie lub legendzie są ≥ 2 źródła z tej samej grupy, MUSI zadziałać drugie kodowanie ([§4.8.3](#483-rozróżnianie-serii)).
 
@@ -393,7 +393,7 @@ Każda nowa para kolorów MUSI zostać dopisana tutaj z wynikiem pomiaru.
 | Dane techniczne | **JetBrains Mono** 2.x | `JetBrainsMono-Regular.ttf`, `JetBrainsMono-Medium.ttf` | `MonoRegular`, `MonoMedium` |
 | Ikony | **Lucide** (font) | `lucide.ttf` | `Lucide` |
 
-- MAUI nie obsługuje cech OpenType w `Label`, dlatego cyfry tabelaryczne uzyskujemy osobnym plikiem fontu. Wariant „Inter Tabular” generujemy narzędziem `pyftfeatfreeze -f "tnum,cv11,ss01" -S -U Tnum` (pakiet `opentype-feature-freezer`) z oficjalnych plików Inter. Wygenerowane pliki trafiają do repo; skrypt generujący do `tools/fonts/`.
+- MAUI nie obsługuje cech OpenType w `Label`, dlatego cyfry tabelaryczne uzyskujemy osobnym plikiem fontu. Wariant „Inter Tabular” generujemy narzędziem `pyftfeatfreeze -f "tnum,cv11,ss01" -S -U Tnum` (pakiet `opentype-feature-freezer`) z oficjalnych plików Inter. Wygenerowane pliki trafiają do repo; skrypt generujący: `tools/fonts/build_fonts.py` (kopiuje fonty, zamraża cechy, generuje `Icons.cs`), przypięte wersje źródeł: `tools/fonts/VERSION`.
 - Licencje: Inter, JetBrains Mono — SIL OFL 1.1; Lucide — ISC. Pliki licencji MUSZĄ leżeć obok fontów (`Resources/Fonts/LICENSES/`).
 - Rejestracja w `MauiProgram.cs` (`ConfigureFonts`) z aliasami jak w tabeli. Fonty szablonu (OpenSans) zostają usunięte.
 
@@ -502,7 +502,7 @@ Hero ma własny cień: `#2E0D20`, `0,8`, 24, 0.25 (light) / brak (dark).
 
 ### 2.6 Ikony
 
-- **Zestaw:** Lucide (font `lucide.ttf` z pakietu `lucide-static`, wersja przypięta w `tools/fonts/VERSION`). Kody glifów generujemy do klasy `OnionLLM/Resources/Icons.cs` (`public const string Gauge = "";` itd.) skryptem z `lucide-static/font/info.json`. NIE WOLNO wpisywać kodów glifów ręcznie w XAML.
+- **Zestaw:** Lucide (font `lucide.ttf` z pakietu `lucide-static`, wersja przypięta w `tools/fonts/VERSION` — obecnie 1.69.0). Nazwy w `Icons.cs`: PascalCase, sąsiednie segmenty liczbowe rozdzielone „_” (`arrow-down-0-1` → `ArrowDown0_1`). Kody glifów generujemy do klasy `OnionLLM/Resources/Icons.cs` (`public const string Gauge = "";` itd.) skryptem z `lucide-static/font/info.json`. NIE WOLNO wpisywać kodów glifów ręcznie w XAML.
 - **Rozmiary:** `icon.sm = 16` (w polach, tabelach, przyciskach `sm`), `icon.md = 20` (przyciski, nav, nagłówki), `icon.lg = 24` (stany puste w kafelkach, onboarding), `icon.xl = 48` (stany puste ekranu).
 - **Kolor:** dziedziczy z tekstu obok (`text.secondary` domyślnie, `text.primary` w stanie aktywnym). Ikona sama w sobie nie przenosi koloru statusu, chyba że stoi obok tekstu statusu.
 - **Ikona nigdy nie występuje bez etykiety lub tooltipu** (przyciski ikonowe MUSZĄ mieć tooltip i `SemanticProperties.Description`).
@@ -664,6 +664,8 @@ OnionLLM/Controls/              # komponenty z §4 (ContentView + kod)
 OnionLLM/Controls/Charts/       # ChartDrawable i wykresy z §4.8
 ```
 
+Słowniki `Tokens.*.xaml` (z `x:Class` i plikiem `.xaml.cs`) są **generowane** przez `tools/design/gen_tokens.py` — zmiana wartości tokenu = zmiana w skrypcie + ponowne uruchomienie (ręczna edycja słowników jest zabroniona). Gradient hero jest tokenem `BrushHero` w `Tokens.Light/Dark`, a cienie elewacji — zasobami `ShadowE1`…`ShadowE3`, `ShadowHero` w tych samych słownikach.
+
 `App.xaml` scala na stałe: `Tokens.Primitives`, `Tokens.Static`, `Styles.*`. Słowniki zależne od motywu i gęstości są dokładane i podmieniane przez `ThemeService` / `DensityService` (zawsze na tych samych pozycjach w `MergedDictionaries`).
 
 Pliki szablonu `Colors.xaml` i `Styles.xaml` zostają usunięte wraz z ich kluczami (`Primary`, `Gray100`, …).
@@ -691,7 +693,7 @@ Ustawienie **Wygląd → „Motyw”**: „Systemowy” (domyślny) · „Jasny�
 
 `ThemeService`:
 
-1. Przy starcie odczytuje ustawienie (`appearance.theme`).
+1. Przy starcie odczytuje ustawienie (`appearance.theme`; `AppearanceService` stosuje też `appearance.density` i `appearance.motion` — przy starcie i po każdej zmianie konfiguracji).
 2. Ustala efektywny motyw: dla „Systemowy” = `Application.Current.RequestedTheme`.
 3. Ustawia `Application.Current.UserAppTheme` (aby kontrolki natywne — scroll, picker, kalendarz — dopasowały się do motywu).
 4. Podmienia `Tokens.Light/Dark.xaml` i `Tokens.Sources.Light/Dark.xaml` w `MergedDictionaries`.
@@ -1983,7 +1985,7 @@ Po „Zacznij”: **import historii** — ekran z OnionRings animowanym jako wsk
 
 **Logotyp:** „OnionLLM” — Inter SemiBold, „LLM” w `text.secondary` (dwutonowo). Nie stosujemy wersalików ani pochylenia.
 
-Pliki szablonu (`dotnet_bot.png`, `appicon.svg`/`splash.svg` z „.NET”, kolor `#512BD4` w csproj) MUSZĄ zostać zastąpione.
+Pliki szablonu (`dotnet_bot.png`, `appicon.svg`/`splash.svg` z „.NET”, kolor `#512BD4` w csproj) zostały zastąpione plikami z `tools/design/gen_logo.py` (siatka 24: obrys 2, promienie 11/7/3, kropka 1; `Resources/Images/onion_logo.svg` i `onion_logo_dark.svg`, `AppIcon/*`, `Splash/splash.svg`). Splash ma tło `bg.canvas` motywu jasnego (`MauiSplashScreen` przyjmuje jeden kolor).
 
 ---
 
@@ -2181,7 +2183,7 @@ Implementacja: `ShortcutService` z implementacjami platformowymi (Windows: obsł
 
 ### 10.1 Zasady bezwzględne
 
-1. **Zakaz literałów wizualnych** w ekranach, komponentach i kodzie C#: kolory (hex, `Colors.*`), `FontSize`, `FontFamily`, `Margin`, `Padding`, `Spacing`, `CornerRadius`, `HeightRequest`/`WidthRequest` elementów stylowanych, czasy animacji. Wyjątki: `Tokens.*.xaml` (definicje) oraz `0`/`*`/`Auto` w definicjach siatki. Kontrola: wyszukanie `#[0-9A-Fa-f]{6}` i `FontSize="[0-9]` poza `Resources/Styles/Tokens.*` MUSI dać 0 wyników.
+1. **Zakaz literałów wizualnych** w ekranach, komponentach i kodzie C#: kolory (hex, `Colors.*`), `FontSize`, `FontFamily`, `Margin`, `Padding`, `Spacing`, `CornerRadius`, `HeightRequest`/`WidthRequest` elementów stylowanych, czasy animacji. Wyjątki: `Tokens.*.xaml` (definicje) oraz `0`/`*`/`Auto` w definicjach siatki. Kontrola: `python tools/design/lint.py` (hex, `FontSize`/`Margin`/`Padding`/`CornerRadius`/`Spacing`/`Width|HeightRequest` z liczbą, `AppThemeBinding`, fonty platformowe, `DisplayAlert`, wbudowany `ProgressBar`) poza `Resources/Styles/Tokens.*` MUSI dać 0 wyników; `--summary` daje zestawienie do opisu PR.
 2. **Tylko komponenty z rejestru** (§11.3). Brak potrzebnego komponentu → najpierw specyfikacja w §4 (w tym samym PR), potem implementacja w `Controls/`.
 3. **Aktualizacja DESIGN.md w tym samym PR**, jeśli zmiana: dodaje/zmienia token, komponent, wzorzec, ekran, etykietę (§8.6), skrót (§9.6) lub status funkcji (§11.4). Zmiana wersji dokumentu w nagłówku (semver: poprawka / nowy element / zmiana łamiąca).
 4. **UI-first:** każda nowa funkcja w Core MUSI mieć miejsce w UI (ekran, drawer, ustawienie lub polecenie palety) — dopisane do §6.
@@ -2193,14 +2195,14 @@ Implementacja: `ShortcutService` z implementacjami platformowymi (Windows: obsł
 
 | Potrzeba | Miejsce |
 | --- | --- |
-| Nowy kolor semantyczny | `Tokens.Light.xaml` + `Tokens.Dark.xaml` (oba!) + §2.1.4 + §2.1.9 (kontrast) + §11.1 |
-| Nowe źródło danych | `Tokens.Sources.Light/Dark.xaml` (warianty wg §11.5) + §2.1.6 |
-| Nowy rozmiar/odstęp | najpierw sprawdź, czy istniejący token wystarcza; jeśli nie — `Tokens.Static.xaml` lub `Tokens.Comfortable/Compact.xaml` + §2 |
+| Nowy kolor semantyczny | `tools/design/gen_tokens.py` (`SEMANTIC`, wartość light i dark) → `Tokens.Light/Dark.xaml` + §2.1.4 + §2.1.9 (kontrast) + §11.1 |
+| Nowe źródło danych | warianty z `python tools/design/palette.py` (§11.5) → wiersz w §2.1.6 i w `SOURCES` w `gen_tokens.py` |
+| Nowy rozmiar/odstęp | najpierw sprawdź, czy istniejący token wystarcza; jeśli nie — `gen_tokens.py` (`STATIC_*` lub `DENSITY*`) + §2 + §11.1 |
 | Nowy styl tekstu | `Styles.Text.xaml` + §2.2.2 |
 | Nowy komponent | `OnionLLM/Controls/<Nazwa>.xaml(.cs)` + §4 + §11.3 |
 | Nowy wykres | `OnionLLM/Controls/Charts/<Nazwa>Drawable.cs` dziedziczący `ChartDrawable` + §4.8.2 |
 | Nowy ekran | `OnionLLM/Pages/<Nazwa>Page.xaml` + `ViewModels/<Nazwa>ViewModel.cs` + §6 (z macierzą stanów) + Sidebar (§4.7.1) + paleta + skrót |
-| Nowa ikona | `Icons.cs` (generator) + §11.2 |
+| Nowa ikona | `Icons.cs` (zawiera cały zestaw Lucide z przypiętej wersji; nowa wersja → `tools/fonts/build_fonts.py`) + §11.2 |
 | Nowa etykieta / komunikat | §8.4–8.6 |
 
 ### 10.3 Checklista PR (UI)
@@ -2250,6 +2252,7 @@ Każdy PR zmieniający UI zawiera w opisie wypełnioną listę:
 | `ColorTextLink` | `#A23272` | `#EB9BC6` |
 | `ColorTextOnAction` | `#FFFFFF` | `#1A0812` |
 | `ColorTextOnInverse` | `#F3F2F7` | `#16151B` |
+| `ColorTextOnDanger` (tekst na Button `Danger`) | `#FFFFFF` | `#1A0812` |
 | `ColorActionPrimary` | `#A23272` | `#DA6AA7` |
 | `ColorActionPrimaryHover` | `#86295E` | `#EB9BC6` |
 | `ColorActionPrimaryPressed` | `#6A214B` | `#F5C6DF` |
@@ -2280,14 +2283,20 @@ Każdy PR zmieniający UI zawiera w opisie wypełnioną listę:
 | `ColorHeroBorder` / `RingTrack` | `#33FFFFFF` / `#33FFFFFF` | `#26FFFFFF` / `#26FFFFFF` |
 | `ColorStateHover` | `#0A16151B` | `#0FF3F2F7` |
 | `ColorStatePressed` | `#1416151B` | `#1AF3F2F7` |
+| `ColorStateSelected` (= `action.subtle`) | `#FBE4F0` | `#3A1429` |
 | `ColorStateDragged` | `#1F16151B` | `#24F3F2F7` |
+| `ColorHeroDecoration` (pierścienie dekoracyjne hero, §2.1.5) | `#14FFFFFF` | `#14FFFFFF` |
+| `ColorSwitchThumb` | `#FFFFFF` | `#FFFFFF` |
+| `ColorTransparent` | `#00FFFFFF` | `#00000000` |
+| `BrushHero` (`LinearGradientBrush` 0,0 → 1,1 z `ColorHeroStart/Mid/End`) | §2.1.5 | §2.1.5 |
+| `ColorSourceUnknown` / `…Avatar` / `…OnAvatar` (źródło bez wiersza w §2.1.6) | `#8F8C9B` | `#6E6B7B` |
 | `ColorSource<Id>` / `ColorSource<Id>Avatar` / `ColorSource<Id>OnAvatar` | §2.1.6 | §2.1.6 |
 
 **Prymitywy** (`Tokens.Primitives.xaml`): `PaletteOnion50` … `PaletteOnion950`, `PaletteHusk100` … `PaletteHusk700` (§2.1.1–2.1.2).
 
-**Statyczne** (`Tokens.Static.xaml`): `Space0`, `Space050`, `Space100`, `Space150`, `Space200`, `Space300`, `Space400`, `Space500`, `Space600`, `Space800`, `Space1000`, `Space1200`, `Space1600`; `RadiusXs` (4), `RadiusSm` (6), `RadiusMd` (8), `RadiusLg` (12), `RadiusXl` (16), `RadiusFull` (9999); `StrokeDefault` (1), `StrokeFocus` (2), `StrokeFocusOffset` (2); `IconSm` (16), `IconMd` (20), `IconLg` (24), `IconXl` (48); `OpacityDisabled` (0.45), `OpacityMuted` (0.6); `Type<Nazwa>Size/LineHeight/Tracking` dla tokenów niezależnych od gęstości.
+**Statyczne** (`Tokens.Static.xaml`): `Space0`, `Space050`, `Space100`, `Space150`, `Space200`, `Space300`, `Space400`, `Space500`, `Space600`, `Space800`, `Space1000`, `Space1200`, `Space1600`; `RadiusXs` (4), `RadiusSm` (6), `RadiusMd` (8), `RadiusLg` (12), `RadiusXl` (16), `RadiusFull` (9999) + warianty `Radius<Nazwa>Corner` (`CornerRadius`, dla `RoundRectangle`) i `RadiusSmInt`/`RadiusMdInt`/`RadiusLgInt` (`Button.CornerRadius` jest typu `int`); `StrokeDefault` (1), `StrokeFocus` (2), `StrokeFocusOffset` (2); `IconSm` (16), `IconMd` (20), `IconLg` (24), `IconXl` (48); `OpacityDisabled` (0.45), `OpacityMuted` (0.6), `ScalePressed` (0.98, M9); `IconXs` (12), `IconTable` (14); `Type<Nazwa>Size/LineHeight` dla tokenów niezależnych od gęstości i `Type<Nazwa>Tracking` dla wszystkich (`TypePaletteInput` 16 — pole palety poleceń). Wymiary komponentów (`comp.*`, aliasy wartości z §4): `SizeMinTarget` (24), `SizeStatusBarHeight` (28), `SizeLogoSidebar` (28), `SizeSidebarWide/Rail/Narrow` (240/64/56), `SizeDrawerWidth/Min/Max` (420/360/640), `SizeDialogSm/Md` (440/560), `SizeToastWidth` (360), `SizePaletteWidth` (640), `SizeSettingsNav` (220), `SizeFormMaxWidth` (760), `SizeTextMaxWidth` (560), `SizeOnboardingCard` (640), `SizeTokenBreakdownBar` (8), `SizeInlineBar` (4), `SizeModelTag` (20), `SizeBadge` (20), `SizeCheckbox` (18), `SizeStatusDot` (8), `SizeAvatarXs/Lg` (16/48), `SizeStatTileMin` (112), `SizeChartAux` (160), `SizeSparkline` (28), `BreakpointWide/Medium/Cards` (1280/900/760). Grubości (`Thickness`): `PaddingButtonSm/Button/ButtonLg` (10/14/20 poziomo), `PaddingInput` (10,0), `PaddingChip` (10,0), `PaddingBadge` (8,0), `PaddingBanner` (16,12), `PaddingKbd` (6,2), `PaddingTooltip` (10,8), `PaddingModelTag` (6,0), `PaddingSidebar` (8), `PaddingNavItem` (10,0), `PaddingDialog` (24), `PaddingMenu` (4), `PaddingSegmented` (2), `PaddingStatusBar` (16,0), `PaddingRow` (16,0), `ThicknessZero`.
 
-**Gęstość** (`Tokens.Comfortable.xaml` / `Tokens.Compact.xaml`): `SizeControlHeight` (36/30), `SizeControlHeightSm` (28/24), `SizeControlHeightLg` (44/36), `SizeRowHeight` (44/32), `SizeRowHeightDense` (36/28), `SizeNavItem` (36/32), `SizeHeaderHeight` (64/52), `SizeAvatarMd` (32/28), `SizeAvatarSm` (20/18), `SizeProgressBar` (6/4), `SizeRingHero` (168/136), `LayoutPagePadding`, `LayoutSectionGap` (32/20), `LayoutGridGap` (16/12), `LayoutCardPadding` (16/12), `LayoutCardPaddingLg` (24/16), `LayoutContentMaxWidth` (1440/1600), `TypeBodySize` (14/13), `TypeBodyLineHeight`, `TypeLabelSize` (13/12), `TypeTableNumSize` (13/12), `TypeMetricMdSize` (20/18), `TypeDisplaySize` (44/40).
+**Gęstość** (`Tokens.Comfortable.xaml` / `Tokens.Compact.xaml`): `SizeControlHeight` (36/30), `SizeControlHeightSm` (28/24), `SizeControlHeightLg` (44/36), `SizeRowHeight` (44/32), `SizeRowHeightDense` (36/28), `SizeNavItem` (36/32), `SizeHeaderHeight` (64/52), `SizeAvatarMd` (32/28), `SizeAvatarSm` (20/18), `SizeProgressBar` (6/4), `SizeRingHero` (168/136), `LayoutPagePadding`, `LayoutSectionGap` (32/20), `LayoutGridGap` (16/12), `LayoutCardPadding` (16/12), `LayoutCardPaddingLg` (24/16), `LayoutContentMaxWidth` (1440/1600), `LayoutCardGap` (12/8), `LayoutRowPadding` (`16,12`/`16,8`), `SizeChartMain` (240/200, §4.8.4), `TypeBodySize` (14/13), `TypeBodyLineHeight`, `TypeLabelSize` (13/12), `TypeTableNumSize` (13/12), `TypeMetricMdSize` (20/18), `TypeDisplaySize` (44/40).
 
 **Ruch** (C#, `MotionTokens`): `Instant` 0, `Fast` 120, `Base` 200, `Slow` 280, `Slower` 480, `Counter` 600, `Ambient` 2400, `Stagger` 30 (ms); `OnionEasing.Standard/Enter/Exit/Spring`.
 
@@ -2417,11 +2426,11 @@ Nazwy wg lucide.dev (wersja przypięta). W `Icons.cs` jako PascalCase.
 
 | Funkcja | Potrzebne | Proponowane klucze konfiguracji / API |
 | --- | --- | --- |
-| Motyw, gęstość, animacje | ustawienia wyglądu | `appearance.theme` (`system`/`light`/`dark`), `appearance.density` (`comfortable`/`compact`), `appearance.motion` (`full`/`reduced`/`off`) |
+| Motyw, gęstość, animacje — **dostarczone** (1.1, `OnionConfig.Appearance`) | ustawienia wyglądu | `appearance.theme` (`system`/`light`/`dark`), `appearance.density` (`comfortable`/`compact`), `appearance.motion` (`full`/`reduced`/`off`) |
 | Waluta wyświetlania | waluta + kurs | `currency.display` (`USD`/`PLN`/`EUR`), `currency.rate`, `currency.rateSource` (`manual`/`nbp`), `currency.rateDate` |
 | Budżety | kwoty | `budgets.dailyUsd`, `budgets.monthlyUsd`, `budgets.perSource.<id>.{dailyUsd,monthlyUsd}` |
 | Powiadomienia | progi, kanały | `notifications.enabled`, `notifications.thresholds.<limit>.{warn,exceed,enabled}`, `notifications.burnHigh`, `notifications.quietHours.{from,to}` |
-| Okno, tray, mini-widok | zachowanie okna | `window.alwaysOnTop`, `window.closeToTray`, `tray.enabled`, `tray.showCost` (macOS), `miniView.modules[]`, `miniView.alwaysOnTop` |
+| Okno, tray, mini-widok | zachowanie okna | `window.alwaysOnTop` (**dostarczone** w 1.1, `OnionConfig.Window`), `window.closeToTray`, `tray.enabled`, `tray.showCost` (macOS), `miniView.modules[]`, `miniView.alwaysOnTop` |
 | Trend vs wczoraj / średnia 7 dni | koszt wczoraj, średnia dzienna | `DashboardSnapshot.YesterdayCost`, `Avg7dCost`, seria dzienna 30 dni do sparkline |
 | Porównanie z poprzednim zakresem (Raporty) | suma poprzedniego zakresu | parametr raportu „porównaj” |
 | Historia limitów | zapisywanie odczytów limitów | tabela `limit_snapshots` w ledgerze (czas, limit, %, reset) |
@@ -2440,10 +2449,11 @@ Dla koloru marki źródła `c`:
 3. **Tekst inicjału:** wybierz `#FFFFFF` lub `#16151B` — ten z wyższym kontrastem do wariantu.
 4. **Awatar:** jeśli kontrast tekstu inicjału < 4.5 — przesuwaj jasność tła awatara (ciemniej dla białego tekstu, jaśniej dla ciemnego) do osiągnięcia 4.5.
 
-Kontrast liczony wg WCAG 2.2 (luminancja względna sRGB). Skrypt referencyjny: `tools/design/palette.py` (do dodania razem z implementacją tokenów).
+Kontrast liczony wg WCAG 2.2 (luminancja względna sRGB). Skrypt referencyjny: `tools/design/palette.py` (bez argumentów wypisuje warianty wszystkich źródeł z Core). Wyniki różnią się od tabeli §2.1.6 o pojedyncze jednostki kanału (zaokrąglenia HSL); wiążąca jest tabela.
 
 ### 11.6 Historia zmian dokumentu
 
 | Wersja | Data | Zmiana |
 | --- | --- | --- |
 | 1.0 | 2026-11-26 | Pierwsza wersja docelowego design systemu. |
+| 1.1 | 2026-11-26 | Faza 12.0 (fundament): generatory `tools/design/gen_tokens.py`, `palette.py`, `gen_logo.py`, `lint.py` i `tools/fonts/build_fonts.py`; nowe tokeny w §11.1 (`ColorTextOnDanger`, `ColorStateSelected`, `ColorHeroDecoration`, `ColorSwitchThumb`, `ColorTransparent`, `BrushHero`, `ColorSourceUnknown`, warianty promieni, `ScalePressed`, wymiary komponentów, `LayoutCardGap`, `LayoutRowPadding`, `SizeChartMain`); `appearance.*` i `window.alwaysOnTop` mają warstwę danych w Core (§11.4). |

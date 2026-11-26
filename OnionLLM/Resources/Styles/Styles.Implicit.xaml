@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Implicit (default) styles: an unstyled control looks right (DESIGN.md §3.5). Only token keys — no literals. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <Style TargetType="ContentPage" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{DynamicResource ColorBgCanvas}" />
+        <Setter Property="Shell.NavBarIsVisible" Value="False" />
+    </Style>
+
+    <Style TargetType="Label" BasedOn="{StaticResource Text.Body}" />
+    <Style TargetType="Entry" BasedOn="{StaticResource Input.Default}" />
+    <Style TargetType="Editor" BasedOn="{StaticResource Editor.Code}" />
+    <Style TargetType="Picker" BasedOn="{StaticResource Input.Picker}" />
+    <Style TargetType="DatePicker" BasedOn="{StaticResource Input.Date}" />
+    <Style TargetType="Button" BasedOn="{StaticResource Button.Secondary}" />
+    <Style TargetType="CheckBox" BasedOn="{StaticResource Checkbox}" />
+    <Style TargetType="Switch" BasedOn="{StaticResource Toggle}" />
+    <Style TargetType="ActivityIndicator" BasedOn="{StaticResource Spinner}" />
+
+    <Style TargetType="Border">
+        <Setter Property="Stroke" Value="{DynamicResource ColorBorderDefaultBrush}" />
+        <Setter Property="StrokeThickness" Value="{StaticResource StrokeDefault}" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="{StaticResource RadiusLgCorner}" />
+        </Setter>
+        <Setter Property="BackgroundColor" Value="{DynamicResource ColorSurface1}" />
+    </Style>
+
+    <Style TargetType="BoxView" BasedOn="{StaticResource Divider}" />
+
+    <Style TargetType="SearchBar">
+        <Setter Property="FontFamily" Value="InterRegular" />
+        <Setter Property="FontSize" Value="{DynamicResource TypeBodySize}" />
+        <Setter Property="TextColor" Value="{DynamicResource ColorTextPrimary}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource ColorTextTertiary}" />
+        <Setter Property="CancelButtonColor" Value="{DynamicResource ColorTextSecondary}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ColorSurface2}" />
+    </Style>
+
+    <Style TargetType="Shell" ApplyToDerivedTypes="True">
+        <Setter Property="Shell.BackgroundColor" Value="{DynamicResource ColorBgCanvas}" />
+        <Setter Property="Shell.FlyoutBackgroundColor" Value="{DynamicResource ColorBgSidebar}" />
+        <Setter Property="Shell.NavBarIsVisible" Value="False" />
+    </Style>
+</ResourceDictionary>
