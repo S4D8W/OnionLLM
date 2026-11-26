@@ -1,73 +1,13 @@
-﻿<ContentPage x:Class="OnionLLM.MainPage"
-             Shell.NavBarIsVisible="False"
-             Title="Dziś"
-             BackgroundColor="{AppThemeBinding Light=#F6F7F9, Dark=#101114}">
-
-    <Grid RowDefinitions="Auto,*,Auto"
-          Padding="20,16,20,12"
-          RowSpacing="14">
-        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12" Padding="2,0">
-            <Button Text=""
-                    Clicked="OnMenuClicked"
-                    FontFamily="Segoe MDL2 Assets"
-                    FontSize="15"
-                    Padding="0"
-                    WidthRequest="40"
-                    HeightRequest="40"
-                    MinimumWidthRequest="0"
-                    MinimumHeightRequest="0"
-                    CornerRadius="8"
-                    BorderWidth="1"
-                    BorderColor="{AppThemeBinding Light=#E1E3E8, Dark=#34363D}"
-                    BackgroundColor="{AppThemeBinding Light=#FBFBFC, Dark=#1C1D22}"
-                    TextColor="{AppThemeBinding Light=#2E3036, Dark=#F3F3F3}"
-                    ToolTipProperties.Text="Otwórz nawigację"
-                    SemanticProperties.Description="Otwórz nawigację" />
-            <Border Grid.Column="1" WidthRequest="40"
-                    HeightRequest="40"
-                    StrokeThickness="0"
-                    BackgroundColor="#6554E8">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="10" />
-                </Border.StrokeShape>
-                <Label Text="O"
-                       FontFamily="Segoe UI Variable"
-                       FontSize="19"
-                       FontAttributes="Bold"
-                       TextColor="White"
-                       HorizontalOptions="Center"
-                       VerticalOptions="Center" />
-            </Border>
-            <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
-                <Label Text="OnionLLM"
-                       FontFamily="Segoe UI Variable"
-                       FontSize="19"
-                       FontAttributes="Bold" />
-                <Label Text="Token &amp; cost monitor"
-                       FontFamily="Segoe UI Variable"
-                       FontSize="10"
-                       CharacterSpacing="0.8"
-                       TextTransform="Uppercase"
-                       TextColor="{AppThemeBinding Light=#656A75, Dark=#A7ABB4}" />
-            </VerticalStackLayout>
-            <Button Grid.Column="3"
-                    Text=""
-                    Command="{Binding RefreshCommand}"
-                    FontFamily="Segoe MDL2 Assets"
-                    FontSize="14"
-                    Padding="0"
-                    WidthRequest="40"
-                    HeightRequest="40"
-                    MinimumWidthRequest="0"
-                    MinimumHeightRequest="0"
-                    CornerRadius="8"
-                    BorderWidth="1"
-                    BorderColor="{AppThemeBinding Light=#E1E3E8, Dark=#34363D}"
-                    BackgroundColor="{AppThemeBinding Light=#FBFBFC, Dark=#1C1D22}"
-                    TextColor="{AppThemeBinding Light=#2E3036, Dark=#F3F3F3}"
-                    ToolTipProperties.Text="Odśwież dane"
-                    SemanticProperties.Description="Odśwież" />
-        </Grid>
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Dziś (DESIGN.md §6.1). Content still awaits the 12.3 rebuild (KPI row, OnionRings, SourceCard, BlockTimeline). -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             x:Class="OnionLLM.Views.TodayView">
+    <Grid RowDefinitions="Auto,*"
+          Padding="{DynamicResource LayoutPagePadding}"
+          RowSpacing="{StaticResource Space300}">
+        <controls:PageHeader Title="Dziś" Subtitle="{Binding DateSubtitle}" />
 
         <CollectionView Grid.Row="1"
                         ItemsSource="{Binding Providers}"
@@ -348,26 +288,5 @@
                         TextColor="{AppThemeBinding Light=#665E9C, Dark=#AAA3E4}" />
             </CollectionView.Footer>
         </CollectionView>
-
-        <Border Grid.Row="2" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E3E5E9, Dark=#2A2C31}"
-                BackgroundColor="{AppThemeBinding Light=#FBFBFC, Dark=#18191D}" Padding="10,7">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="8" />
-            </Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                <ActivityIndicator IsRunning="{Binding IsRefreshing}" IsVisible="{Binding IsRefreshing}" Color="#6C5CE7" WidthRequest="14" HeightRequest="14" />
-                <Label Grid.Column="1" Text="{Binding LastUpdated}" FontFamily="Segoe UI Variable" FontSize="10" VerticalOptions="Center" LineBreakMode="TailTruncation"
-                       TextColor="{AppThemeBinding Light=#747A85, Dark=#8D929D}" />
-                <HorizontalStackLayout Grid.Column="2" Spacing="5" VerticalOptions="Center">
-                    <Border WidthRequest="6" HeightRequest="6" StrokeThickness="0" BackgroundColor="#2EAA72" VerticalOptions="Center">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="3" />
-                        </Border.StrokeShape>
-                    </Border>
-                    <Label Text="Dane lokalne" FontFamily="Segoe UI Variable" FontSize="10" VerticalOptions="Center"
-                           TextColor="{AppThemeBinding Light=#747A85, Dark=#8D929D}" />
-                </HorizontalStackLayout>
-            </Grid>
-        </Border>
     </Grid>
-</ContentPage>
+</ContentView>

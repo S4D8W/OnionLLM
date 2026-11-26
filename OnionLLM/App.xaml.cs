@@ -21,7 +21,7 @@ namespace OnionLLM
         protected override Window CreateWindow(IActivationState? activationState)
         {
             // DESIGN.md §2.9.1, §7.1: title without suffixes, start 1280×840, minimum 680×560.
-            var window = new Window(new AppShell())
+            var window = new Window(new MainShellPage())
             {
                 Title = "OnionLLM",
                 Width = 1280,
@@ -30,7 +30,11 @@ namespace OnionLLM
                 MinimumHeight = 560
             };
 
-            window.HandlerChanged += (_, _) => ApplyWindowSettings(window);
+            window.HandlerChanged += (_, _) =>
+            {
+                ApplyWindowSettings(window);
+                Navigation.ShortcutService.Attach(window);
+            };
             ThemeService.ThemeChanged += (_, _) => ApplyWindowSettings(window);
             return window;
         }

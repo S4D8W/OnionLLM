@@ -68,4 +68,11 @@
         <Setter Property="HeightRequest" Value="{StaticResource IconMd}" />
         <Setter Property="VerticalOptions" Value="Center" />
     </Style>
+    <!-- Full-height edge line (sidebar right border, §4.7.1) -->
+    <Style x:Key="Divider.Edge" TargetType="BoxView">
+        <Setter Property="Color" Value="{DynamicResource ColorBorderDefault}" />
+        <Setter Property="WidthRequest" Value="{StaticResource StrokeDefault}" />
+        <Setter Property="HorizontalOptions" Value="End" />
+        <Setter Property="VerticalOptions" Value="Fill" />
+    </Style>
 </ResourceDictionary>

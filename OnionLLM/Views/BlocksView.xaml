@@ -1,19 +1,12 @@
-<ContentPage x:Class="OnionLLM.Pages.BlocksPage"
-             Shell.NavBarIsVisible="False"
-             Title="Bloki"
-             BackgroundColor="{AppThemeBinding Light=#F2F4F8, Dark=#0C0E13}">
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Migrated to the window host in Faza 12.1; content is rebuilt to DESIGN.md §6 in 12.3. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             x:Class="OnionLLM.Views.BlocksView">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="16,14,16,10" RowSpacing="10">
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-            <Button Text="☰" Clicked="OnMenuClicked" FontSize="20" Padding="0" WidthRequest="42" HeightRequest="42" CornerRadius="13"
-                    BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}"
-                    SemanticProperties.Description="Otwórz nawigację" />
-            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                <Label Text="Bloki 5-godzinne (Claude)" FontSize="20" FontAttributes="Bold" />
-                <Label Text="Okna rozliczeniowe odtworzone z historii; aktywny blok z burn rate i prognozą." FontSize="10"
-                       TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
-            </VerticalStackLayout>
-        </Grid>
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="{DynamicResource LayoutPagePadding}" RowSpacing="{StaticResource Space300}">
+        <controls:PageHeader Title="Bloki 5-godzinne" Subtitle="Okna rozliczeniowe Claude odtworzone z historii" />
         <Picker Grid.Row="1" ItemsSource="{Binding Ranges}" SelectedIndex="{Binding RangeIndex}" FontSize="12" Title="Zakres" />
 
         <CollectionView Grid.Row="2" ItemsSource="{Binding Blocks}" SelectionMode="None">
@@ -45,8 +38,7 @@
         </CollectionView>
 
         <Grid Grid.Row="3" ColumnDefinitions="Auto,*" ColumnSpacing="8">
-            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#6C5CE7" WidthRequest="14" HeightRequest="14" />
             <Label Grid.Column="1" Text="{Binding Summary}" FontSize="9" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
         </Grid>
     </Grid>
-</ContentPage>
+</ContentView>

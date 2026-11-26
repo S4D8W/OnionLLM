@@ -123,6 +123,9 @@ public sealed class MainViewModel : ObservableObject
     public string MonthSummary { get => _monthSummary; private set => Set(ref _monthSummary, value); }
     public string LastUpdated { get => _lastUpdated; private set => Set(ref _lastUpdated, value); }
 
+    /// <summary>PageHeader subtitle (§6.1): „czwartek, 26 listopada”.</summary>
+    public string DateSubtitle => Fmt.LongDate(Fmt.NowLocal);
+
     public bool ShowUndetected
     {
         get => _showUndetected;
@@ -239,6 +242,7 @@ public sealed class MainViewModel : ObservableObject
         WeekSummary = $"7 dni: {Fmt.Cost(_snapshot.Last7Days.CostUsd)}";
         MonthSummary = $"30 dni: {Fmt.Cost(_snapshot.Last30Days.CostUsd)}";
 
+        OnPropertyChanged(nameof(DateSubtitle));
         OnPropertyChanged(nameof(UndetectedToggleText));
         OnPropertyChanged(nameof(HiddenCount));
         foreach (var name in new[]

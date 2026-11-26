@@ -1,12 +1,13 @@
+using OnionLLM.Navigation;
 using OnionLLM.ViewModels;
 
-namespace OnionLLM.Pages;
+namespace OnionLLM.Views;
 
-public partial class ReportsPage : ContentPage
+public partial class ReportsView : ContentView, IScreenView
 {
     private readonly ReportsViewModel _viewModel = new();
 
-    public ReportsPage()
+    public ReportsView()
     {
         InitializeComponent();
         BindingContext = _viewModel;
@@ -15,11 +16,11 @@ public partial class ReportsPage : ContentPage
         AppState.Changed += async (_, _) => await _viewModel.RefreshAsync();
     }
 
-    private void OnMenuClicked(object? sender, EventArgs e) => Shell.Current.FlyoutIsPresented = true;
+    public Task OnNavigatedToAsync(object? parameter) => _viewModel.RefreshAsync();
 
-    protected override async void OnAppearing()
+    public void OnNavigatedFrom()
     {
-        base.OnAppearing();
-        await _viewModel.RefreshAsync();
     }
+
+    public Task RefreshAsync(bool force) => _viewModel.RefreshAsync();
 }

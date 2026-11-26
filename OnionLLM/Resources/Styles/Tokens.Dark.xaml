@@ -68,6 +68,7 @@
     <Color x:Key="ColorHeroBorder">#26FFFFFF</Color>
     <Color x:Key="ColorHeroRingTrack">#26FFFFFF</Color>
     <Color x:Key="ColorHeroDecoration">#14FFFFFF</Color>
+    <Color x:Key="ColorHeroHover">#1AFFFFFF</Color>
     <Color x:Key="ColorStateHover">#0FF3F2F7</Color>
     <Color x:Key="ColorStatePressed">#1AF3F2F7</Color>
     <Color x:Key="ColorStateSelected">#3A1429</Color>
@@ -140,6 +141,7 @@
     <SolidColorBrush x:Key="ColorHeroBorderBrush" Color="#26FFFFFF" />
     <SolidColorBrush x:Key="ColorHeroRingTrackBrush" Color="#26FFFFFF" />
     <SolidColorBrush x:Key="ColorHeroDecorationBrush" Color="#14FFFFFF" />
+    <SolidColorBrush x:Key="ColorHeroHoverBrush" Color="#1AFFFFFF" />
     <SolidColorBrush x:Key="ColorStateHoverBrush" Color="#0FF3F2F7" />
     <SolidColorBrush x:Key="ColorStatePressedBrush" Color="#1AF3F2F7" />
     <SolidColorBrush x:Key="ColorStateSelectedBrush" Color="#3A1429" />
@@ -152,6 +154,8 @@
         <GradientStop Color="#5A1C40" Offset="0.55" />
         <GradientStop Color="#86295E" Offset="1" />
     </LinearGradientBrush>
+
+    <FileImageSource x:Key="ImageLogo" File="onion_logo_dark.png" />
 
     <Shadow x:Key="ShadowE1" Brush="#00000000" Offset="0,0" Radius="0" Opacity="0" />
     <Shadow x:Key="ShadowE2" Brush="#00000000" Offset="0,0" Radius="0" Opacity="0" />

@@ -107,6 +107,7 @@ SEMANTIC = {
     "ColorHeroBorder": ("#33FFFFFF", "#26FFFFFF"),
     "ColorHeroRingTrack": ("#33FFFFFF", "#26FFFFFF"),
     "ColorHeroDecoration": ("#14FFFFFF", "#14FFFFFF"),
+    "ColorHeroHover": ("#1AFFFFFF", "#1AFFFFFF"),
     "ColorStateHover": ("#0A16151B", "#0FF3F2F7"),
     "ColorStatePressed": ("#1416151B", "#1AF3F2F7"),
     "ColorStateSelected": ("#FBE4F0", "#3A1429"),
@@ -156,7 +157,7 @@ RADIUS = {"RadiusXs": 4, "RadiusSm": 6, "RadiusMd": 8, "RadiusLg": 12, "RadiusXl
 STATIC_DOUBLES = {
     "StrokeDefault": 1, "StrokeFocus": 2, "StrokeFocusOffset": 2, "StrokeSelected": 2,
     "IconSm": 16, "IconMd": 20, "IconLg": 24, "IconXl": 48, "IconXs": 12, "IconTable": 14,
-    "OpacityDisabled": 0.45, "OpacityMuted": 0.6, "OpacityFull": 1, "ScalePressed": 0.98,
+    "OpacityDisabled": 0.45, "OpacityMuted": 0.6, "OpacityFull": 1, "ScalePressed": 0.98, "ScaleDialogEnter": 0.96,
     "SizeMinTarget": 24, "SizeStatusBarHeight": 28, "SizeLogoSidebar": 28,
     "SizeSidebarWide": 240, "SizeSidebarRail": 64, "SizeSidebarNarrow": 56,
     "SizeDrawerWidth": 420, "SizeDrawerMin": 360, "SizeDrawerMax": 640,
@@ -170,7 +171,7 @@ STATIC_THICKNESS = {
     "ThicknessZero": "0", "PaddingBanner": "16,12", "PaddingKbd": "6,2", "PaddingTooltip": "10,8",
     "PaddingModelTag": "6,0", "PaddingSidebar": "8", "PaddingNavItem": "10,0", "PaddingDialog": "24",
     "PaddingMenu": "4", "PaddingButton": "14,0", "PaddingButtonSm": "10,0", "PaddingButtonLg": "20,0", "PaddingInput": "10,0",
-    "PaddingStatusBar": "16,0", "PaddingChip": "10,0", "PaddingBadge": "8,0", "PaddingRow": "16,0", "PaddingSegmented": "2",
+    "PaddingStatusBar": "16,0", "PaddingToastHost": "16,16,16,40", "PaddingSidebarHeader": "6,0", "PaddingChip": "10,0", "PaddingBadge": "8,0", "PaddingRow": "16,0", "PaddingSegmented": "2",
 }
 STATIC_INTS = {"RadiusSmInt": 6, "RadiusMdInt": 8, "RadiusLgInt": 12}
 
@@ -255,7 +256,8 @@ def main() -> None:
             f'        <GradientStop Color="{colors['ColorHeroEnd']}" Offset="1" />',
             "    </LinearGradientBrush>",
         ]
-        write(f"Tokens.{name}.xaml", color_lines(colors) + hero + [""] + shadow_lines(theme))
+        logo = ["", f'    <FileImageSource x:Key="ImageLogo" File="{("onion_logo.png", "onion_logo_dark.png")[theme]}" />']
+        write(f"Tokens.{name}.xaml", color_lines(colors) + hero + logo + [""] + shadow_lines(theme))
 
     core = palette.core_sources()
     for source_id in core:

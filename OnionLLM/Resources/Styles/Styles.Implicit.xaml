@@ -37,10 +37,4 @@
         <Setter Property="CancelButtonColor" Value="{DynamicResource ColorTextSecondary}" />
         <Setter Property="BackgroundColor" Value="{DynamicResource ColorSurface2}" />
     </Style>
-
-    <Style TargetType="Shell" ApplyToDerivedTypes="True">
-        <Setter Property="Shell.BackgroundColor" Value="{DynamicResource ColorBgCanvas}" />
-        <Setter Property="Shell.FlyoutBackgroundColor" Value="{DynamicResource ColorBgSidebar}" />
-        <Setter Property="Shell.NavBarIsVisible" Value="False" />
-    </Style>
 </ResourceDictionary>

@@ -393,6 +393,17 @@ public sealed class SettingsViewModel : ObservableObject
 
     private async Task RebuildAsync()
     {
+        // §8.4: irreversible action → confirmation dialog stating the consequence.
+        var confirmed = await Navigation.DialogService.ConfirmAsync(
+            "Przebudować bazę?",
+            "Baza zostanie odtworzona z logów na dysku. Wpisy z logów, które narzędzia już usunęły, zostaną utracone. Zwykle trwa to 10–60 s.",
+            "Przebuduj",
+            danger: true);
+        if (!confirmed)
+        {
+            return;
+        }
+
         IsBusy = true;
         try
         {

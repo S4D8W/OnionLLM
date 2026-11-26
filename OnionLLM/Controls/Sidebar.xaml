@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Sidebar (DESIGN.md §4.7.1): logo → groups Przegląd / Analiza / System → flexible space → Ustawienia → collapse. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             xmlns:nav="clr-namespace:OnionLLM.Navigation"
+             x:Class="OnionLLM.Controls.Sidebar"
+             x:DataType="nav:ShellViewModel"
+             BackgroundColor="{DynamicResource ColorBgSidebar}">
+
+    <ContentView.Resources>
+        <DataTemplate x:Key="NavEntryTemplate" x:DataType="nav:NavEntry">
+            <controls:NavItem Style="{StaticResource NavItem}"
+                              Glyph="{Binding Glyph}"
+                              Label="{Binding Label}"
+                              Shortcut="{Binding Shortcut}"
+                              IsActive="{Binding IsActive}"
+                              IsCollapsed="{Binding IsSidebarCollapsed, Source={x:Static nav:ShellViewModel.Instance}, x:DataType=nav:ShellViewModel}"
+                              Command="{Binding Command}"
+                              AutomationId="{Binding AutomationId}" />
+        </DataTemplate>
+    </ContentView.Resources>
+
+    <Grid>
+        <Grid RowDefinitions="Auto,*,Auto" Padding="{StaticResource PaddingSidebar}">
+            <!-- Header: logo + two-tone logotype (§7.7) -->
+            <HorizontalStackLayout HeightRequest="{DynamicResource SizeHeaderHeight}"
+                                   Padding="{StaticResource PaddingSidebarHeader}"
+                                   Spacing="{StaticResource Space300}">
+                <Image Source="{DynamicResource ImageLogo}"
+                       WidthRequest="{StaticResource SizeLogoSidebar}"
+                       HeightRequest="{StaticResource SizeLogoSidebar}"
+                       VerticalOptions="Center"
+                       SemanticProperties.Description="OnionLLM" />
+                <Label Style="{StaticResource Text.TitleCard}"
+                       VerticalOptions="Center"
+                       IsVisible="{Binding IsSidebarExpanded}"
+                       SemanticProperties.HeadingLevel="None">
+                    <Label.FormattedText>
+                        <FormattedString>
+                            <Span Text="Onion" />
+                            <Span Text="LLM" TextColor="{DynamicResource ColorTextSecondary}" />
+                        </FormattedString>
+                    </Label.FormattedText>
+                </Label>
+            </HorizontalStackLayout>
+
+            <!-- Groups -->
+            <VerticalStackLayout Grid.Row="1" Spacing="{StaticResource Space050}">
+                <Label Text="Przegląd" Style="{StaticResource Text.Overline}" Padding="{StaticResource PaddingNavItem}"
+                       IsVisible="{Binding IsSidebarExpanded}" />
+                <BoxView IsVisible="{Binding IsSidebarCollapsed}" Margin="{StaticResource PaddingNavItem}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding OverviewItems}"
+                                     BindableLayout.ItemTemplate="{StaticResource NavEntryTemplate}"
+                                     Spacing="{StaticResource Space050}" />
+
+                <Label Text="Analiza" Style="{StaticResource Text.Overline}" Padding="{StaticResource PaddingNavItem}"
+                       IsVisible="{Binding IsSidebarExpanded}" />
+                <BoxView IsVisible="{Binding IsSidebarCollapsed}" Margin="{StaticResource PaddingNavItem}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding AnalysisItems}"
+                                     BindableLayout.ItemTemplate="{StaticResource NavEntryTemplate}"
+                                     Spacing="{StaticResource Space050}" />
+
+                <VerticalStackLayout IsVisible="{Binding HasSystemItems}" Spacing="{StaticResource Space050}">
+                    <Label Text="System" Style="{StaticResource Text.Overline}" Padding="{StaticResource PaddingNavItem}"
+                           IsVisible="{Binding IsSidebarExpanded}" />
+                    <BoxView IsVisible="{Binding IsSidebarCollapsed}" Margin="{StaticResource PaddingNavItem}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding SystemItems}"
+                                         BindableLayout.ItemTemplate="{StaticResource NavEntryTemplate}"
+                                         Spacing="{StaticResource Space050}" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+
+            <!-- Bottom: Ustawienia · Zwiń panel (Tryb kompaktowy: Wymaga platformy — not rendered) -->
+            <VerticalStackLayout Grid.Row="2" Spacing="{StaticResource Space050}">
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding FooterItems}"
+                                     BindableLayout.ItemTemplate="{StaticResource NavEntryTemplate}"
+                                     Spacing="{StaticResource Space050}" />
+                <controls:NavItem Style="{StaticResource NavItem}"
+                                  Glyph="{Binding ToggleSidebarGlyph}"
+                                  Label="{Binding ToggleSidebarLabel}"
+                                  Shortcut="{Binding ToggleSidebarShortcut}"
+                                  IsCollapsed="{Binding IsSidebarCollapsed}"
+                                  Command="{Binding ToggleSidebarCommand}"
+                                  AutomationId="Sidebar.Toggle" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <BoxView Style="{StaticResource Divider.Edge}" />
+    </Grid>
+</ContentView>

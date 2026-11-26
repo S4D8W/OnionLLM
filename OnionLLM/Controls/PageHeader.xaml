@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    PageHeader (DESIGN.md §4.7.3): [sidebar button — narrow only] · title · subtitle · actions · „Odśwież”.
+    Screen-specific actions go into the content; the refresh button is shared and drives the shell refresh (F5).
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             xmlns:nav="clr-namespace:OnionLLM.Navigation"
+             xmlns:res="clr-namespace:OnionLLM.Resources"
+             x:Class="OnionLLM.Controls.PageHeader">
+    <!-- Explicit Content: the class's [ContentProperty] is Actions (for consumers), not the template root. -->
+    <ContentView.Content>
+        <Grid ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="{StaticResource Space300}"
+              MinimumHeightRequest="{DynamicResource SizeHeaderHeight}">
+
+            <controls:IconButton Style="{StaticResource IconButton.Ghost}"
+                                 Glyph="{x:Static res:Icons.PanelLeftOpen}"
+                                 Command="{Binding OpenSidebarCommand, Source={x:Static nav:ShellViewModel.Instance}}"
+                                 IsVisible="{Binding IsNarrow, Source={x:Static nav:ShellViewModel.Instance}}"
+                                 ToolTipProperties.Text="Rozwiń panel"
+                                 SemanticProperties.Description="Rozwiń panel"
+                                 AutomationId="PageHeader.OpenSidebar"
+                                 VerticalOptions="Center" />
+
+            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="{StaticResource Space050}">
+                <Label x:Name="TitleLabel" Style="{StaticResource Text.TitlePage}" LineBreakMode="TailTruncation" />
+                <Label x:Name="SubtitleLabel" Style="{StaticResource Text.Caption}" LineBreakMode="TailTruncation" IsVisible="False" />
+            </VerticalStackLayout>
+
+            <HorizontalStackLayout Grid.Column="2" VerticalOptions="Center" Spacing="{StaticResource Space200}">
+                <ContentView x:Name="ActionsHost" VerticalOptions="Center" />
+                <controls:IconButton Style="{StaticResource IconButton.Ghost}"
+                                     Glyph="{x:Static res:Icons.RefreshCw}"
+                                     Command="{Binding RefreshCommand, Source={x:Static nav:ShellViewModel.Instance}}"
+                                     IsSpinning="{Binding IsRefreshing, Source={x:Static nav:ShellViewModel.Instance}}"
+                                     ToolTipProperties.Text="Odśwież (F5)"
+                                     SemanticProperties.Description="Odśwież dane"
+                                     AutomationId="PageHeader.Refresh" />
+            </HorizontalStackLayout>
+        </Grid>
+    </ContentView.Content>
+</ContentView>

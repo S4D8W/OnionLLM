@@ -45,6 +45,8 @@ def files() -> list[Path]:
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     summary = "--summary" in sys.argv
     violations: list[tuple[Path, int, str, str]] = []
     for path in files():

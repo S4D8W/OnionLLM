@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Toast stack (DESIGN.md §4.6.3): bottom-right of the content, above the status bar, newest at the bottom. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             xmlns:nav="clr-namespace:OnionLLM.Navigation"
+             xmlns:res="clr-namespace:OnionLLM.Resources"
+             x:Class="OnionLLM.Controls.ToastHost"
+             >
+    <VerticalStackLayout x:Name="Stack"
+                         Spacing="{StaticResource Space200}"
+                         HorizontalOptions="End"
+                         VerticalOptions="End"
+                         BindableLayout.ItemsSource="{x:Static nav:ToastService.Items}">
+        <BindableLayout.ItemTemplate>
+            <DataTemplate x:DataType="nav:ToastItem">
+                <Border BackgroundColor="{DynamicResource ColorSurfaceInverse}"
+                        StrokeThickness="{StaticResource Space0}"
+                        Shadow="{DynamicResource ShadowE3}"
+                        WidthRequest="{StaticResource SizeToastWidth}"
+                        Padding="{DynamicResource LayoutCardPadding}"
+                        AutomationId="Toast">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="{StaticResource RadiusLgCorner}" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{StaticResource Space300}">
+                        <Label Style="{StaticResource Text.Icon}"
+                               Text="{Binding Glyph}"
+                               TextColor="{Binding GlyphColorKey, Converter={StaticResource TokenColor}}"
+                               VerticalOptions="Start" />
+                        <Label Grid.Column="1"
+                               Style="{StaticResource Text.Body}"
+                               Text="{Binding Message}"
+                               TextColor="{DynamicResource ColorTextOnInverse}"
+                               VerticalOptions="Center" />
+                        <Button Grid.Column="2"
+                                Style="{StaticResource Button.Link}"
+                                Text="{Binding ActionText}"
+                                Command="{Binding ActionCommand}"
+                                IsVisible="{Binding HasAction}"
+                                TextColor="{DynamicResource ColorTextOnInverse}"
+                                VerticalOptions="Center" />
+                        <controls:IconButton Grid.Column="3"
+                                             Style="{StaticResource IconButton.Ghost.Sm}"
+                                             Glyph="{x:Static res:Icons.X}"
+                                             TextColor="{DynamicResource ColorTextOnInverse}"
+                                             Command="{Binding CloseCommand}"
+                                             ToolTipProperties.Text="Zamknij"
+                                             SemanticProperties.Description="Zamknij komunikat"
+                                             VerticalOptions="Start" />
+                    </Grid>
+                </Border>
+            </DataTemplate>
+        </BindableLayout.ItemTemplate>
+    </VerticalStackLayout>
+</ContentView>

@@ -1,20 +1,20 @@
-<ContentPage x:Class="OnionLLM.Pages.SessionsPage"
-             x:Name="Root"
-             Shell.NavBarIsVisible="False"
-             Title="Sesje"
-             BackgroundColor="{AppThemeBinding Light=#F2F4F8, Dark=#0C0E13}">
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Migrated to the window host in Faza 12.1; content is rebuilt to DESIGN.md §6 in 12.3. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             x:Class="OnionLLM.Views.SessionsView"
+             x:Name="Root">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,14,16,10" RowSpacing="10">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
-            <Button Text="☰" Clicked="OnMenuClicked" FontSize="20" Padding="0" WidthRequest="42" HeightRequest="42" CornerRadius="13"
-                    BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}"
-                    SemanticProperties.Description="Otwórz nawigację" />
-            <Label Grid.Column="1" Text="Sesje" FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
-            <Button Grid.Column="2" Text="JSON" Command="{Binding ExportJsonCommand}" FontSize="11" Padding="10,0" HeightRequest="32" CornerRadius="10"
-                    BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}" />
-            <Button Grid.Column="3" Text="CSV" Command="{Binding ExportCommand}" FontSize="11" Padding="10,0" HeightRequest="32" CornerRadius="10"
-                    BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}" />
-        </Grid>
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="{DynamicResource LayoutPagePadding}" RowSpacing="{StaticResource Space300}">
+        <controls:PageHeader Title="Sesje" Subtitle="{Binding Total}">
+            <HorizontalStackLayout Spacing="{StaticResource Space200}">
+                <Button Style="{StaticResource Button.Secondary.Sm}" Text="CSV" Command="{Binding ExportCommand}"
+                        SemanticProperties.Description="Eksportuj sesje do pliku CSV" AutomationId="Sessions.ExportCsv" />
+                <Button Style="{StaticResource Button.Secondary.Sm}" Text="JSON (format ccusage)" Command="{Binding ExportJsonCommand}"
+                        SemanticProperties.Description="Eksportuj sesje do pliku JSON w formacie ccusage" AutomationId="Sessions.ExportJson" />
+            </HorizontalStackLayout>
+        </controls:PageHeader>
         <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="8">
             <Picker ItemsSource="{Binding Ranges}" SelectedIndex="{Binding RangeIndex}" FontSize="12" Title="Zakres" />
             <Picker Grid.Column="1" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" FontSize="12" Title="Źródło" />
@@ -61,7 +61,6 @@
 
         <VerticalStackLayout Grid.Row="4" Spacing="2">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#6C5CE7" WidthRequest="14" HeightRequest="14" />
                 <Label Grid.Column="1" Text="{Binding Total}" FontSize="10" FontAttributes="Bold" VerticalOptions="Center" />
             </Grid>
             <Label Text="{Binding PricingNote}" IsVisible="{Binding HasPricingNote}" FontSize="9" LineBreakMode="WordWrap"
@@ -69,4 +68,4 @@
             <Label Text="{Binding Status}" FontSize="9" LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
         </VerticalStackLayout>
     </Grid>
-</ContentPage>
+</ContentView>

@@ -1,4 +1,5 @@
 <Application xmlns:styles="clr-namespace:OnionLLM.Resources.Styles"
+             xmlns:converters="clr-namespace:OnionLLM.Converters"
              x:Class="OnionLLM.App">
     <Application.Resources>
         <ResourceDictionary>
@@ -17,6 +18,8 @@
                 <ResourceDictionary Source="Resources/Styles/Styles.Surfaces.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.Implicit.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <converters:TokenColorConverter x:Key="TokenColor" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

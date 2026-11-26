@@ -38,11 +38,43 @@ public static class AppState
 
     public static void NotifyChanged() => Changed?.Invoke(null, EventArgs.Empty);
 
+    private static int _syncing;
+
+    /// <summary>Trwa synchronizacja (StatusBar, ikona odświeżania — M15).</summary>
+    public static bool IsSyncing => Volatile.Read(ref _syncing) > 0;
+
+    /// <summary>Koniec ostatniej udanej synchronizacji.</summary>
+    public static DateTimeOffset? LastSyncSucceededAt { get; private set; }
+
+    /// <summary>Komunikat ostatniego błędu synchronizacji; null po udanej synchronizacji.</summary>
+    public static string? LastSyncError { get; private set; }
+
+    /// <summary>Zmiana <see cref="IsSyncing"/>, <see cref="LastSyncSucceededAt"/> lub <see cref="LastSyncError"/>.</summary>
+    public static event EventHandler? SyncStateChanged;
+
     /// <summary>Synchronizacja + cennik + limity (limity co 5 min); bezpieczne do wołania z UI.</summary>
     public static async Task RefreshDataAsync(bool force = false, CancellationToken cancellationToken = default)
     {
-        await Engine.LoadPricingAsync(cancellationToken: cancellationToken);
-        await Engine.SyncAsync(force, TimeSpan.FromSeconds(10), cancellationToken);
+        Interlocked.Increment(ref _syncing);
+        SyncStateChanged?.Invoke(null, EventArgs.Empty);
+        try
+        {
+            await Engine.LoadPricingAsync(cancellationToken: cancellationToken);
+            await Engine.SyncAsync(force, TimeSpan.FromSeconds(10), cancellationToken);
+            LastSyncSucceededAt = DateTimeOffset.UtcNow;
+            LastSyncError = null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            LastSyncError = exception.Message;
+            throw;
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _syncing);
+            SyncStateChanged?.Invoke(null, EventArgs.Empty);
+        }
+
         if (force || DateTimeOffset.UtcNow - LimitsReadAt > TimeSpan.FromMinutes(5))
         {
             try

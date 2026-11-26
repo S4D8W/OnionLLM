@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- StatusBar / SyncIndicator (DESIGN.md §4.7.5): sync · sources · skipped files · pricing ··· always-on-top · local data. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:nav="clr-namespace:OnionLLM.Navigation"
+             xmlns:res="clr-namespace:OnionLLM.Resources"
+             x:Class="OnionLLM.Controls.StatusBar"
+             x:DataType="nav:ShellViewModel"
+             BackgroundColor="{DynamicResource ColorBgCanvas}">
+    <Grid RowDefinitions="Auto,*">
+        <BoxView VerticalOptions="Start" />
+        <Grid Grid.Row="1"
+              ColumnDefinitions="*,Auto"
+              HeightRequest="{StaticResource SizeStatusBarHeight}"
+              Padding="{StaticResource PaddingStatusBar}">
+            <HorizontalStackLayout Spacing="{StaticResource Space200}" VerticalOptions="Center">
+                <HorizontalStackLayout Spacing="{StaticResource Space100}" AutomationId="StatusBar.Sync"
+                                       ToolTipProperties.Text="{Binding SyncTooltip}">
+                    <Label x:Name="SyncIcon"
+                           Style="{StaticResource Text.Icon.Xs}"
+                           Text="{x:Static res:Icons.RefreshCw}"
+                           TextColor="{Binding SyncColorKey, Converter={StaticResource TokenColor}}" />
+                    <Label Style="{StaticResource Text.Caption}"
+                           Text="{Binding SyncText}"
+                           TextColor="{Binding SyncColorKey, Converter={StaticResource TokenColor}}"
+                           VerticalOptions="Center">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnSyncTapped" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </HorizontalStackLayout>
+                <Label Style="{StaticResource Text.Caption}" Text="·" VerticalOptions="Center" />
+                <Label Style="{StaticResource Text.Caption}" Text="{Binding SourcesText}" VerticalOptions="Center"
+                       AutomationId="StatusBar.Sources" />
+                <Label Style="{StaticResource Text.Caption}" Text="·" VerticalOptions="Center" IsVisible="{Binding HasSkipped}" />
+                <Label Style="{StaticResource Text.Caption}" Text="{Binding SkippedText}" VerticalOptions="Center"
+                       TextColor="{DynamicResource ColorStatusWarning}" IsVisible="{Binding HasSkipped}"
+                       AutomationId="StatusBar.Skipped">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenDiagnosticsCommand}" />
+                    </Label.GestureRecognizers>
+                </Label>
+                <Label Style="{StaticResource Text.Caption}" Text="·" VerticalOptions="Center" />
+                <Label Style="{StaticResource Text.Caption}" Text="{Binding PricingText}" VerticalOptions="Center"
+                       TextColor="{Binding PricingColorKey, Converter={StaticResource TokenColor}}"
+                       AutomationId="StatusBar.Pricing" />
+            </HorizontalStackLayout>
+
+            <HorizontalStackLayout Grid.Column="1" Spacing="{StaticResource Space200}" VerticalOptions="Center">
+                <Label Style="{StaticResource Text.Icon.Xs}" Text="{x:Static res:Icons.Pin}"
+                       TextColor="{DynamicResource ColorTextTertiary}"
+                       IsVisible="{Binding IsAlwaysOnTop}"
+                       ToolTipProperties.Text="Zawsze na wierzchu"
+                       SemanticProperties.Description="Okno zawsze na wierzchu" />
+                <HorizontalStackLayout Spacing="{StaticResource Space100}"
+                                       ToolTipProperties.Text="Dane czytane wyłącznie z dysku tego komputera. Sieć: tylko cennik i limity Claude.">
+                    <Label Style="{StaticResource Text.Icon.Xs}" Text="{x:Static res:Icons.HardDrive}"
+                           TextColor="{DynamicResource ColorTextTertiary}" />
+                    <Label Style="{StaticResource Text.Caption}" Text="Dane lokalne" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </HorizontalStackLayout>
+        </Grid>
+    </Grid>
+</ContentView>

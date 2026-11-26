@@ -1,16 +1,13 @@
-<ContentPage x:Class="OnionLLM.Pages.SettingsPage"
-             Shell.NavBarIsVisible="False"
-             Title="Ustawienia"
-             BackgroundColor="{AppThemeBinding Light=#F2F4F8, Dark=#0C0E13}">
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Migrated to the window host in Faza 12.1; content is rebuilt to DESIGN.md §6 in 12.3. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             x:Class="OnionLLM.Views.SettingsView">
 
     <ScrollView>
-        <VerticalStackLayout Padding="16,14,16,16" Spacing="12">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <Button Text="☰" Clicked="OnMenuClicked" FontSize="20" Padding="0" WidthRequest="42" HeightRequest="42" CornerRadius="13"
-                        BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}"
-                        SemanticProperties.Description="Otwórz nawigację" />
-                <Label Grid.Column="1" Text="Ustawienia" FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
-            </Grid>
+        <VerticalStackLayout Padding="{DynamicResource LayoutPagePadding}" Spacing="{StaticResource Space300}">
+            <controls:PageHeader Title="Ustawienia" Subtitle="" />
 
             <Border Padding="14,12" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
                 <Border.StrokeShape>
@@ -192,11 +189,10 @@
                 <Button Text="Zapisz" Command="{Binding SaveCommand}" FontSize="12" CornerRadius="10" BackgroundColor="#5B4BFF" TextColor="White" />
                 <Button Grid.Column="1" Text="Odśwież cennik" Command="{Binding RefreshPricingCommand}" FontSize="12" CornerRadius="10"
                         BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}" />
-                <Button Grid.Column="2" Text="Przebuduj bazę" Command="{Binding RebuildCommand}" FontSize="12" CornerRadius="10"
+                <Button Grid.Column="2" Text="Przebuduj bazę…" Command="{Binding RebuildCommand}" FontSize="12" CornerRadius="10"
                         BackgroundColor="{AppThemeBinding Light=#E6E9F1, Dark=#252832}" TextColor="{AppThemeBinding Light=#313541, Dark=White}" />
             </Grid>
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#6C5CE7" WidthRequest="14" HeightRequest="14" />
                 <Label Grid.Column="1" Text="{Binding Status}" FontSize="10" />
             </Grid>
             <Label FontSize="9" TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}">
@@ -238,4 +234,4 @@
             </Border>
         </VerticalStackLayout>
     </ScrollView>
-</ContentPage>
+</ContentView>

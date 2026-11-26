@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Dialog (DESIGN.md §4.6.2): scrim + centred card; „Anuluj” (Secondary) · action (Primary / Danger). Esc = Anuluj. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:nav="clr-namespace:OnionLLM.Navigation"
+             x:Class="OnionLLM.Controls.DialogHost"
+             x:DataType="nav:DialogRequest"
+             IsVisible="False"
+             BackgroundColor="{DynamicResource ColorScrim}">
+    <Border x:Name="Card"
+            Style="{StaticResource Surface.Dialog}"
+            WidthRequest="{StaticResource SizeDialogSm}"
+            HorizontalOptions="Center"
+            VerticalOptions="Center"
+            SemanticProperties.Description="{Binding Title}">
+        <VerticalStackLayout Spacing="{StaticResource Space400}">
+            <Label Style="{StaticResource Text.TitleSection}" Text="{Binding Title}" />
+            <Label Style="{StaticResource Text.Secondary}" Text="{Binding Message}" />
+            <HorizontalStackLayout HorizontalOptions="End" Spacing="{StaticResource Space200}">
+                <Button x:Name="CancelButton" Style="{StaticResource Button.Secondary}"
+                        Text="{Binding CancelText}" Command="{Binding CancelCommand}" AutomationId="Dialog.Cancel" />
+                <Button x:Name="ConfirmButton" Style="{StaticResource Button.Primary}"
+                        Text="{Binding ConfirmText}" Command="{Binding ConfirmCommand}" AutomationId="Dialog.Confirm" />
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

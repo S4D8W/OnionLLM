@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Main window structure (DESIGN.md §2.9.3): Sidebar | content (screen view with its PageHeader · StatusBar).
+    Overlay layers on top: sidebar overlay (medium/narrow), toasts, dialog. The drawer column arrives with §4.6.1.
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             xmlns:nav="clr-namespace:OnionLLM.Navigation"
+             x:Class="OnionLLM.MainShellPage"
+             x:DataType="nav:ShellViewModel"
+             Title="OnionLLM">
+    <Grid>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="{Binding SidebarColumn}" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="1" RowDefinitions="*,Auto">
+                <ContentView x:Name="Presenter" />
+                <controls:StatusBar Grid.Row="1" />
+            </Grid>
+
+            <!-- Click outside the sidebar overlay closes it (no scrim, §4.7.1). -->
+            <Grid Grid.Column="1"
+                  BackgroundColor="{DynamicResource ColorTransparent}"
+                  IsVisible="{Binding IsOverlayOpen}">
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding CloseOverlayCommand}" />
+                </Grid.GestureRecognizers>
+            </Grid>
+
+            <controls:Sidebar Grid.ColumnSpan="{Binding SidebarColumnSpan}"
+                              WidthRequest="{Binding SidebarWidth}"
+                              HorizontalOptions="Start"
+                              ZIndex="10" />
+        </Grid>
+
+        <controls:ToastHost Padding="{StaticResource PaddingToastHost}" />
+        <controls:DialogHost />
+    </Grid>
+</ContentPage>
