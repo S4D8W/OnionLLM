@@ -91,6 +91,12 @@ public sealed class SettingsView : ContentView, IScreenView
     public async Task OnNavigatedToAsync(object? parameter)
     {
         await _vm.LoadAsync();
+        // Drill-down to a sub-page by title, e.g. „Projekty” from the project drawer or „Cennik” from Modele.
+        if (parameter is string title && Array.FindIndex(Pages, entry => entry.Title == title) is var target and >= 0)
+        {
+            Open(target);
+        }
+
 #if DEBUG
         // Developer aid: with ONIONLLM_SCREEN_SMOKE every sub-page is built once and traced.
         if (Environment.GetEnvironmentVariable("ONIONLLM_SCREEN_SMOKE") is { Length: > 0 })

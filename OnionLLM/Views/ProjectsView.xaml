@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Projekty (DESIGN.md §6.6): FilterBar → „Top projekty” → table (trend sparkline) → drawer → PricingNote. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             xmlns:vm="clr-namespace:OnionLLM.ViewModels"
+             x:Class="OnionLLM.Views.ProjectsView"
+             x:DataType="vm:ProjectsViewModel">
+    <Grid RowDefinitions="Auto,Auto,*"
+          Padding="{DynamicResource LayoutPagePadding}"
+          RowSpacing="{StaticResource Space300}">
+        <controls:PageHeader Title="Projekty" Subtitle="{Binding Subtitle}">
+            <Button Style="{StaticResource Button.Secondary.Sm}" Text="Kopiuj jako tabelę" Command="{Binding ExportCsvCommand}" AutomationId="Projects.Copy" />
+        </controls:PageHeader>
+
+        <controls:FilterBar Grid.Row="1" IsDirty="{Binding IsFiltered}" ResetCommand="{Binding ResetFiltersCommand}">
+            <controls:DateRangePicker Presets="{Binding Presets}" PresetIndex="{Binding RangeIndex}" CustomIndex="{Binding CustomPresetIndex}"
+                                      Since="{Binding Since}" Until="{Binding Until}" DisplayText="{Binding RangeText}" AutomationId="Projects.Range" />
+            <controls:FilterChip Variant="Menu" Label="Źródło" ItemsSource="{Binding SourceChoiceNames}" SelectedIndex="{Binding SourceIndex}" AutomationId="Projects.Source" />
+            <controls:SearchField Placeholder="Szukaj projektu lub ścieżki" Query="{Binding Search}" MinimumWidthRequest="{StaticResource SizeDrawerMin}" AutomationId="Projects.Search" />
+        </controls:FilterBar>
+
+        <ScrollView Grid.Row="2">
+            <VerticalStackLayout Spacing="{DynamicResource LayoutSectionGap}">
+                <controls:Card Title="Top projekty" Subtitle="{Binding RangeText}">
+                    <controls:Card.Body>
+                        <VerticalStackLayout x:Name="TopList" Spacing="{StaticResource Space200}" />
+                    </controls:Card.Body>
+                </controls:Card>
+
+                <controls:DataTable x:Name="Table"
+                                    ItemsSource="{Binding Rows}"
+                                    SortKey="{Binding SortKey}"
+                                    SortDescending="{Binding SortDescending}"
+                                    SelectedItem="{Binding SelectedRow}"
+                                    RowActivatedCommand="{Binding OpenDetailsCommand}"
+                                    State="{Binding TableState}"
+                                    HeightRequest="{StaticResource SizeTableHeight}"
+                                    AutomationPrefix="Projects">
+                    <controls:DataTable.EmptyView>
+                        <controls:EmptyState Variant="Inline" Title="Brak projektów w tym zakresie" Description="Zmień zakres, źródło lub wyszukiwanie."
+                                             ActionText="Wyczyść filtry" ActionCommand="{Binding ResetFiltersCommand}" />
+                    </controls:DataTable.EmptyView>
+                </controls:DataTable>
+
+                <controls:PricingNote Text="{Binding PricingNote}" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentView>
