@@ -44,7 +44,19 @@ public partial class ReportsView : ContentView, IScreenView
         ApplyLayout();
     }
 
-    public Task OnNavigatedToAsync(object? parameter) => _viewModel.RefreshAsync();
+    public async Task OnNavigatedToAsync(object? parameter)
+    {
+        await ScreenLoad.RefreshIdleAsync(_viewModel.RefreshAsync, () => _viewModel.IsBusy);
+        // Command palette: „Eksportuj raport CSV / JSON” runs the export of the current report view.
+        if (parameter is ScreenAction { Name: ScreenActions.ExportCsv })
+        {
+            _viewModel.ExportCsvCommand.Execute(null);
+        }
+        else if (parameter is ScreenAction { Name: ScreenActions.ExportJson })
+        {
+            _viewModel.ExportJsonCommand.Execute(null);
+        }
+    }
 
     public void OnNavigatedFrom()
     {

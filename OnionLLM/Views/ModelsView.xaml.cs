@@ -28,7 +28,20 @@ public partial class ModelsView : ContentView, IScreenView
         AppState.Changed += async (_, _) => await _viewModel.RefreshAsync();
     }
 
-    public Task OnNavigatedToAsync(object? parameter) => _viewModel.RefreshAsync();
+    public Task OnNavigatedToAsync(object? parameter)
+    {
+        if (parameter is EntityTarget target)
+        {
+            return _viewModel.OpenEntityAsync(target.Id);
+        }
+
+        if (parameter is SearchRequest search)
+        {
+            _viewModel.Search = search.Query;
+        }
+
+        return _viewModel.RefreshAsync();
+    }
 
     public void OnNavigatedFrom() => _viewModel.Search = string.Empty;
 

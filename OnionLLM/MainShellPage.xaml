@@ -10,10 +10,10 @@
              x:Class="OnionLLM.MainShellPage"
              x:DataType="nav:ShellViewModel"
              Title="OnionLLM">
-    <Grid>
+    <Grid x:Name="Root">
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="{Binding SidebarColumn}" />
+                <ColumnDefinition x:Name="SidebarColumn" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="{Binding DrawerColumn}" />
             </Grid.ColumnDefinitions>
@@ -42,14 +42,15 @@
             </Grid>
             <controls:Drawer Grid.Column="1" Grid.ColumnSpan="2" />
 
-            <controls:Sidebar Grid.ColumnSpan="{Binding SidebarColumnSpan}"
-                              WidthRequest="{Binding SidebarWidth}"
+            <controls:Sidebar x:Name="SidebarView"
+                              Grid.ColumnSpan="{Binding SidebarColumnSpan}"
                               HorizontalOptions="Start"
                               ZIndex="10" />
         </Grid>
 
         <controls:PopoverHost />
         <controls:ToastHost Padding="{StaticResource PaddingToastHost}" />
+        <controls:CommandPalette />
         <controls:DialogHost />
     </Grid>
 </ContentPage>

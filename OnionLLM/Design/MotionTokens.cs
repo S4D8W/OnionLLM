@@ -34,6 +34,9 @@ public static class MotionTokens
     /// <summary>Toast auto-close (§4.6.3).</summary>
     public static TimeSpan ToastVisible { get; } = TimeSpan.FromSeconds(5);
 
+    /// <summary>Polling step while waiting for a screen to finish loading (command palette drill-down).</summary>
+    public static TimeSpan PollInterval { get; } = TimeSpan.FromMilliseconds(50);
+
     /// <summary>Mode after combining the user setting with the OS reduce-motion preference.</summary>
     public static MotionPreference EffectiveMode { get; private set; } = MotionPreference.Full;
 

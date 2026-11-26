@@ -333,6 +333,29 @@ public sealed class SessionsViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Opens the drawer of one session (command palette, §4.6.7). Falls back to the whole history when the session is
+    /// outside the current range; the fallback is not remembered.
+    /// </summary>
+    public async Task OpenEntityAsync(string sessionId)
+    {
+        await ScreenLoad.RefreshIdleAsync(RefreshAsync, () => IsBusy);
+        var row = _report?.Sessions.FirstOrDefault(session => session.SessionId == sessionId);
+        if (row is null && Preset != RangePreset.AllTime)
+        {
+            _rangeIndex = Array.IndexOf(PresetOrder, RangePreset.AllTime);
+            _project = null;
+            OnPropertyChanged(nameof(RangeIndex));
+            await ScreenLoad.RefreshIdleAsync(RefreshAsync, () => IsBusy);
+            row = _report?.Sessions.FirstOrDefault(session => session.SessionId == sessionId);
+        }
+
+        if (row is not null)
+        {
+            OpenDetails(Sessions.FirstOrDefault(item => item.Row.SessionId == sessionId) ?? new SessionItemViewModel(row));
+        }
+    }
+
     /// <summary>Session drawer (§6.4): KPI, tokens, models, details with copyable ID and path.</summary>
     public void OpenDetails(SessionItemViewModel? item)
     {

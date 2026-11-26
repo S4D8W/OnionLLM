@@ -171,11 +171,11 @@ RADIUS = {"RadiusXs": 4, "RadiusSm": 6, "RadiusMd": 8, "RadiusLg": 12, "RadiusXl
 STATIC_DOUBLES = {
     "StrokeDefault": 1, "StrokeFocus": 2, "StrokeFocusOffset": 2, "StrokeSelected": 2,
     "IconSm": 16, "IconMd": 20, "IconLg": 24, "IconXl": 48, "IconXs": 12, "IconTable": 14,
-    "OpacityDisabled": 0.45, "OpacityMuted": 0.6, "OpacityFull": 1, "ScalePressed": 0.98, "ScaleDialogEnter": 0.96, "TypeUnitScale": 0.6, "TypeInitialScale": 0.45, "ScalePulse": 2.2, "OpacityPulse": 0.5, "StrokeDash": 2, "OpacityGhost": 0.85, "OpacityInlineBar": 0.35, "OpacityHover": 0.4,
+    "OpacityDisabled": 0.45, "OpacityMuted": 0.6, "OpacityFull": 1, "ScalePressed": 0.98, "ScaleDialogEnter": 0.96, "TypeUnitScale": 0.6, "TypeInitialScale": 0.45, "ScalePulse": 2.2, "OpacityPulse": 0.5, "StrokeDash": 2, "OpacityGhost": 0.85, "OpacityInlineBar": 0.35, "OpacityHover": 0.4, "OpacityScrimPalette": 0.5, "RatioPaletteTop": 0.2, "RatioPaletteMaxWidth": 0.9,
     "SizeMinTarget": 24, "SizeStatusBarHeight": 28, "SizeLogoSidebar": 28,
     "SizeSidebarWide": 240, "SizeSidebarRail": 64, "SizeSidebarNarrow": 56,
     "SizeDrawerWidth": 420, "SizeDrawerMin": 360, "SizeDrawerMax": 640,
-    "SizeDialogSm": 440, "SizeDialogMd": 560, "SizeToastWidth": 360, "SizePaletteWidth": 640,
+    "SizeDialogSm": 440, "SizeDialogMd": 560, "SizeToastWidth": 360, "SizePaletteWidth": 640, "SizePaletteListMax": 400, "SizeThemeTile": 160, "SizeThemePreview": 72, "SizeOnboardingMinHeight": 480,
     "SizeSettingsNav": 220, "SizeFormMaxWidth": 760, "SizeTextMaxWidth": 560, "SizeOnboardingCard": 640,
     "SizeTokenBreakdownBar": 8, "SizeInlineBar": 4, "SizeModelTag": 20, "SizeStatusDot": 8,
     "SizeAvatarXs": 16, "SizeDotSm": 6, "SizeChartBarMax": 28, "SizeSourceCardMin": 320, "SizeTableHeight": 520, "SizeRingCard": 120, "SizeAccentBar": 3, "SizeChevron": 14, "SizeTabUnderline": 2, "SizeIllustration": 80, "SizeIllustrationInline": 24, "SizeHeroDot": 6, "SizeFormLabel": 280, "SizeFormField": 400, "SizeIndent": 24, "SizeStatTileMinCompact": 96, "SizePopoverMaxHeight": 360, "SizeSelectMinWidth": 160, "SizeCalendarCell": 32, "SizeEditorMinHeight": 120, "SizeBadge": 20, "SizeCheckbox": 18, "SizeStatTileMin": 112, "SizeAvatarLg": 48, "SizeChartAux": 160, "SizeSparkline": 28,

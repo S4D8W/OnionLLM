@@ -21,7 +21,7 @@
             </ScrollView>
             <HorizontalStackLayout HorizontalOptions="End" Spacing="{StaticResource Space200}">
                 <Button x:Name="CancelButton" Style="{StaticResource Button.Secondary}"
-                        Text="{Binding CancelText}" Command="{Binding CancelCommand}" AutomationId="Dialog.Cancel" />
+                        Text="{Binding CancelText}" Command="{Binding CancelCommand}" IsVisible="{Binding HasCancel}" AutomationId="Dialog.Cancel" />
                 <Button x:Name="ConfirmButton" Style="{StaticResource Button.Primary}"
                         Text="{Binding ConfirmText}" Command="{Binding ConfirmCommand}" AutomationId="Dialog.Confirm" />
             </HorizontalStackLayout>

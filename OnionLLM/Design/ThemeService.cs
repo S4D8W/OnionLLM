@@ -51,6 +51,9 @@ public static class ThemeService
     /// <summary>Raised after the token dictionaries changed — charts call <c>Invalidate()</c>.</summary>
     public static event EventHandler? ThemeChanged;
 
+    /// <summary>M17: the window wraps the dictionary swap in a crossfade (set by the main window host).</summary>
+    public static Func<Action, Task>? Transition { get; set; }
+
     public static AppTheme EffectiveTheme { get; private set; } = AppTheme.Light;
 
     public static void Apply(ThemePreference preference)
@@ -107,7 +110,17 @@ public static class ThemeService
         };
         var changed = theme != EffectiveTheme;
         EffectiveTheme = theme;
+        if (changed && Transition is { } transition)
+        {
+            _ = transition(() => Swap(theme, changed));
+            return;
+        }
 
+        Swap(theme, changed);
+    }
+
+    private static void Swap(AppTheme theme, bool changed)
+    {
         if (theme == AppTheme.Dark)
         {
             DesignResources.Replace(DesignResources.Theme, new TokensDark());

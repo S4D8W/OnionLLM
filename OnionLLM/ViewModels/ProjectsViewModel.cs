@@ -234,6 +234,22 @@ public sealed class ProjectsViewModel : ObservableObject
     }
 
     /// <summary>Project drawer (§6.6): KPI, cost in time, sources donut, models, recent sessions, path and alias.</summary>
+    /// <summary>Opens the drawer of one project (command palette); falls back to the whole history.</summary>
+    public async Task OpenEntityAsync(string name)
+    {
+        await ScreenLoad.RefreshIdleAsync(RefreshAsync, () => IsBusy);
+        var project = _all.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (project is null && _rangeIndex != (int)RangePreset.AllTime)
+        {
+            _rangeIndex = (int)RangePreset.AllTime;
+            OnPropertyChanged(nameof(RangeIndex));
+            await ScreenLoad.RefreshIdleAsync(RefreshAsync, () => IsBusy);
+            project = _all.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        OpenDetails(project);
+    }
+
     public void OpenDetails(ProjectRowViewModel? project)
     {
         if (project is null)

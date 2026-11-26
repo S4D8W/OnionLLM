@@ -266,6 +266,22 @@ public sealed class ModelsViewModel : ObservableObject
     }
 
     /// <summary>Model drawer (§6.7): pricing card with override actions, usage in time, tokens, sources, aliases.</summary>
+    /// <summary>Opens the drawer of one model (command palette); falls back to the whole history.</summary>
+    public async Task OpenEntityAsync(string model)
+    {
+        await ScreenLoad.RefreshIdleAsync(RefreshAsync, () => IsBusy);
+        var row = _all.FirstOrDefault(item => string.Equals(item.Model, model, StringComparison.OrdinalIgnoreCase));
+        if (row is null && _rangeIndex != (int)RangePreset.AllTime)
+        {
+            _rangeIndex = (int)RangePreset.AllTime;
+            OnPropertyChanged(nameof(RangeIndex));
+            await ScreenLoad.RefreshIdleAsync(RefreshAsync, () => IsBusy);
+            row = _all.FirstOrDefault(item => string.Equals(item.Model, model, StringComparison.OrdinalIgnoreCase));
+        }
+
+        OpenDetails(row);
+    }
+
     public void OpenDetails(ModelRowViewModel? row)
     {
         if (row is null)

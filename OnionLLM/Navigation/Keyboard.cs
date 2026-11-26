@@ -105,3 +105,50 @@ public static class DrawerService
         closing.Closed?.Invoke();
     }
 }
+
+/// <summary>Walks the logical tree of a screen (global shortcuts look for its SearchField / export button).</summary>
+public static class ElementTree
+{
+    public static IEnumerable<T> Find<T>(Element? root)
+    {
+        if (root is null)
+        {
+            yield break;
+        }
+
+        if (root is T match)
+        {
+            yield return match;
+        }
+
+        foreach (var child in ((IElementController)root).LogicalChildren)
+        {
+            foreach (var found in Find<T>(child))
+            {
+                yield return found;
+            }
+        }
+    }
+
+    /// <summary>First element of type <typeparamref name="T"/> that is visible together with all its ancestors.</summary>
+    public static T? FirstVisible<T>(Element? root) where T : VisualElement =>
+        Find<T>(root).FirstOrDefault(element => IsShown(element, root));
+
+    public static bool IsShown(Element element, Element? root)
+    {
+        for (Element? current = element; current is not null; current = current.Parent)
+        {
+            if (current is VisualElement { IsVisible: false })
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(current, root))
+            {
+                break;
+            }
+        }
+
+        return true;
+    }
+}

@@ -114,6 +114,9 @@ public sealed class DialogRequest : ObservableObject
 
     public string CancelText { get; init; } = "Anuluj";
 
+    /// <summary>False for information dialogs with a single „Zamknij” button (e.g. „Skróty klawiszowe”).</summary>
+    public bool HasCancel { get; init; } = true;
+
     /// <summary>Short form shown under the message (e.g. „Dodaj nadpisanie”, §4.6.2).</summary>
     public View? Body { get; init; }
 
@@ -153,6 +156,10 @@ public static class DialogService
     /// <summary>Dialog with a form body (§4.6.2 „krótkie formularze”).</summary>
     public static Task<bool> FormAsync(string title, View body, string confirmText, Func<bool> validate) =>
         ShowAsync(new DialogRequest { Title = title, Message = string.Empty, ConfirmText = confirmText, Body = body, Validate = validate });
+
+    /// <summary>Read-only dialog with one „Zamknij” button (Enter and Esc close it).</summary>
+    public static Task<bool> InfoAsync(string title, View body) =>
+        ShowAsync(new DialogRequest { Title = title, Message = string.Empty, ConfirmText = "Zamknij", Body = body, HasCancel = false });
 
     private static Task<bool> ShowAsync(DialogRequest request)
     {

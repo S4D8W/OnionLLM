@@ -26,6 +26,9 @@ public sealed class SettingsView : ContentView, IScreenView
         ("Źródła danych", "źródła ścieżki narzędzia")
     ];
 
+    /// <summary>Sub-pages for the command palette („Ustawienia → Cennik”); „Źródła danych” is a link to Źródła.</summary>
+    public static IEnumerable<(string Title, string Keywords)> PageIndex => Pages.Where(page => page.Title != "Źródła danych");
+
     private readonly SettingsViewModel _vm = new();
     private readonly SettingsNav _nav = new();
     private readonly Select _navSelect = new() { Placeholder = "Podstrona" };
@@ -95,6 +98,23 @@ public sealed class SettingsView : ContentView, IScreenView
         if (parameter is string title && Array.FindIndex(Pages, entry => entry.Title == title) is var target and >= 0)
         {
             Open(target);
+        }
+
+        // Command palette actions live on their sub-pages (the palette is a shortcut, not the only way, §4.6.7).
+        if (parameter is ScreenAction action)
+        {
+            var (page, command) = action.Name switch
+            {
+                ScreenActions.RefreshPricing => ("Cennik", _vm.RefreshPricingCommand),
+                ScreenActions.CheckMismatches => ("Zaawansowane", _vm.CheckMismatchesCommand),
+                ScreenActions.Rebuild => ("Zaawansowane", _vm.RebuildCommand),
+                _ => ((string?)null, (Command?)null)
+            };
+            if (page is not null && command is not null)
+            {
+                Open(Array.FindIndex(Pages, entry => entry.Title == page));
+                command.Execute(null);
+            }
         }
 
 #if DEBUG

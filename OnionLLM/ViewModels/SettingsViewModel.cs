@@ -221,7 +221,10 @@ public sealed class SettingsViewModel : ObservableObject
         RefreshPricingCommand = new Command(async () => await RefreshPricingAsync());
         RebuildCommand = new Command(async () => await RebuildAsync());
         CheckMismatchesCommand = new Command(async () => await CheckMismatchesAsync());
-        OpenDataFolderCommand = new Command(async () => await Launcher.Default.OpenAsync(new Uri(FileUtil.DataDirectory)));
+        OpenDataFolderCommand = new Command(async () => await WindowActions.OpenDataFolderAsync());
+        // Theme / density / always-on-top can change from shortcuts and the palette: keep the form in sync so the next
+        // autosave does not write the old value back.
+        AppState.Changed += (_, _) => MainThread.BeginInvokeOnMainThread(SyncWindowFields);
         OpenConfigFolderCommand = new Command(async () => await Launcher.Default.OpenAsync(new Uri(Path.GetDirectoryName(ConfigPath)!)));
         OpenConfigFileCommand = new Command(async () =>
         {
@@ -470,6 +473,24 @@ public sealed class SettingsViewModel : ObservableObject
     }
 
     /// <summary>Field change → validate → save immediately (toggles, selects) or after 600 ms (text, §5.10).</summary>
+    private void SyncWindowFields()
+    {
+        var config = AppState.Config;
+        var wasLoading = _loading;
+        _loading = true;
+        try
+        {
+            ThemeIndex = (int)config.Appearance.Theme;
+            DensityIndex = (int)config.Appearance.Density;
+            MotionIndex = (int)config.Appearance.Motion;
+            AlwaysOnTop = config.Window.AlwaysOnTop;
+        }
+        finally
+        {
+            _loading = wasLoading;
+        }
+    }
+
     private void Field<T>(ref T field, T value, string key, bool immediate = false, [System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
     {
         if (!Set(ref field, value, propertyName) || _loading)

@@ -9,7 +9,25 @@ public enum ShortcutCommand
     ToggleSidebar,
     Back,
     Forward,
-    Escape
+    Escape,
+    Palette,
+    Shortcuts,
+    Search,
+    Export,
+    ToggleTheme,
+    AlwaysOnTop
+}
+
+/// <summary>Keys handled by the open command palette.</summary>
+public enum PaletteKey
+{
+    Up,
+    Down,
+    PageUp,
+    PageDown,
+    Enter,
+    Escape,
+    Tab
 }
 
 /// <summary>A resolved shortcut: command + optional screen (for Ctrl+1…8).</summary>
@@ -24,16 +42,23 @@ public static class ShortcutService
 {
 #if MACCATALYST || IOS
     public const string SettingsShortcutLabel = "⌘,";
+    public const string BackLabel = "⌘[";
+    public const string ForwardLabel = "⌘]";
     private const string Modifier = "⌘";
 #else
     public const string SettingsShortcutLabel = "Ctrl+,";
+    public const string BackLabel = "Alt+←";
+    public const string ForwardLabel = "Alt+→";
     private const string Modifier = "Ctrl";
 #endif
 
     public static event EventHandler<ShortcutAction>? Invoked;
 
-    /// <summary>Label for tooltips: „Ctrl+3” / „⌘3”.</summary>
-    public static string Label(string key) => Modifier == "Ctrl" ? $"Ctrl+{key}" : $"⌘{key}";
+    /// <summary>Keys for the open command palette (raised instead of shortcuts while it is open).</summary>
+    public static event EventHandler<PaletteKey>? PaletteKeyPressed;
+
+    /// <summary>Label for tooltips: „Ctrl+3” / „⌘3”, „Ctrl+Shift+L” / „⇧⌘L”.</summary>
+    public static string Label(string key) => Modifier == "Ctrl" ? $"Ctrl+{key}" : (key.StartsWith("Shift+", StringComparison.Ordinal) ? "⇧⌘" + key[6..] : $"⌘{key}");
 
     public static void Raise(ShortcutAction action) => Invoked?.Invoke(null, action);
 
@@ -50,18 +75,96 @@ public static class ShortcutService
 #endif
     }
 
+    /// <summary>Remembers the focused control before a modal overlay opens (palette), to restore it on close (§9.2).</summary>
+    public static void SaveFocus()
+    {
 #if WINDOWS
+        _savedFocus = _xamlRoot is null ? null : Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(_xamlRoot) as Microsoft.UI.Xaml.Controls.Control;
+#endif
+    }
+
+    public static void RestoreFocus()
+    {
+#if WINDOWS
+        _savedFocus?.Focus(Microsoft.UI.Xaml.FocusState.Keyboard);
+        _savedFocus = null;
+#endif
+    }
+
+#if WINDOWS
+    private static Microsoft.UI.Xaml.XamlRoot? _xamlRoot;
+    private static Microsoft.UI.Xaml.Controls.Control? _savedFocus;
+
     private static void OnPreviewKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
     {
+        if (sender is Microsoft.UI.Xaml.UIElement { XamlRoot: { } xamlRoot })
+        {
+            _xamlRoot = xamlRoot;
+        }
+
         var ctrl = IsDown(Windows.System.VirtualKey.Control);
         var alt = IsDown(Windows.System.VirtualKey.Menu);
         var shift = IsDown(Windows.System.VirtualKey.Shift);
         var inText = sender is Microsoft.UI.Xaml.UIElement element && IsTextInputFocused(element);
         var key = (int)e.Key;
 
+        // Open command palette: arrows, Enter, Esc and Tab belong to it (focus trap, §9.2); typing goes to its field.
+        if (CommandPaletteService.IsOpen)
+        {
+            PaletteKey? paletteKey = e.Key switch
+            {
+                Windows.System.VirtualKey.Up => PaletteKey.Up,
+                Windows.System.VirtualKey.Down => PaletteKey.Down,
+                Windows.System.VirtualKey.PageUp => PaletteKey.PageUp,
+                Windows.System.VirtualKey.PageDown => PaletteKey.PageDown,
+                Windows.System.VirtualKey.Enter => PaletteKey.Enter,
+                Windows.System.VirtualKey.Escape => PaletteKey.Escape,
+                Windows.System.VirtualKey.Tab => PaletteKey.Tab,
+                Windows.System.VirtualKey.K when ctrl && !alt => PaletteKey.Escape,
+                _ => null
+            };
+            if (paletteKey is { } pressed)
+            {
+                PaletteKeyPressed?.Invoke(null, pressed);
+                e.Handled = true;
+            }
+
+            return;
+        }
+
         ShortcutAction? action = null;
         var allowedInText = false;
-        if (ctrl && !alt && !shift && key is >= (int)Windows.System.VirtualKey.Number1 and <= (int)Windows.System.VirtualKey.Number8)
+        if (ctrl && !alt && !shift && e.Key == Windows.System.VirtualKey.K)
+        {
+            action = new ShortcutAction(ShortcutCommand.Palette);
+            allowedInText = true;
+        }
+        else if (ctrl && !alt && !shift && e.Key == Windows.System.VirtualKey.F)
+        {
+            action = new ShortcutAction(ShortcutCommand.Search);
+            allowedInText = true;
+        }
+        else if (!ctrl && !alt && !shift && (key == VkOemSlash || e.Key == Windows.System.VirtualKey.Divide))
+        {
+            action = new ShortcutAction(ShortcutCommand.Search);
+        }
+        else if (!ctrl && !alt && shift && key == VkOemSlash)
+        {
+            action = new ShortcutAction(ShortcutCommand.Shortcuts);
+        }
+        else if (ctrl && !alt && !shift && e.Key == Windows.System.VirtualKey.E)
+        {
+            action = new ShortcutAction(ShortcutCommand.Export);
+        }
+        else if (ctrl && !alt && shift && e.Key == Windows.System.VirtualKey.L)
+        {
+            action = new ShortcutAction(ShortcutCommand.ToggleTheme);
+        }
+        else if (ctrl && !alt && shift && e.Key == Windows.System.VirtualKey.T)
+        {
+            action = new ShortcutAction(ShortcutCommand.AlwaysOnTop);
+        }
+        else if (ctrl && !alt && !shift && key is >= (int)Windows.System.VirtualKey.Number1 and <= (int)Windows.System.VirtualKey.Number8)
         {
             action = new ShortcutAction(ShortcutCommand.Navigate, (Screen)(key - (int)Windows.System.VirtualKey.Number1));
             allowedInText = true;
@@ -133,6 +236,8 @@ public static class ShortcutService
         e.Handled = action.Value.Command != ShortcutCommand.Escape;
     }
 
+    private const int VkOemSlash = 191;
+
     private static bool IsDown(Windows.System.VirtualKey key) =>
         Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(key)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
@@ -180,6 +285,12 @@ public static class ShortcutService
         view.Add(Accelerated("Zwiń panel", "B", KeyboardAcceleratorModifiers.Cmd, ShortcutCommand.ToggleSidebar));
         view.Add(Accelerated("Wstecz", "[", KeyboardAcceleratorModifiers.Cmd, ShortcutCommand.Back));
         view.Add(Accelerated("Dalej", "]", KeyboardAcceleratorModifiers.Cmd, ShortcutCommand.Forward));
+        view.Add(Accelerated("Paleta poleceń", "K", KeyboardAcceleratorModifiers.Cmd, ShortcutCommand.Palette));
+        view.Add(Accelerated("Szukaj", "F", KeyboardAcceleratorModifiers.Cmd, ShortcutCommand.Search));
+        view.Add(Accelerated("Eksportuj", "E", KeyboardAcceleratorModifiers.Cmd, ShortcutCommand.Export));
+        view.Add(Accelerated("Przełącz motyw", "L", KeyboardAcceleratorModifiers.Cmd | KeyboardAcceleratorModifiers.Shift, ShortcutCommand.ToggleTheme));
+        view.Add(Accelerated("Zawsze na wierzchu", "T", KeyboardAcceleratorModifiers.Cmd | KeyboardAcceleratorModifiers.Shift, ShortcutCommand.AlwaysOnTop));
+        view.Add(Accelerated("Skróty klawiszowe", "/", KeyboardAcceleratorModifiers.Cmd | KeyboardAcceleratorModifiers.Shift, ShortcutCommand.Shortcuts));
         page.MenuBarItems.Clear();
         page.MenuBarItems.Add(view);
 

@@ -37,10 +37,17 @@ public partial class SessionsView : ContentView, IScreenView
 
     public async Task OnNavigatedToAsync(object? parameter)
     {
-        if (parameter is RangeFilter filter)
+        switch (parameter)
         {
-            _viewModel.ApplyFilter(filter);
-            return;
+            case RangeFilter filter:
+                _viewModel.ApplyFilter(filter);
+                return;
+            case EntityTarget target:
+                await _viewModel.OpenEntityAsync(target.Id);
+                return;
+            case SearchRequest search:
+                _viewModel.Search = search.Query;
+                break;
         }
 
         await _viewModel.RefreshAsync();

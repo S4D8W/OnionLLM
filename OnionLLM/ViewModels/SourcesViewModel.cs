@@ -260,6 +260,13 @@ public sealed class SourcesViewModel : ObservableObject
     }
 
     /// <summary>Source drawer (§6.8): tabs Przegląd · Konfiguracja · Diagnostyka.</summary>
+    /// <summary>Opens the drawer of one source on „Przegląd” (command palette).</summary>
+    public async Task OpenEntityAsync(string sourceId)
+    {
+        await ScreenLoad.RefreshIdleAsync(() => RefreshAsync(), () => IsBusy);
+        OpenDetails(_all.FirstOrDefault(row => row.Id == sourceId), 0);
+    }
+
     public void OpenDetails(SourceRowViewModel? row, int tab)
     {
         if (row is null)

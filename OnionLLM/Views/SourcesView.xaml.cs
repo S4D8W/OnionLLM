@@ -26,7 +26,8 @@ public partial class SourcesView : ContentView, IScreenView
         AppState.Changed += async (_, _) => await _viewModel.RefreshAsync();
     }
 
-    public Task OnNavigatedToAsync(object? parameter) => _viewModel.RefreshAsync();
+    public Task OnNavigatedToAsync(object? parameter) =>
+        parameter is EntityTarget target ? _viewModel.OpenEntityAsync(target.Id) : _viewModel.RefreshAsync();
 
     public void OnNavigatedFrom() => _viewModel.Search = string.Empty;
 

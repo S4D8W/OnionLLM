@@ -294,6 +294,24 @@ public sealed class ShellViewModel : ObservableObject
             case ShortcutCommand.Forward:
                 await Navigation.GoForwardAsync();
                 break;
+            case ShortcutCommand.Palette:
+                CommandPaletteService.Toggle();
+                break;
+            case ShortcutCommand.Shortcuts:
+                await ShortcutHelp.ShowAsync();
+                break;
+            case ShortcutCommand.Search:
+                FocusSearch();
+                break;
+            case ShortcutCommand.Export:
+                OpenExport();
+                break;
+            case ShortcutCommand.ToggleTheme:
+                WindowActions.CycleTheme();
+                break;
+            case ShortcutCommand.AlwaysOnTop:
+                WindowActions.ToggleAlwaysOnTop();
+                break;
             case ShortcutCommand.Escape when Controls.PopoverService.IsOpen:
                 Controls.PopoverService.Close();
                 break;
@@ -305,6 +323,18 @@ public sealed class ShellViewModel : ObservableObject
                 break;
         }
     }
+
+    /// <summary>„/” and Ctrl+F: focus the screen's SearchField (§9.6), if the screen has one.</summary>
+    private void FocusSearch()
+    {
+        if (ElementTree.FirstVisible<Controls.SearchField>(Navigation.CurrentView) is { } search)
+        {
+            search.Focus();
+        }
+    }
+
+    /// <summary>Ctrl+E: open the export menu of the screen's SplitButton „Eksportuj” (§9.6).</summary>
+    private void OpenExport() => ElementTree.FirstVisible<Controls.SplitButton>(Navigation.CurrentView)?.OpenMenu();
 
     // ===== Refresh loop (§5.7) =====
 

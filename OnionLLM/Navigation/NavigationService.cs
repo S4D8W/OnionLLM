@@ -116,9 +116,11 @@ public sealed class NavigationService
         _presenter.Content = view;
         Navigated?.Invoke(this, EventArgs.Empty);
 
+        // M1: cards and tiles additionally enter one after another in reading order (stagger, max 8).
         var entrance = MotionTokens.Slow > 0
             ? Task.WhenAll(view.FadeToAsync(1, MotionTokens.Slow, OnionEasing.Enter),
-                view.TranslateToAsync(0, 0, MotionTokens.Slow, OnionEasing.Enter))
+                view.TranslateToAsync(0, 0, MotionTokens.Slow, OnionEasing.Enter),
+                Motion.StaggerInAsync(ElementTree.Find<Controls.Card>(view).Where(card => ElementTree.IsShown(card, view))))
             : Task.CompletedTask;
 
         if (view is IScreenView screenView)
