@@ -1,44 +1,77 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Migrated to the window host in Faza 12.1; content is rebuilt to DESIGN.md §6 in 12.3. -->
+<!-- Bloki 5-godzinne (DESIGN.md §6.5): active block card → KPI → blocks table with gaps → drawer. -->
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:OnionLLM.Controls"
-             x:Class="OnionLLM.Views.BlocksView">
+             xmlns:charts="clr-namespace:OnionLLM.Controls.Charts"
+             xmlns:vm="clr-namespace:OnionLLM.ViewModels"
+             xmlns:res="clr-namespace:OnionLLM.Resources"
+             x:Class="OnionLLM.Views.BlocksView"
+             x:DataType="vm:BlocksViewModel">
+    <Grid RowDefinitions="Auto,Auto,*"
+          Padding="{DynamicResource LayoutPagePadding}"
+          RowSpacing="{StaticResource Space300}">
+        <controls:PageHeader Title="Bloki 5-godzinne" Subtitle="Okna rozliczeniowe Claude odtworzone z historii">
+            <controls:SplitButton x:Name="ExportButton" Text="Eksportuj" Command="{Binding ExportJsonCommand}" AutomationId="Blocks.Export" />
+        </controls:PageHeader>
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="{DynamicResource LayoutPagePadding}" RowSpacing="{StaticResource Space300}">
-        <controls:PageHeader Title="Bloki 5-godzinne" Subtitle="Okna rozliczeniowe Claude odtworzone z historii" />
-        <Picker Grid.Row="1" ItemsSource="{Binding Ranges}" SelectedIndex="{Binding RangeIndex}" FontSize="12" Title="Zakres" />
+        <!-- Single filter: no FilterBar needed (a one-child FilterBar trips the XAML generator's collection content). -->
+        <controls:SegmentedControl Grid.Row="1" ItemsSource="{Binding Ranges}" SelectedIndex="{Binding RangeIndex}" Label="Zakres" AutomationId="Blocks.Range" />
 
-        <CollectionView Grid.Row="2" ItemsSource="{Binding Blocks}" SelectionMode="None">
-            <CollectionView.ItemsLayout>
-                <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
-            </CollectionView.ItemsLayout>
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Border Padding="0" StrokeThickness="1" Opacity="{Binding Opacity}" Stroke="{AppThemeBinding Light=#E2E5EC, Dark=#282C37}"
-                            BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="13" />
-                        </Border.StrokeShape>
-                        <Grid ColumnDefinitions="4,*">
-                            <BoxView Color="{Binding Accent}" />
-                            <VerticalStackLayout Grid.Column="1" Padding="12,10" Spacing="3">
-                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-                                    <Label Text="{Binding Title}" FontSize="13" FontAttributes="Bold" />
-                                    <Label Grid.Column="1" Text="{Binding Tokens}" FontSize="12" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
-                                    <Label Grid.Column="2" Text="{Binding Cost}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#4F3FD5, Dark=#A99FFF}" />
-                                </Grid>
-                                <Label Text="{Binding Subtitle}" FontSize="10" TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
-                                <Label Text="{Binding Extra}" IsVisible="{Binding HasExtra}" FontSize="10" FontAttributes="Bold" />
-                            </VerticalStackLayout>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+        <controls:EmptyState Grid.Row="2" IsVisible="{Binding ClaudeMissing}" Glyph="{x:Static res:Icons.Timer}"
+                             Title="Bloki dotyczą tylko Claude Code" Description="Nie wykryto danych Claude Code na tym komputerze."
+                             ActionText="Skonfiguruj Claude Code" ActionCommand="{Binding ConfigureCommand}" IsPrimaryAction="True" />
 
-        <Grid Grid.Row="3" ColumnDefinitions="Auto,*" ColumnSpacing="8">
-            <Label Grid.Column="1" Text="{Binding Summary}" FontSize="9" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
-        </Grid>
+        <ScrollView x:Name="Body" Grid.Row="2" IsVisible="{Binding ClaudeMissing, Converter={StaticResource Invert}}">
+            <VerticalStackLayout Spacing="{DynamicResource LayoutSectionGap}">
+                <!-- Active block, extended (§6.5 pkt 2) -->
+                <controls:Card Title="Aktywny blok" IsVisible="{Binding HasActive}" AutomationId="Blocks.Active">
+                    <controls:Card.Actions>
+                        <controls:StatusBadge Text="Aktywny" Kind="Live" />
+                    </controls:Card.Actions>
+                    <controls:Card.Body>
+                        <VerticalStackLayout Spacing="{StaticResource Space300}">
+                            <Label Style="{StaticResource Text.Caption.Secondary}" Text="{Binding ActiveRemaining}" />
+                            <charts:BlockTimeline Cumulative="{Binding ActiveSeries}" Now="{Binding ActiveNow}"
+                                                  Projection="{Binding ActiveProjection}" />
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource Space400}">
+                                <controls:MetricLabel Value="{Binding ActiveCost}" Size="Md" Format="Cost" TextColor="{DynamicResource ColorDataCost}" />
+                                <Label Grid.Column="1" Style="{StaticResource Text.Caption}" Text="{Binding ActiveTokens}" VerticalOptions="End" />
+                            </Grid>
+                            <controls:BurnRateBadge IsVisible="{Binding HasBurnRate}" CostPerHour="{Binding BurnCostPerHour}"
+                                                    TokensPerMinute="{Binding BurnTokensPerMinute}" Level="{Binding BurnLevel}" />
+                            <controls:LimitGauge IsVisible="{Binding HasLimit}" Title="{Binding LimitTitle}" Percent="{Binding ActiveLimitPercent}"
+                                                 State="Estimated" ProjectionText="{Binding ProjectionText}" />
+                            <Label Style="{StaticResource Text.Caption}" Text="{Binding ProjectionText}" IsVisible="{Binding HasLimit, Converter={StaticResource Invert}}" />
+                        </VerticalStackLayout>
+                    </controls:Card.Body>
+                </controls:Card>
+                <controls:Card Title="Brak aktywnego bloku" IsVisible="{Binding HasNoActive}">
+                    <controls:Card.Body>
+                        <Label Style="{StaticResource Text.Secondary}" Text="{Binding LastBlockText}" />
+                    </controls:Card.Body>
+                </controls:Card>
+
+                <!-- KPI (§6.5 pkt 3) -->
+                <Grid x:Name="KpiGrid" ColumnDefinitions="*,*,*,*" ColumnSpacing="{DynamicResource LayoutGridGap}" RowSpacing="{DynamicResource LayoutGridGap}">
+                    <controls:StatTile Title="Bloki" Value="{Binding BlockCount}" Caption="{Binding RangeText}" />
+                    <controls:StatTile Grid.Column="1" Title="Średnio / blok" Value="{Binding AverageCost}" />
+                    <controls:StatTile Grid.Column="2" Title="Limit tokenów" Value="{Binding LimitValue}" Caption="{Binding LimitCaption}" />
+                    <controls:StatTile Grid.Column="3" Title="Najdroższy blok" Value="{Binding MostExpensive}" Caption="{Binding MostExpensiveCaption}" />
+                </Grid>
+
+                <controls:DataTable x:Name="Table"
+                                    ItemsSource="{Binding Blocks}"
+                                    SelectedItem="{Binding SelectedBlock}"
+                                    RowActivatedCommand="{Binding OpenDetailsCommand}"
+                                    State="{Binding TableState}"
+                                    HeightRequest="{StaticResource SizeTableHeight}"
+                                    AutomationPrefix="Blocks">
+                    <controls:DataTable.EmptyView>
+                        <controls:EmptyState Variant="Inline" Title="Brak bloków w wybranym zakresie" Description="Wybierz dłuższy zakres." />
+                    </controls:DataTable.EmptyView>
+                </controls:DataTable>
+            </VerticalStackLayout>
+        </ScrollView>
     </Grid>
 </ContentView>
