@@ -2,7 +2,7 @@
 
 > **Dla kogo:** agenci i ludzie, którzy projektują lub implementują UI aplikacji OnionLLM (MAUI, desktop Windows + macOS).
 > **Status dokumentu:** obowiązujący, docelowy. Opisuje, jak aplikacja **ma** wyglądać i się zachowywać — nie jak wygląda dziś. Jeśli kod jest niezgodny z tym dokumentem, rację ma dokument, a kod jest do poprawy.
-> **Wersja:** 1.2 · 2026-11-26
+> **Wersja:** 1.3 · 2026-11-26
 
 ## Spis treści
 
@@ -1365,6 +1365,7 @@ Wszystkie wykresy to `GraphicsView` + klasa dziedzicząca po `ChartDrawable : ID
 - **Animacje:** M4 / M5 przez interpolację wartości `t ∈ [0,1]` z `MotionTokens` (Animation + `Invalidate()` na klatkę).
 - **Motyw:** subskrypcja `ThemeService.ThemeChanged` → `Invalidate()`; kolory zawsze z `DesignTokens`.
 - **Stany:** `Loading` (skeleton: 6 szarych słupków `surface.2` z shimmer), `Empty` (oś + tekst „Brak danych w wybranym okresie” wyśrodkowany, `text.tertiary`), `Error`.
+- **Fonty na płótnie:** Win2D przyjmuje URI fontu (`ms-appx:///…#Inter Tnum`) tylko w aplikacji spakowanej; build niespakowany dostaje samą nazwę rodziny (`DesignTokens.Font`). Tekst o niedodatnich wymiarach pole jest pomijany (Win2D rzuca wyjątek).
 - **A11y:** `SemanticProperties.Description` generowany z danych („Wykres słupkowy kosztu dziennego, 1–26 listopada. Maksimum 24 listopada: 18,20 dolara. Suma: 212,40 dolara.”) + przycisk „Pokaż dane w tabeli” (`table-2`) w nagłówku karty wykresu, przełączający wykres na DataTable z tymi samymi danymi.
 
 #### 4.8.2 Typy wykresów
@@ -2226,6 +2227,7 @@ Każdy PR zmieniający UI zawiera w opisie wypełnioną listę:
 - [ ] **Teksty** zgodne z §8 (ton, odmiana liczebników, słownik etykiet).
 - [ ] `AutomationId` na nowych elementach interaktywnych.
 - [ ] DESIGN.md zaktualizowany (lub „nie dotyczy” z uzasadnieniem).
+- [ ] Nowy lub zmieniony komponent ma przykład w Galerii komponentów (DEBUG); autotest galerii przechodzi (`ONIONLLM_START_SCREEN=Gallery ONIONLLM_GALLERY_SELFTEST=1 ONIONLLM_DIAG_LOG=<plik>` — w logu każdy krok „selftest ok”, na końcu „selftest done”).
 
 ---
 
@@ -2292,6 +2294,12 @@ Każdy PR zmieniający UI zawiera w opisie wypełnioną listę:
 | `ColorHeroDecoration` (pierścienie dekoracyjne hero, §2.1.5) | `#14FFFFFF` | `#14FFFFFF` |
 | `ColorSwitchThumb` | `#FFFFFF` | `#FFFFFF` |
 | `ColorHeroHover` (hover IconButton `OnHero`, §4.1.2) | `#1AFFFFFF` | `#1AFFFFFF` |
+| `ColorHeroPillBg` (pigułka TrendDelta `OnHero`, §4.3.4) | `#1FFFFFFF` | `#1FFFFFFF` |
+| `ColorHeroProgressWarning` / `…Danger` (progi na hero, §4.4.1, §4.4.3) | `#FFD27A` / `#FF9A9A` | jak light |
+| `ColorStripe` (ukośne paski: przekroczenie, okres „w toku”, drugie kodowanie serii) | `#33FFFFFF` | `#33FFFFFF` |
+| `ColorSegmentActive` (aktywny segment SegmentedControl, §4.2.5) | `#FFFFFF` | `#26252E` |
+| `ColorStatus<Rodzaj>Border` (obrys Bannera — status z kryciem 30%, §4.6.4) | `#4D` + status light | `#4D` + status dark |
+| `ColorHeat0` … `ColorHeat4` (skala heatmapy, §4.8.2 F) | `surface.2`, onion 200/400/600/800 | `surface.2`, onion 900/700/400/300 |
 | `ImageLogo` (`FileImageSource`, logo wg motywu, §7.7) | `onion_logo.png` | `onion_logo_dark.png` |
 | `ColorTransparent` | `#00FFFFFF` | `#00000000` |
 | `BrushHero` (`LinearGradientBrush` 0,0 → 1,1 z `ColorHeroStart/Mid/End`) | §2.1.5 | §2.1.5 |
@@ -2300,11 +2308,11 @@ Każdy PR zmieniający UI zawiera w opisie wypełnioną listę:
 
 **Prymitywy** (`Tokens.Primitives.xaml`): `PaletteOnion50` … `PaletteOnion950`, `PaletteHusk100` … `PaletteHusk700` (§2.1.1–2.1.2).
 
-**Statyczne** (`Tokens.Static.xaml`): `Space0`, `Space050`, `Space100`, `Space150`, `Space200`, `Space300`, `Space400`, `Space500`, `Space600`, `Space800`, `Space1000`, `Space1200`, `Space1600`; `RadiusXs` (4), `RadiusSm` (6), `RadiusMd` (8), `RadiusLg` (12), `RadiusXl` (16), `RadiusFull` (9999) + warianty `Radius<Nazwa>Corner` (`CornerRadius`, dla `RoundRectangle`) i `RadiusSmInt`/`RadiusMdInt`/`RadiusLgInt` (`Button.CornerRadius` jest typu `int`); `StrokeDefault` (1), `StrokeFocus` (2), `StrokeFocusOffset` (2); `IconSm` (16), `IconMd` (20), `IconLg` (24), `IconXl` (48); `OpacityDisabled` (0.45), `OpacityMuted` (0.6), `ScalePressed` (0.98, M9), `ScaleDialogEnter` (0.96, M7); `IconXs` (12), `IconTable` (14); `Type<Nazwa>Size/LineHeight` dla tokenów niezależnych od gęstości i `Type<Nazwa>Tracking` dla wszystkich (`TypePaletteInput` 16 — pole palety poleceń). Wymiary komponentów (`comp.*`, aliasy wartości z §4): `SizeMinTarget` (24), `SizeStatusBarHeight` (28), `SizeLogoSidebar` (28), `SizeSidebarWide/Rail/Narrow` (240/64/56), `SizeDrawerWidth/Min/Max` (420/360/640), `SizeDialogSm/Md` (440/560), `SizeToastWidth` (360), `SizePaletteWidth` (640), `SizeSettingsNav` (220), `SizeFormMaxWidth` (760), `SizeTextMaxWidth` (560), `SizeOnboardingCard` (640), `SizeTokenBreakdownBar` (8), `SizeInlineBar` (4), `SizeModelTag` (20), `SizeBadge` (20), `SizeCheckbox` (18), `SizeStatusDot` (8), `SizeAvatarXs/Lg` (16/48), `SizeStatTileMin` (112), `SizeChartAux` (160), `SizeSparkline` (28), `BreakpointWide/Medium/Cards` (1280/900/760). Grubości (`Thickness`): `PaddingButtonSm/Button/ButtonLg` (10/14/20 poziomo), `PaddingInput` (10,0), `PaddingChip` (10,0), `PaddingBadge` (8,0), `PaddingBanner` (16,12), `PaddingKbd` (6,2), `PaddingTooltip` (10,8), `PaddingModelTag` (6,0), `PaddingSidebar` (8), `PaddingNavItem` (10,0), `PaddingDialog` (24), `PaddingMenu` (4), `PaddingSegmented` (2), `PaddingStatusBar` (16,0), `PaddingToastHost` (16,16,16,40 — stos toastów nad StatusBar), `PaddingSidebarHeader` (6,0), `PaddingRow` (16,0), `ThicknessZero`. Style powierzchni: `Divider.Edge` (pionowa krawędź pełnej wysokości — prawy obrys sidebaru).
+**Statyczne** (`Tokens.Static.xaml`): `Space0`, `Space050`, `Space100`, `Space150`, `Space200`, `Space300`, `Space400`, `Space500`, `Space600`, `Space800`, `Space1000`, `Space1200`, `Space1600`; `RadiusXs` (4), `RadiusSm` (6), `RadiusMd` (8), `RadiusLg` (12), `RadiusXl` (16), `RadiusFull` (9999) + warianty `Radius<Nazwa>Corner` (`CornerRadius`, dla `RoundRectangle`) i `RadiusSmInt`/`RadiusMdInt`/`RadiusLgInt` (`Button.CornerRadius` jest typu `int`); `StrokeDefault` (1), `StrokeFocus` (2), `StrokeFocusOffset` (2); `IconSm` (16), `IconMd` (20), `IconLg` (24), `IconXl` (48); `OpacityDisabled` (0.45), `OpacityMuted` (0.6), `ScalePressed` (0.98, M9), `ScaleDialogEnter` (0.96, M7), `ScalePulse` (2.2) i `OpacityPulse` (0.5) dla M10, `TypeUnitScale` (0.6, jednostka przy liczbie), `TypeInitialScale` (0.45, inicjał SourceBadge), `OpacityInlineBar` (0.35), `OpacityHover` (0.4, wygaszenie kategorii przy najechaniu), `OpacityGhost` (0.85, słupki zakończonych okresów), `StrokeDash` (2); `IconXs` (12), `IconTable` (14); `Type<Nazwa>Size/LineHeight` dla tokenów niezależnych od gęstości i `Type<Nazwa>Tracking` dla wszystkich (`TypePaletteInput` 16 — pole palety poleceń). Wymiary komponentów (`comp.*`, aliasy wartości z §4): `SizeMinTarget` (24), `SizeStatusBarHeight` (28), `SizeLogoSidebar` (28), `SizeSidebarWide/Rail/Narrow` (240/64/56), `SizeDrawerWidth/Min/Max` (420/360/640), `SizeDialogSm/Md` (440/560), `SizeToastWidth` (360), `SizePaletteWidth` (640), `SizeSettingsNav` (220), `SizeFormMaxWidth` (760), `SizeTextMaxWidth` (560), `SizeOnboardingCard` (640), `SizeTokenBreakdownBar` (8), `SizeInlineBar` (4), `SizeModelTag` (20), `SizeBadge` (20), `SizeCheckbox` (18), `SizeStatusDot` (8), `SizeAvatarXs/Lg` (16/48), `SizeStatTileMin` (112), `SizeChartAux` (160), `SizeSparkline` (28), `SizeChartBarMax` (28), `SizeDotSm` (6), `SizeAccentBar` (3), `SizeTabUnderline` (2), `SizeIllustration` / `SizeIllustrationInline` (80/24), `SizeHeroDot` (6), `SizeFormLabel` / `SizeFormField` (280/400), `SizeIndent` (24), `SizePopoverMaxHeight` (360), `SizeSelectMinWidth` (160), `SizeCalendarCell` (32), `SizeEditorMinHeight` (120), `BreakpointWide/Medium/Cards` (1280/900/760). Grubości (`Thickness`): `PaddingButtonSm/Button/ButtonLg` (10/14/20 poziomo), `PaddingInput` (10,0), `PaddingChip` (10,0), `PaddingBadge` (8,0), `PaddingBanner` (16,12), `PaddingKbd` (6,2), `PaddingTooltip` (10,8), `PaddingModelTag` (6,0), `PaddingSidebar` (8), `PaddingNavItem` (10,0), `PaddingDialog` (24), `PaddingMenu` (4), `PaddingSegmented` (2), `PaddingStatusBar` (16,0), `PaddingToastHost` (16,16,16,40 — stos toastów nad StatusBar), `PaddingSidebarHeader` (6,0), `PaddingRow` (16,0), `ThicknessZero`. Style powierzchni: `Divider.Edge` (pionowa krawędź pełnej wysokości — prawy obrys sidebaru).
 
-**Gęstość** (`Tokens.Comfortable.xaml` / `Tokens.Compact.xaml`): `SizeControlHeight` (36/30), `SizeControlHeightSm` (28/24), `SizeControlHeightLg` (44/36), `SizeRowHeight` (44/32), `SizeRowHeightDense` (36/28), `SizeNavItem` (36/32), `SizeHeaderHeight` (64/52), `SizeAvatarMd` (32/28), `SizeAvatarSm` (20/18), `SizeProgressBar` (6/4), `SizeRingHero` (168/136), `LayoutPagePadding`, `LayoutSectionGap` (32/20), `LayoutGridGap` (16/12), `LayoutCardPadding` (16/12), `LayoutCardPaddingLg` (24/16), `LayoutContentMaxWidth` (1440/1600), `LayoutCardGap` (12/8), `LayoutRowPadding` (`16,12`/`16,8`), `SizeChartMain` (240/200, §4.8.4), `TypeBodySize` (14/13), `TypeBodyLineHeight`, `TypeLabelSize` (13/12), `TypeTableNumSize` (13/12), `TypeMetricMdSize` (20/18), `TypeDisplaySize` (44/40).
+**Gęstość** (`Tokens.Comfortable.xaml` / `Tokens.Compact.xaml`): `SizeControlHeight` (36/30), `SizeControlHeightSm` (28/24), `SizeControlHeightLg` (44/36), `SizeRowHeight` (44/32), `SizeRowHeightDense` (36/28), `SizeNavItem` (36/32), `SizeHeaderHeight` (64/52), `SizeAvatarMd` (32/28), `SizeAvatarSm` (20/18), `SizeProgressBar` (6/4), `SizeRingHero` (168/136), `SizeRingThickness` (10/8), `LayoutPagePadding`, `LayoutSectionGap` (32/20), `LayoutGridGap` (16/12), `LayoutCardPadding` (16/12), `LayoutCardPaddingLg` (24/16), `LayoutContentMaxWidth` (1440/1600), `LayoutCardGap` (12/8), `LayoutRowPadding` (`16,12`/`16,8`), `SizeChartMain` (240/200, §4.8.4), `TypeBodySize` (14/13), `TypeBodyLineHeight`, `TypeLabelSize` (13/12), `TypeTableNumSize` (13/12), `TypeMetricMdSize` (20/18), `TypeDisplaySize` (44/40).
 
-**Ruch** (C#, `MotionTokens`): `Instant` 0, `Fast` 120, `Base` 200, `Slow` 280, `Slower` 480, `Counter` 600, `Ambient` 2400, `Stagger` 30 (ms); `OnionEasing.Standard/Enter/Exit/Spring`.
+**Ruch** (C#, `MotionTokens`): `Instant` 0, `Fast` 120, `Base` 200, `Slow` 280, `Slower` 480, `Counter` 600, `Ambient` 2400, `Stagger` 30, `Shimmer` 1400, `Spin` 800 (ms); czasy interakcji: `SearchDebounce` 150 ms, `AutosaveDelay` 600 ms, `FeedbackVisible` 1,5 s, `ToastVisible` 5 s; `OnionEasing.Standard/Enter/Exit/Spring`.
 
 **Elewacja** (style `Shadow.E1`, `Shadow.E2`, `Shadow.E3`, `Shadow.Hero` w `Styles.Surfaces.xaml`, wartości §2.5; w motywie ciemnym `Shadow.E1`/`E2` mają `Opacity=0`).
 
@@ -2368,64 +2376,66 @@ Nazwy wg lucide.dev (wersja przypięta). W `Icons.cs` jako PascalCase.
 
 ### 11.3 Rejestr komponentów
 
-| Komponent | Sekcja | Plik (docelowo) | Status |
+Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls/Ui.cs` — wyłącznie tokeny i klucze stylów) i pogrupowane w plikach; kolumna „Plik” wskazuje faktyczne miejsce. Każdy komponent ma przykład w **Galerii komponentów** (ekran tylko w buildzie DEBUG, `Views/GalleryView.cs`).
+
+| Komponent | Sekcja | Plik | Status |
 | --- | --- | --- | --- |
-| Button (Primary/Secondary/Ghost/Danger/DangerGhost/Link) | 4.1.1 | `Styles.Controls.xaml` | Docelowe |
-| IconButton | 4.1.2 | `Controls/GlyphButton.cs` (`IconButton`), style `IconButton.*` | Docelowe — **wdrożone** (1.2) |
-| ButtonGroup, SplitButton | 4.1.3 | `Controls/SplitButton` | Docelowe |
-| FormRow | 4.2.0 | `Controls/FormRow` | Docelowe |
-| TextField (Default/Mono/Number) | 4.2.1 | `Styles.Controls.xaml` + `Controls/TextField` | Docelowe |
-| SearchField | 4.2.2 | `Controls/SearchField` | Docelowe |
-| Select | 4.2.3 | `Controls/Select` | Docelowe |
-| DateRangePicker | 4.2.4 | `Controls/DateRangePicker` | Docelowe |
-| SegmentedControl | 4.2.5 | `Controls/SegmentedControl` | Docelowe |
-| Toggle | 4.2.6 | `Styles.Controls.xaml` | Docelowe |
-| Checkbox | 4.2.7 | `Styles.Controls.xaml` | Docelowe |
-| FilterChip | 4.2.8 | `Controls/FilterChip` | Docelowe |
-| CodeEditor | 4.2.9 | `Controls/CodeEditor` | Docelowe |
-| KeyValueEditor | 4.2.10 | `Controls/KeyValueEditor` | Docelowe |
-| Card (Default/Interactive/Accent/Inset) | 4.3.1 | `Controls/Card` | Docelowe |
-| StatTile | 4.3.2 | `Controls/StatTile` | Docelowe |
-| HeroMetric | 4.3.3 | `Controls/HeroMetric` | Docelowe |
-| TrendDelta | 4.3.4 | `Controls/TrendDelta` | Wymaga danych (porównania) |
-| Section / Collapsible | 4.3.5 | `Controls/Section` | Docelowe |
-| Divider | 4.3.6 | `Styles.Surfaces.xaml` | Docelowe |
-| KeyValueList | 4.3.7 | `Controls/KeyValueList` | Docelowe |
-| ProgressBar | 4.4.1 | `Controls/ProgressBar` | Docelowe |
-| LimitGauge | 4.4.2 | `Controls/LimitGauge` | Docelowe |
-| OnionRings | 4.4.3 | `Controls/Charts/OnionRingsDrawable` | Docelowe |
-| BurnRateBadge | 4.4.4 | `Controls/BurnRateBadge` | Docelowe |
-| StatusBadge | 4.4.5 | `Controls/StatusBadge` | Docelowe |
-| Spinner | 4.4.6 | `Styles.Controls.xaml` | Docelowe |
-| DataTable | 4.5.1 | `Controls/DataTable` | Docelowe |
-| ListItem | 4.5.2 | `Controls/ListItem` | Docelowe |
-| SourceBadge | 4.5.3 | `Controls/SourceBadge` | Docelowe |
-| ModelTag | 4.5.4 | `Controls/ModelTag` | Docelowe |
-| PricingMarker | 4.5.5 | `Controls/PricingMarker` | Docelowe (`≈`: Wymaga danych) |
-| MoneyLabel, TokensLabel | 4.5.6 | `Controls/MoneyLabel`, `Controls/TokensLabel` | Docelowe |
-| TokenBreakdown | 4.5.7 | `Controls/TokenBreakdown` | Docelowe |
-| Drawer | 4.6.1 | `Controls/Drawer` | Docelowe |
-| Dialog | 4.6.2 | `Controls/DialogHost` + `Navigation/Overlays.cs` (`DialogService.ConfirmAsync`) | Docelowe — **wdrożone** (1.2, potwierdzenia; formularze w dialogu — 12.3) |
-| Toast | 4.6.3 | `Controls/ToastHost` + `Navigation/Overlays.cs` (`ToastService`) | Docelowe — **wdrożone** (1.2) |
-| Banner | 4.6.4 | `Controls/Banner` | Docelowe |
-| Tooltip / RichTooltip | 4.6.5 | `Controls/RichTooltip` | Docelowe |
-| Menu | 4.6.6 | `Controls/Menu` | Docelowe |
-| CommandPalette | 4.6.7 | `Controls/CommandPalette` | Docelowe |
-| Sidebar, NavItem | 4.7.1–4.7.2 | `Controls/Sidebar`, `Controls/GlyphButton.cs` (`NavItem`) | Docelowe — **wdrożone** (1.2) |
-| PageHeader | 4.7.3 | `Controls/PageHeader` | Docelowe — **wdrożone** (1.2; obrys po przewinięciu — 12.3) |
-| FilterBar | 4.7.4 | `Controls/FilterBar` | Docelowe |
-| StatusBar | 4.7.5 | `Controls/StatusBar` | Docelowe — **wdrożone** (1.2) |
-| PricingNote | 4.7.6 | `Controls/PricingNote` | Docelowe |
-| Tabs, SettingsNav | 4.7.7 | `Controls/Tabs` | Docelowe |
-| Kbd | 4.7.8 | `Controls/Kbd` | Docelowe |
-| EmptyState | 4.7.9 | `Controls/EmptyState` | Docelowe |
-| Skeleton | 4.7.10 | `Controls/Skeleton` | Docelowe |
-| ErrorState | 4.7.11 | `Controls/ErrorState` | Docelowe |
-| ChartDrawable (baza), ChartCard | 4.8.1, 4.8.4 | `Controls/Charts/` | Docelowe |
-| BarChart, StackedBarChart, LineChart/AreaChart, Sparkline, DonutChart | 4.8.2 | `Controls/Charts/` | Docelowe |
-| Heatmap | 4.8.2 F | `Controls/Charts/HeatmapDrawable` | Kalendarz: Docelowe; dni × godziny: Wymaga danych |
-| BlockTimeline | 4.8.2 H | `Controls/Charts/BlockTimelineDrawable` | Docelowe |
-| SourceCard | 6.1 | `Controls/SourceCard` | Docelowe |
+| Button (Primary/Secondary/Ghost/Danger/DangerGhost/Link) | 4.1.1 | `Styles.Controls.xaml` | Docelowe — wdrożone (1.3) |
+| IconButton | 4.1.2 | `Controls/GlyphButton.cs` (`IconButton`), style `IconButton.*` | Docelowe — wdrożone (1.2) |
+| SplitButton | 4.1.3 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3); ButtonGroup niepotrzebny (SplitButton preferowany, §4.1.3) |
+| FormRow | 4.2.0 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3) |
+| TextField (Default/Mono/Number) | 4.2.1 | `Controls/Inputs.cs` (`TextField`, `BareEntry`) | Docelowe — wdrożone (1.3) |
+| SearchField | 4.2.2 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3) |
+| Select | 4.2.3 | `Controls/Inputs.cs` (menu w `PopoverHost`) | Docelowe — wdrożone (1.3) |
+| DateRangePicker | 4.2.4 | `Controls/Inputs.cs` (`DateRangePicker`, `RangeCalendar`) | Docelowe — wdrożone (1.3) (kalendarz jednomiesięczny na każdym breakpoincie) |
+| SegmentedControl | 4.2.5 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3) |
+| Toggle | 4.2.6 | `Styles.Controls.xaml` | Docelowe — wdrożone (1.3) |
+| Checkbox | 4.2.7 | `Styles.Controls.xaml` | Docelowe — wdrożone (1.3) |
+| FilterChip | 4.2.8 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3) |
+| CodeEditor | 4.2.9 | `Controls/Editors.cs` | Docelowe — wdrożone (1.3) |
+| KeyValueEditor | 4.2.10 | `Controls/Editors.cs` | Docelowe — wdrożone (1.3) |
+| Card (Default/Interactive/Accent/Inset) | 4.3.1 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
+| StatTile | 4.3.2 | `Controls/Metrics.cs` | Docelowe — wdrożone (1.3) |
+| HeroMetric | 4.3.3 | `Controls/Metrics.cs` | Docelowe — wdrożone (1.3) |
+| TrendDelta | 4.3.4 | — | Wymaga danych (porównania) |
+| Section / Collapsible | 4.3.5 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
+| Divider | 4.3.6 | `Styles.Surfaces.xaml` (`Divider`, `Divider.Vertical`, `Divider.Edge`) | Docelowe — wdrożone (1.3) |
+| KeyValueList | 4.3.7 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
+| ProgressBar | 4.4.1 | `Controls/Metrics.cs` (rysowany na płótnie) | Docelowe — wdrożone (1.3) |
+| LimitGauge | 4.4.2 | `Controls/Metrics.cs` | Docelowe — wdrożone (1.3) |
+| OnionRings | 4.4.3 | `Controls/Charts/Charts.cs` (+ `RingLegend` w `ChartCard.cs`) | Docelowe — wdrożone (1.3) |
+| BurnRateBadge | 4.4.4 | `Controls/Badges.cs` | Docelowe — wdrożone (1.3) |
+| StatusBadge | 4.4.5 | `Controls/Badges.cs` | Docelowe — wdrożone (1.3) |
+| Spinner | 4.4.6 | `Styles.Controls.xaml` | Docelowe — wdrożone (1.3) |
+| DataTable | 4.5.1 | `Controls/DataTable.cs` | Docelowe — wdrożone (1.3) |
+| ListItem | 4.5.2 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
+| SourceBadge | 4.5.3 | `Controls/Badges.cs` | Docelowe — wdrożone (1.3) |
+| ModelTag | 4.5.4 | `Controls/Badges.cs` | Docelowe — wdrożone (1.3) |
+| PricingMarker | 4.5.5 | `Controls/Badges.cs` | Docelowe — wdrożone (1.3) (`≈`: Wymaga danych) |
+| MoneyLabel, TokensLabel | 4.5.6 | `Controls/Metrics.cs` (`MetricLabel` z `Format` = Cost/Tokens/Number/Percent) | Docelowe — wdrożone (1.3) |
+| TokenBreakdown | 4.5.7 | `Controls/Metrics.cs` | Docelowe — wdrożone (1.3) |
+| Drawer | 4.6.1 | `Controls/Drawer.cs` + `Navigation/Keyboard.cs` (`DrawerService`) | Docelowe — wdrożone (1.3) (zmiana szerokości przeciąganiem — nie) |
+| Dialog | 4.6.2 | `Controls/DialogHost` + `Navigation/Overlays.cs` (`DialogService.ConfirmAsync`) | Docelowe — wdrożone (1.2, potwierdzenia; formularze w dialogu — 12.3) |
+| Toast | 4.6.3 | `Controls/ToastHost` + `Navigation/Overlays.cs` (`ToastService`) | Docelowe — wdrożone (1.2) |
+| Banner | 4.6.4 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
+| Tooltip / RichTooltip | 4.6.5 | `ToolTipProperties` (teksty); podpowiedź wykresów rysowana na płótnie (`ChartView.DrawTooltip`) | Docelowe — wdrożone (1.3); osobny popover RichTooltip niepotrzebny |
+| Menu | 4.6.6 | `Controls/Popover.cs` (`Menu`, `PopoverService`, `PopoverHost`); menu kontekstowe wierszy — `MenuFlyout` | Docelowe — wdrożone (1.3) |
+| CommandPalette | 4.6.7 | `Controls/CommandPalette` | Docelowe (12.4) |
+| Sidebar, NavItem | 4.7.1–4.7.2 | `Controls/Sidebar`, `Controls/GlyphButton.cs` (`NavItem`) | Docelowe — wdrożone (1.2) |
+| PageHeader | 4.7.3 | `Controls/PageHeader` | Docelowe — wdrożone (1.2; obrys po przewinięciu — 12.3) |
+| FilterBar | 4.7.4 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3) („Filtry (3)” w popoverze na narrow — 12.3) |
+| StatusBar | 4.7.5 | `Controls/StatusBar` | Docelowe — wdrożone (1.2) |
+| PricingNote | 4.7.6 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
+| Tabs, SettingsNav | 4.7.7 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3) |
+| Kbd | 4.7.8 | `Controls/Badges.cs` | Docelowe — wdrożone (1.3) |
+| EmptyState | 4.7.9 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
+| Skeleton | 4.7.10 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) (shimmer jako pulsowanie tła) |
+| ErrorState | 4.7.11 | `Controls/Containers.cs` (`EmptyState` z `IsError` i `ErrorDetails`) | Docelowe — wdrożone (1.3) |
+| ChartView (baza), ChartCard, ChartLegend | 4.8.1, 4.8.4 | `Controls/Charts/ChartView.cs`, `Controls/Charts/ChartCard.cs` | Docelowe — wdrożone (1.3) (strzałki ←/→ na wykresie — nie; najechanie i klik — tak) |
+| BarChart (+ skumulowany, tryb %), LineChart/AreaChart, Sparkline, DonutChart | 4.8.2 | `Controls/Charts/Charts.cs` | Docelowe — wdrożone (1.3) |
+| Heatmap | 4.8.2 F | `Controls/Charts/Charts.cs` | Kalendarz: wdrożone (1.3); dni × godziny: Wymaga danych |
+| BlockTimeline | 4.8.2 H | `Controls/Charts/Charts.cs` | Docelowe — wdrożone (1.3) |
+| SourceCard | 6.1 | `Controls/SourceCard` | Docelowe (12.3) |
 | MiniView | 7.2 | `Windows/MiniViewWindow` | Wymaga platformy |
 
 ### 11.4 Funkcje wymagające nowych danych
@@ -2462,5 +2472,6 @@ Kontrast liczony wg WCAG 2.2 (luminancja względna sRGB). Skrypt referencyjny: `
 | Wersja | Data | Zmiana |
 | --- | --- | --- |
 | 1.0 | 2026-11-26 | Pierwsza wersja docelowego design systemu. |
+| 1.3 | 2026-11-26 | Faza 12.2 (biblioteka komponentów): wdrożone komponenty §4 poza CommandPalette, TrendDelta i SourceCard (rejestr §11.3 z faktycznymi plikami), popovery (`PopoverService`), Drawer (`DrawerService`), routing klawiatury list (`KeyboardRouter`), wykresy na `ChartView`; Galeria komponentów i autotest (DEBUG) w checkliście §10.3; nowe tokeny (§11.1). |
 | 1.2 | 2026-11-26 | Faza 12.1 (struktura okna): host `MainShellPage` zamiast `Shell`, `Navigation/` (`ShellViewModel`, `NavigationService` z historią i M2, `ShortcutService`, `ToastService`, `DialogService`), ekrany w `Views/`; wdrożone Sidebar/NavItem, PageHeader, StatusBar, IconButton, Toast, Dialog; nowe tokeny `ColorHeroHover`, `ImageLogo`, `ScaleDialogEnter`, `PaddingToastHost`, `PaddingSidebarHeader`, styl `Divider.Edge`; etykiety StatusBar „Cennik: wbudowany, …”, „Błąd konfiguracji — Szczegóły”. |
 | 1.1 | 2026-11-26 | Faza 12.0 (fundament): generatory `tools/design/gen_tokens.py`, `palette.py`, `gen_logo.py`, `lint.py` i `tools/fonts/build_fonts.py`; nowe tokeny w §11.1 (`ColorTextOnDanger`, `ColorStateSelected`, `ColorHeroDecoration`, `ColorSwitchThumb`, `ColorTransparent`, `BrushHero`, `ColorSourceUnknown`, warianty promieni, `ScalePressed`, wymiary komponentów, `LayoutCardGap`, `LayoutRowPadding`, `SizeChartMain`); `appearance.*` i `window.alwaysOnTop` mają warstwę danych w Core (§11.4). |
