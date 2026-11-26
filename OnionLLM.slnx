@@ -2,5 +2,7 @@
   <Project Path="OnionLLM.Core/OnionLLM.Core.csproj" />
   <Project Path="OnionLLM.Core.Tests/OnionLLM.Core.Tests.csproj" />
   <Project Path="OnionLLM.Cli/OnionLLM.Cli.csproj" />
-  <Project Path="OnionLLM/OnionLLM.csproj" />
+  <Project Path="OnionLLM/OnionLLM.csproj">
+    <Deploy />
+  </Project>
 </Solution>
