@@ -1,71 +1,46 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Migrated to the window host in Faza 12.1; content is rebuilt to DESIGN.md §6 in 12.3. -->
+<!-- Sesje (DESIGN.md §6.4): PageHeader (total, Eksportuj) → FilterBar → DataTable (paging, drawer) → PricingNote. -->
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:OnionLLM.Controls"
+             xmlns:vm="clr-namespace:OnionLLM.ViewModels"
+             xmlns:res="clr-namespace:OnionLLM.Resources"
              x:Class="OnionLLM.Views.SessionsView"
-             x:Name="Root">
-
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="{DynamicResource LayoutPagePadding}" RowSpacing="{StaticResource Space300}">
+             x:DataType="vm:SessionsViewModel">
+    <Grid RowDefinitions="Auto,Auto,*,Auto"
+          Padding="{DynamicResource LayoutPagePadding}"
+          RowSpacing="{StaticResource Space300}">
         <controls:PageHeader Title="Sesje" Subtitle="{Binding Total}">
-            <HorizontalStackLayout Spacing="{StaticResource Space200}">
-                <Button Style="{StaticResource Button.Secondary.Sm}" Text="CSV" Command="{Binding ExportCommand}"
-                        SemanticProperties.Description="Eksportuj sesje do pliku CSV" AutomationId="Sessions.ExportCsv" />
-                <Button Style="{StaticResource Button.Secondary.Sm}" Text="JSON (format ccusage)" Command="{Binding ExportJsonCommand}"
-                        SemanticProperties.Description="Eksportuj sesje do pliku JSON w formacie ccusage" AutomationId="Sessions.ExportJson" />
-            </HorizontalStackLayout>
+            <controls:SplitButton x:Name="ExportButton" Text="Eksportuj" Command="{Binding ExportCsvCommand}" AutomationId="Sessions.Export" />
         </controls:PageHeader>
-        <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="8">
-            <Picker ItemsSource="{Binding Ranges}" SelectedIndex="{Binding RangeIndex}" FontSize="12" Title="Zakres" />
-            <Picker Grid.Column="1" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" FontSize="12" Title="Źródło" />
-            <Picker Grid.Column="2" ItemsSource="{Binding Sorts}" SelectedIndex="{Binding SortIndex}" FontSize="12" Title="Sortowanie" />
-        </Grid>
-        <Entry Grid.Row="2" Text="{Binding Search}" Placeholder="Szukaj: ID sesji, projekt, model, źródło…" FontSize="12" ClearButtonVisibility="WhileEditing" />
 
-        <CollectionView Grid.Row="3" ItemsSource="{Binding Sessions}" SelectionMode="None">
-            <CollectionView.ItemsLayout>
-                <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
-            </CollectionView.ItemsLayout>
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Border Padding="12,10" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E5EC, Dark=#282C37}"
-                            BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="13" />
-                        </Border.StrokeShape>
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding BindingContext.ShowDetailsCommand, Source={x:Reference Root}}" CommandParameter="{Binding .}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Spacing="3">
-                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-                                <Label Text="{Binding Title}" FontSize="13" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                <Label Grid.Column="1" Text="{Binding Tokens}" FontSize="12" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#858B98, Dark=#8E94A2}" />
-                                <Label Grid.Column="2" Text="{Binding Cost}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#4F3FD5, Dark=#A99FFF}" />
-                            </Grid>
-                            <Label FontSize="10" TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}">
-                                <Label.FormattedText>
-                                    <FormattedString>
-                                        <Span Text="{Binding Source}" FontAttributes="Bold" />
-                                        <Span Text="  ·  " />
-                                        <Span Text="{Binding When}" />
-                                    </FormattedString>
-                                </Label.FormattedText>
-                            </Label>
-                            <Label Text="{Binding Models}" FontSize="10" LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
-                            <Label Text="{Binding Details}" FontSize="9" TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
-                        </VerticalStackLayout>
-                    </Border>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+        <controls:FilterBar Grid.Row="1" IsDirty="{Binding IsFiltered}" ResetCommand="{Binding ResetFiltersCommand}">
+            <controls:DateRangePicker Presets="{Binding Presets}" PresetIndex="{Binding RangeIndex}" CustomIndex="{Binding CustomPresetIndex}"
+                                      Since="{Binding Since}" Until="{Binding Until}" DisplayText="{Binding RangeText}" AutomationId="Sessions.Range" />
+            <controls:FilterChip Variant="Menu" Label="Źródło" ItemsSource="{Binding SourceChoiceNames}" SelectedIndex="{Binding SourceIndex}" AutomationId="Sessions.Source" />
+            <controls:FilterChip Variant="Removable" Label="{Binding ProjectFilterText}" IsVisible="{Binding HasProjectFilter}"
+                                 RemoveCommand="{Binding ClearProjectCommand}" AutomationId="Sessions.ProjectFilter" />
+            <controls:SearchField x:Name="SearchBox" Placeholder="Szukaj: ID sesji, projekt, model, źródło" Query="{Binding Search}"
+                                  MinimumWidthRequest="{StaticResource SizeDrawerMin}" AutomationId="Sessions.Search" />
+        </controls:FilterBar>
 
-        <VerticalStackLayout Grid.Row="4" Spacing="2">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                <Label Grid.Column="1" Text="{Binding Total}" FontSize="10" FontAttributes="Bold" VerticalOptions="Center" />
-            </Grid>
-            <Label Text="{Binding PricingNote}" IsVisible="{Binding HasPricingNote}" FontSize="9" LineBreakMode="WordWrap"
-                   TextColor="{AppThemeBinding Light=#B26B00, Dark=#F5A524}" />
-            <Label Text="{Binding Status}" FontSize="9" LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
-        </VerticalStackLayout>
+        <controls:DataTable x:Name="Table" Grid.Row="2"
+                            ItemsSource="{Binding Sessions}"
+                            SortKey="{Binding SortKey}"
+                            SortDescending="{Binding SortDescending}"
+                            SelectedItem="{Binding SelectedSession}"
+                            RowActivatedCommand="{Binding OpenDetailsCommand}"
+                            State="{Binding TableState}"
+                            FooterText="{Binding FooterText}"
+                            CanShowMore="{Binding CanShowMore}"
+                            ShowMoreCommand="{Binding ShowMoreCommand}"
+                            AutomationPrefix="Sessions">
+            <controls:DataTable.EmptyView>
+                <controls:EmptyState Variant="Inline" Glyph="{x:Static res:Icons.SquareTerminal}"
+                                     Title="{Binding EmptyTitle}" ActionText="{Binding EmptyAction}" ActionCommand="{Binding EmptyCommand}" />
+            </controls:DataTable.EmptyView>
+        </controls:DataTable>
+
+        <controls:PricingNote Grid.Row="3" Text="{Binding PricingNote}" />
     </Grid>
 </ContentView>
