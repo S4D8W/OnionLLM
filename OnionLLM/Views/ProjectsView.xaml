@@ -3,6 +3,7 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:OnionLLM.Controls"
+             xmlns:charts="clr-namespace:OnionLLM.Controls.Charts"
              xmlns:vm="clr-namespace:OnionLLM.ViewModels"
              x:Class="OnionLLM.Views.ProjectsView"
              x:DataType="vm:ProjectsViewModel">
@@ -22,11 +23,11 @@
 
         <ScrollView Grid.Row="2">
             <VerticalStackLayout Spacing="{DynamicResource LayoutSectionGap}">
-                <controls:Card Title="Top projekty" Subtitle="{Binding RangeText}">
-                    <controls:Card.Body>
-                        <VerticalStackLayout x:Name="TopList" Spacing="{StaticResource Space200}" />
-                    </controls:Card.Body>
-                </controls:Card>
+                <charts:ChartCard Title="Top projekty" Subtitle="{Binding RangeText}" ShowLegend="False">
+                    <charts:ChartCard.Chart>
+                        <charts:HorizontalBarChart x:Name="TopChart" Data="{Binding TopChart}" AutomationId="Projects.TopChart" />
+                    </charts:ChartCard.Chart>
+                </charts:ChartCard>
 
                 <controls:DataTable x:Name="Table"
                                     ItemsSource="{Binding Rows}"

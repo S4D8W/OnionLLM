@@ -37,10 +37,21 @@ public sealed class SourceCard : Card
             }
         };
         GestureRecognizers.Add(drop);
+        var tap = new TapGestureRecognizer();
+        tap.Tapped += (_, _) => { if (_card is not null) { Activated?.Invoke(this, _card); } };
+        GestureRecognizers.Add(tap);
     }
 
     /// <summary>Raised with the target index of the moved card.</summary>
     public event EventHandler<SourceCardMove>? MoveRequested;
+
+    /// <summary>The user clicked the card or focused its „Więcej” button — it becomes the Alt+↑/↓ target.</summary>
+    public event EventHandler<SourceCardViewModel>? Activated;
+
+    private IconButton? _more;
+
+    /// <summary>Puts keyboard focus on the card's „Więcej” button (after a keyboard move, §9.2).</summary>
+    public void FocusMenu() => _more?.Focus();
 
     /// <summary>Opens the configuration of the source („Skonfiguruj”).</summary>
     public event EventHandler<SourceCardViewModel>? ConfigureRequested;
@@ -93,6 +104,9 @@ public sealed class SourceCard : Card
         header.Add(new VerticalStackLayout { VerticalOptions = LayoutOptions.Center, Children = { name, Ui.Text("Text.Caption", card.Description) } }, 1);
         header.Add(new StatusBadge { Text = card.StatusText, Kind = card.StatusKind }, 2);
         var more = new IconButton { Glyph = Icons.Ellipsis, AutomationId = card.AutomationId + ".More" }.Styled("IconButton.Ghost.Sm");
+        _more = more;
+        more.Focused += (_, _) => Activated?.Invoke(this, card);
+        SemanticProperties.SetHint(more, "Alt+strzałka w górę lub w dół zmienia kolejność kart");
         ToolTipProperties.SetText(more, "Więcej");
         SemanticProperties.SetDescription(more, "Więcej opcji: " + card.Name);
         more.Clicked += (_, _) => Menu.Show(more,

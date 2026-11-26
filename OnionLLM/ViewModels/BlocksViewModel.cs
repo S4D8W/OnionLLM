@@ -8,9 +8,13 @@ using OnionLLM.Resources;
 namespace OnionLLM.ViewModels;
 
 /// <summary>Row of the blocks table (DESIGN.md §6.5); gaps are separator rows (<see cref="IsGap"/>).</summary>
-public sealed class BlockItemViewModel
+public sealed class BlockItemViewModel : Controls.ISeparatorRow
 {
     public required SessionBlock Block { get; init; }
+
+    public bool IsSeparator => IsGap;
+
+    public string SeparatorText => Title;
 
     public long? TokenLimit { get; init; }
 

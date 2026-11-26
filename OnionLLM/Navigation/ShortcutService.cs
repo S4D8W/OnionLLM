@@ -201,6 +201,17 @@ public static class ShortcutService
             allowedInText = true;
         }
 
+        // Alt+↑ / Alt+↓ reorder (source cards): routed even when the card's „Więcej” button has focus.
+        if (action is null && !inText && alt && !ctrl && e.Key is Windows.System.VirtualKey.Up or Windows.System.VirtualKey.Down)
+        {
+            if (KeyboardRouter.Route(e.Key == Windows.System.VirtualKey.Up ? KeyboardAction.MoveUp : KeyboardAction.MoveDown))
+            {
+                e.Handled = true;
+            }
+
+            return;
+        }
+
         if (action is null && !inText && sender is Microsoft.UI.Xaml.UIElement origin && IsNavigationKeyFree(origin))
         {
             // List navigation (DESIGN.md 4.5.1): arrows, Home/End, Enter, J/K, Ctrl+C go to the active table or drawer.

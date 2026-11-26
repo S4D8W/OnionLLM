@@ -69,7 +69,7 @@ public partial class BlocksView : ContentView, IScreenView
         }
     }
 
-    /// <summary>„Blok” cell: start–end + „Aktywny”; a gap shows a pause icon and its length in caption style.</summary>
+    /// <summary>„Blok” cell: start–end + „Aktywny” (gaps are separator rows of the table, see <see cref="ISeparatorRow"/>).</summary>
     private static View BlockCell()
     {
         var host = new ContentView();
@@ -80,13 +80,7 @@ public partial class BlocksView : ContentView, IScreenView
                 return;
             }
 
-            host.Content = item.IsGap
-                ? new HorizontalStackLayout
-                {
-                    Spacing = Ui.D("Space150"),
-                    Children = { Ui.Icon(Icons.Pause, "Text.Icon.Xs", "ColorTextTertiary"), Ui.Text("Text.Caption", item.Title) }
-                }
-                : new HorizontalStackLayout
+            host.Content = new HorizontalStackLayout
                 {
                     Spacing = Ui.D("Space200"),
                     Children =

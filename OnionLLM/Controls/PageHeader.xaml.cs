@@ -20,9 +20,50 @@ public partial class PageHeader : ContentView
         nameof(Actions), typeof(View), typeof(PageHeader), null,
         propertyChanged: (bindable, _, value) => ((PageHeader)bindable).ActionsHost.Content = value as View);
 
+    private readonly HashSet<Element> _watched = [];
+
     public PageHeader()
     {
         InitializeComponent();
+        Loaded += (_, _) => WatchScrolling();
+    }
+
+    /// <summary>True while the screen's content is scrolled away from the top (§2.9.3 — bottom border).</summary>
+    public bool IsScrolled
+    {
+        get => ScrollEdge.IsVisible;
+        private set => ScrollEdge.IsVisible = value;
+    }
+
+    /// <summary>Subscribes to the vertical scroll containers of the screen this header belongs to.</summary>
+    private void WatchScrolling()
+    {
+        Element? screen = this;
+        while (screen is not null and not OnionLLM.Navigation.IScreenView)
+        {
+            screen = screen.Parent;
+        }
+
+        if (screen is null)
+        {
+            return;
+        }
+
+        foreach (var scroll in OnionLLM.Navigation.ElementTree.Find<ScrollView>(screen).Where(scroll => scroll.Orientation != ScrollOrientation.Horizontal))
+        {
+            if (_watched.Add(scroll))
+            {
+                scroll.Scrolled += (_, e) => IsScrolled = e.ScrollY > 0;
+            }
+        }
+
+        foreach (var list in OnionLLM.Navigation.ElementTree.Find<CollectionView>(screen))
+        {
+            if (_watched.Add(list))
+            {
+                list.Scrolled += (_, e) => IsScrolled = e.VerticalOffset > 0;
+            }
+        }
     }
 
     public string Title

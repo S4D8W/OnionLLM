@@ -117,6 +117,15 @@ public sealed class ProjectsViewModel : ObservableObject
     /// <summary>Top 10 by cost for the „Top projekty” card.</summary>
     public IReadOnlyList<ProjectRowViewModel> Top { get; private set; } = [];
 
+    /// <summary>„Top projekty”: top 10 by cost as a horizontal bar chart (§6.6).</summary>
+    public ChartData TopChart => new()
+    {
+        Categories = Top.Select(project => project.Name).ToList(),
+        CategoryDetails = Top.Select(project => project.Path.Length > 0 ? project.Path : project.Name).ToList(),
+        Series = [new ChartSeries { Id = "cost", Label = "Koszt", ColorKey = "ColorDataCost", Points = Top.Select(project => project.Totals.CostUsd).ToList() }],
+        Unit = ChartUnit.Cost
+    };
+
     public string Subtitle { get; private set; } = string.Empty;
 
     public string RangeText { get; private set; } = string.Empty;
@@ -201,7 +210,7 @@ public sealed class ProjectsViewModel : ObservableObject
         finally
         {
             IsBusy = false;
-            foreach (var name in new[] { nameof(Top), nameof(Subtitle), nameof(RangeText), nameof(PricingNote), nameof(TableState), nameof(IsFiltered) })
+            foreach (var name in new[] { nameof(Top), nameof(TopChart), nameof(Subtitle), nameof(RangeText), nameof(PricingNote), nameof(TableState), nameof(IsFiltered) })
             {
                 OnPropertyChanged(name);
             }

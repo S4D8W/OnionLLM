@@ -9,6 +9,109 @@ namespace OnionLLM;
 /// </summary>
 internal static class DebugSelfTest
 {
+    /// <summary><c>ONIONLLM_UI_SELFTEST=1</c>: Faza 12.5 UI gaps → expect „ui selftest done: 0 failures”.</summary>
+    public static async Task UiAsync(ShellViewModel shell)
+    {
+        var failures = 0;
+        void Check(bool condition, string what)
+        {
+            Diagnostics.Trace($"ui: {(condition ? "ok" : "FAIL")} {what}");
+            failures += condition ? 0 : 1;
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(4));
+        foreach (var entry in shell.OverviewItems.Concat(shell.SystemItems))
+        {
+            Diagnostics.Trace($"ui: indicator {entry.Info.Screen} badge „{entry.BadgeText}” dot „{entry.DotColorKey}” hint „{entry.SpokenHint}”");
+        }
+
+        // Drawer width: clamped 360–640.
+        var width = shell.DrawerWidth;
+        shell.ResizeDrawer(500, save: false);
+        Check(Math.Abs(shell.DrawerWidth - 500) < 1, "drawer resizes to 500");
+        shell.ResizeDrawer(5000, save: false);
+        Check(shell.DrawerWidth <= Design.DesignTokens.Double("SizeDrawerMax", 640), "drawer width clamped to max");
+        shell.ResizeDrawer(width, save: false);
+
+        // Alt+↑/↓ on Dziś.
+        await shell.NavigateAsync(Screen.Today);
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        var today = (Views.TodayView)shell.Navigation.CurrentView!;
+        var cards = ElementTree.Find<Controls.SourceCard>(today).ToList();
+        if (cards.Count >= 2)
+        {
+            var first = (ViewModels.SourceCardViewModel)cards[0].BindingContext;
+            cards[0].FocusMenu();
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            Check(KeyboardRouter.Route(KeyboardAction.MoveDown), "Alt+↓ handled by Dziś");
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+            var moved = ElementTree.Find<Controls.SourceCard>(today).Select(card => ((ViewModels.SourceCardViewModel)card.BindingContext).Id).ToList();
+            Check(moved.IndexOf(first.Id) == 1, $"card {first.Id} moved to position 2");
+            KeyboardRouter.Route(KeyboardAction.MoveUp);
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+            moved = ElementTree.Find<Controls.SourceCard>(today).Select(card => ((ViewModels.SourceCardViewModel)card.BindingContext).Id).ToList();
+            Check(moved.IndexOf(first.Id) == 0, "Alt+↑ restores the order");
+        }
+        else
+        {
+            Diagnostics.Trace($"ui: only {cards.Count} source cards — Alt+↑/↓ not checked");
+        }
+
+        // Reports: scroll border, chart keyboard, two-month calendar, narrow filter collapse.
+        await shell.NavigateAsync(Screen.Reports);
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        var reports = shell.Navigation.CurrentView!;
+        var header = ElementTree.Find<Controls.PageHeader>(reports).First();
+        var scroll = ElementTree.Find<ScrollView>(reports).First(view => view.Orientation != ScrollOrientation.Horizontal);
+        await scroll.ScrollToAsync(0, 300, false);
+        await Task.Delay(TimeSpan.FromMilliseconds(400));
+        Check(header.IsScrolled, "PageHeader shows the scroll border");
+        await scroll.ScrollToAsync(0, 0, false);
+        await Task.Delay(TimeSpan.FromMilliseconds(400));
+        Check(!header.IsScrolled, "border hidden at the top");
+
+        var chart = ElementTree.Find<Controls.Charts.BarChart>(reports).First();
+        KeyboardRouter.Target = chart;
+        Check(KeyboardRouter.Route(KeyboardAction.Collapse) && KeyboardRouter.Route(KeyboardAction.Home), "chart handles ←/Home");
+
+        var picker = ElementTree.Find<Controls.DateRangePicker>(reports).First();
+        picker.SendClicked();
+        await Task.Delay(TimeSpan.FromMilliseconds(600));
+        Check(Controls.PopoverService.IsOpen, "date range popover opens");
+        Controls.PopoverService.Close();
+
+        var bar = ElementTree.Find<Controls.FilterBar>(reports).First();
+        shell.UpdateLayout(700);
+        await Task.Delay(TimeSpan.FromMilliseconds(600));
+        Check(bar.IsCollapsed, "narrow: chips collapse into „Filtry”");
+        shell.UpdateLayout(1400);
+        await Task.Delay(TimeSpan.FromMilliseconds(600));
+        Check(!bar.IsCollapsed, "wide: chips back in the bar");
+
+        // Blocks separators and Projects top chart.
+        await shell.NavigateAsync(Screen.Blocks);
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        var blocks = ElementTree.Find<Controls.DataTable>(shell.Navigation.CurrentView).First();
+        var items = blocks.ItemsSource?.Cast<object>().ToList() ?? [];
+        Diagnostics.Trace($"ui: blocks rows {items.Count}, separators {items.Count(item => item is Controls.ISeparatorRow { IsSeparator: true })}");
+        KeyboardRouter.Target = blocks;
+        for (var i = 0; i < items.Count; i++)
+        {
+            KeyboardRouter.Route(KeyboardAction.Down);
+            await Task.Delay(TimeSpan.FromMilliseconds(150));
+            Diagnostics.Trace($"ui: down {i} → {(blocks.SelectedItem as ViewModels.BlockItemViewModel)?.Title}");
+        }
+
+        Check(blocks.SelectedItem is not Controls.ISeparatorRow { IsSeparator: true }, "keyboard skips separators");
+
+        await shell.NavigateAsync(Screen.Projects);
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        var top = ElementTree.Find<Controls.Charts.HorizontalBarChart>(shell.Navigation.CurrentView).FirstOrDefault();
+        Check(top is not null && top.Data.Categories.Count > 0, $"Top projekty chart has {top?.Data.Categories.Count ?? 0} rows");
+
+        Diagnostics.Trace($"ui selftest done: {failures} failures");
+    }
+
     public static async Task PaletteAsync(ShellViewModel shell)
     {
         var failures = 0;

@@ -73,6 +73,17 @@ public enum TableState
     Error
 }
 
+/// <summary>
+/// Separator between rows (§6.5: gaps between blocks): a thin full-width line with a caption, not selectable, skipped by
+/// the keyboard and excluded from copying.
+/// </summary>
+public interface ISeparatorRow
+{
+    bool IsSeparator { get; }
+
+    string SeparatorText { get; }
+}
+
 /// <summary>Row with breakdown sub-rows (§4.5.1 „Rozwijany wiersz”).</summary>
 public interface IExpandableRow
 {
@@ -226,7 +237,7 @@ public sealed class DataTable : ContentView, IKeyboardTarget
 
     public bool HandleKey(KeyboardAction action)
     {
-        var items = ItemsSource?.Cast<object>().ToList() ?? [];
+        var items = ItemsSource?.Cast<object>().Where(item => item is not ISeparatorRow { IsSeparator: true }).ToList() ?? [];
         if (items.Count == 0)
         {
             return false;
@@ -267,7 +278,12 @@ public sealed class DataTable : ContentView, IKeyboardTarget
     private void SelectRow(object item, List<object> items)
     {
         SelectedItem = item;
-        _list.ScrollTo(items.IndexOf(item), position: ScrollToPosition.MakeVisible, animate: false);
+        // Index in the full source (separator rows included), not in the keyboard list.
+        var index = ItemsSource?.Cast<object>().ToList().IndexOf(item) ?? -1;
+        if (index >= 0)
+        {
+            _list.ScrollTo(index, position: ScrollToPosition.MakeVisible, animate: false);
+        }
         // With the drawer open, moving the selection updates the drawer (§4.5.1).
         if (DrawerService.IsOpen)
         {
@@ -408,7 +424,7 @@ public sealed class DataTable : ContentView, IKeyboardTarget
 
     internal void OnRowTapped(object? item)
     {
-        if (item is not null)
+        if (item is not null and not ISeparatorRow { IsSeparator: true })
         {
             Activate(item);
         }
@@ -522,6 +538,13 @@ internal sealed class TableRow : VerticalStackLayout
             return;
         }
 
+        if (BindingContext is ISeparatorRow { IsSeparator: true })
+        {
+            _selectionBar.IsVisible = false;
+            this.Dyn(BackgroundColorProperty, "ColorTransparent");
+            return;
+        }
+
         var selected = _table.IsSelected(BindingContext);
         _selectionBar.IsVisible = selected;
         this.Dyn(BackgroundColorProperty, selected ? "ColorStateSelected" : _hover ? "ColorStateHover" : "ColorTransparent");
@@ -556,6 +579,14 @@ internal sealed class TableRow : VerticalStackLayout
             return;
         }
 
+        if (row is ISeparatorRow { IsSeparator: true } separator)
+        {
+            BuildSeparator(separator);
+            return;
+        }
+
+        _main.Dyn(MinimumHeightRequestProperty, "SizeRowHeight");
+        _main.Padding = Ui.Thick("PaddingRow");
         if (_cardMode)
         {
             BuildCard(row);
@@ -579,6 +610,30 @@ internal sealed class TableRow : VerticalStackLayout
         SemanticProperties.SetDescription(this, _isTotal ? "Razem: " + _table.Describe(row) : _table.Describe(row));
         UpdateSelection();
         UpdateChildren();
+    }
+
+    /// <summary>Separator: ── caption ── on <c>bg.canvas</c>, dense height (§6.5 gaps between blocks).</summary>
+    private void BuildSeparator(ISeparatorRow separator)
+    {
+        _main.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+        _main.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        _main.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+        _main.Dyn(MinimumHeightRequestProperty, "SizeRowHeightDense");
+        var left = new BoxView { VerticalOptions = LayoutOptions.Center }.Styled("Divider");
+        var right = new BoxView { VerticalOptions = LayoutOptions.Center }.Styled("Divider");
+        var caption = new HorizontalStackLayout
+        {
+            Spacing = Ui.D("Space150"),
+            VerticalOptions = LayoutOptions.Center,
+            Children = { Ui.Icon(Icons.Pause, "Text.Icon.Xs", "ColorTextTertiary"), Ui.Text("Text.Caption", separator.SeparatorText) }
+        };
+        _main.Add(left);
+        _main.Add(caption, 1);
+        _main.Add(right, 2);
+        _selectionBar.IsVisible = false;
+        this.Dyn(BackgroundColorProperty, "ColorTransparent");
+        SemanticProperties.SetDescription(this, separator.SeparatorText);
+        _children.Children.Clear();
     }
 
     private Grid Cells(object row, bool sub)

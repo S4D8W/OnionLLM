@@ -11,6 +11,7 @@
              x:Class="OnionLLM.Controls.PageHeader">
     <!-- Explicit Content: the class's [ContentProperty] is Actions (for consumers), not the template root. -->
     <ContentView.Content>
+        <Grid RowDefinitions="*,Auto">
         <Grid ColumnDefinitions="Auto,*,Auto"
               ColumnSpacing="{StaticResource Space300}"
               MinimumHeightRequest="{DynamicResource SizeHeaderHeight}">
@@ -39,6 +40,9 @@
                                      SemanticProperties.Description="Odśwież dane"
                                      AutomationId="PageHeader.Refresh" />
             </HorizontalStackLayout>
+        </Grid>
+        <!-- §2.9.3: sticky header gains a bottom border once the page content is scrolled. -->
+        <BoxView x:Name="ScrollEdge" Grid.Row="1" Style="{StaticResource Divider}" IsVisible="False" />
         </Grid>
     </ContentView.Content>
 </ContentView>

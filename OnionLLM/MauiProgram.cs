@@ -42,6 +42,15 @@ namespace OnionLLM
                     handler.PlatformView.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
                 }
             });
+            // Charts are keyboard reachable (DESIGN.md §4.8.1): Tab stop with the system focus visual.
+            Microsoft.Maui.Handlers.GraphicsViewHandler.Mapper.AppendToMapping("OnionChartFocus", (handler, view) =>
+            {
+                if (view is Controls.Charts.ChartView && handler.PlatformView is Microsoft.UI.Xaml.Controls.Control control)
+                {
+                    control.IsTabStop = true;
+                    control.UseSystemFocusVisuals = true;
+                }
+            });
             Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("OnionBareEntry", (handler, view) =>
             {
                 if (view is Controls.BareEntry)

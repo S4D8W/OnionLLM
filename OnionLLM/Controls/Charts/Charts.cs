@@ -130,6 +130,107 @@ public sealed class BarChart : ChartView
     }
 }
 
+/// <summary>
+/// Horizontal bar chart (§4.8.2 „BarChart poziomy”, §6.6 „Top projekty”): one row per category — name, bar scaled to
+/// the largest value, value and share. Hover/keyboard highlight a row (others dimmed); click/Enter = CategoryActivated.
+/// </summary>
+public sealed class HorizontalBarChart : ChartView
+{
+    public HorizontalBarChart()
+    {
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Data))
+            {
+                UpdateHeight();
+            }
+        };
+        DensityService.DensityChanged += (_, _) => UpdateHeight();
+        UpdateHeight();
+    }
+
+    private float RowHeight => F("SizeRowHeightDense");
+
+    private void UpdateHeight() => HeightRequest = Math.Max(1, Data.Categories.Count) * Ui.D("SizeRowHeightDense");
+
+    protected override void DrawChart(ICanvas canvas, RectF rect)
+    {
+        var series = Data.Series.FirstOrDefault(s => s.IsVisible);
+        if (series is null)
+        {
+            return;
+        }
+
+        var count = Data.Categories.Count;
+        var values = Enumerable.Range(0, count).Select(i => Math.Max(0, Animated(series, i))).ToList();
+        var max = Math.Max(values.DefaultIfEmpty(0).Max(), double.Epsilon);
+        var total = Enumerable.Range(0, count).Sum(i => i < series.Points.Count && !double.IsNaN(series.Points[i]) ? series.Points[i] : 0);
+        var gap = F("Space300");
+        var labelFont = new Microsoft.Maui.Graphics.Font(DesignTokens.Font("InterRegular"));
+        var labels = Data.Categories.Select(text => canvas.GetStringSize(text, labelFont, AxisSize).Width).DefaultIfEmpty(0).Max();
+        var labelWidth = Math.Min(rect.Width * 0.35f, labels + gap);
+        var texts = Enumerable.Range(0, count).Select(i => ValueText(series, i, total)).ToList();
+        var valueWidth = texts.Select(text => TextWidth(canvas, text)).DefaultIfEmpty(0).Max() + gap;
+        Plot = new RectF(rect.Left + labelWidth, rect.Top, Math.Max(0, rect.Width - labelWidth - valueWidth), rect.Height);
+        var barHeight = Math.Min(F("SizeChartBarMax"), RowHeight * 0.5f);
+
+        for (var i = 0; i < count; i++)
+        {
+            var top = rect.Top + i * RowHeight;
+            var dim = HoverIndex >= 0 && HoverIndex != i;
+            if (HoverIndex == i)
+            {
+                canvas.FillColor = C("ColorStateHover");
+                canvas.FillRoundedRectangle(new RectF(rect.Left, top, rect.Width, RowHeight), F("RadiusSm"));
+            }
+
+            canvas.Font = labelFont;
+            canvas.FontColor = C("ColorTextPrimary");
+            SafeText.Draw(canvas, Data.Categories[i], rect.Left, top, labelWidth - gap, RowHeight, HorizontalAlignment.Left, VerticalAlignment.Center);
+            canvas.Font = AxisFont;
+
+            var width = (float)(values[i] / max) * Plot.Width;
+            if (width > 0)
+            {
+                canvas.FillColor = C(series.ColorKey).WithAlpha(dim ? (float)Ui.D("OpacityHover") : 1);
+                canvas.FillRoundedRectangle(new RectF(Plot.Left, top + (RowHeight - barHeight) / 2, width, barHeight), 0, F("RadiusXs"), 0, F("RadiusXs"));
+            }
+
+            canvas.FontColor = C(dim ? "ColorTextTertiary" : "ColorTextSecondary");
+            SafeText.Draw(canvas, texts[i], Plot.Right + gap, top, valueWidth - gap, RowHeight, HorizontalAlignment.Right, VerticalAlignment.Center);
+        }
+    }
+
+    private string ValueText(ChartSeries series, int index, double total)
+    {
+        var value = index < series.Points.Count ? series.Points[index] : 0;
+        return total > 0 ? $"{Data.Format(value)} · {Fmt.Percent(value * 100 / total)}" : Data.Format(value);
+    }
+
+    protected override int IndexAt(PointF point)
+    {
+        var count = Data.Categories.Count;
+        return count == 0 || point.Y < 0 ? -1 : Math.Min(count - 1, (int)(point.Y / RowHeight));
+    }
+
+    /// <summary>Values are printed in every row — the highlight replaces the tooltip.</summary>
+    protected override void DrawTooltip(ICanvas canvas, RectF rect, int index)
+    {
+    }
+
+    protected override string Describe(ChartData data)
+    {
+        var series = data.Series.FirstOrDefault();
+        if (series is null || data.Categories.Count == 0)
+        {
+            return "Brak danych";
+        }
+
+        return "Wykres poziomy: " + string.Join("; ", data.Categories.Select((name, i) =>
+            $"{name} {(i < series.Points.Count ? data.Format(series.Points[i]) : "")}"));
+    }
+}
+
 /// <summary>Line / area chart (§4.8.2 C): 2 dp lines, area gradient 20% → 0%, dashed projection, threshold lines.</summary>
 public sealed class LineChart : ChartView
 {

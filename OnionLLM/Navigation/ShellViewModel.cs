@@ -17,6 +17,12 @@ public enum LayoutState
 public sealed class NavEntry(ScreenInfo info, Command command) : ObservableObject
 {
     private bool _isActive;
+    private string _badgeText = string.Empty;
+    private string _dotColorKey = string.Empty;
+    private string _effectiveDotKey = "ColorStatusWarning";
+    private bool _showBadge;
+    private bool _showDot;
+    private string _spokenHint = string.Empty;
 
     public ScreenInfo Info { get; } = info;
 
@@ -31,6 +37,33 @@ public sealed class NavEntry(ScreenInfo info, Command command) : ObservableObjec
     public string AutomationId => "Sidebar." + Info.Screen;
 
     public bool IsActive { get => _isActive; set => Set(ref _isActive, value); }
+
+    /// <summary>Counter next to the label (§4.7.1: „Źródła” — sources with parse errors); empty = none.</summary>
+    public string BadgeText { get => _badgeText; private set => Set(ref _badgeText, value); }
+
+    /// <summary>Status dot colour key (§4.7.1: „Limity” ≥ 80% warning / ≥ 100% danger); empty = none.</summary>
+    public string DotColorKey { get => _dotColorKey; private set => Set(ref _dotColorKey, value); }
+
+    /// <summary>Badge is shown as a number when the sidebar is expanded and as a dot on the rail.</summary>
+    public bool ShowBadge { get => _showBadge; private set => Set(ref _showBadge, value); }
+
+    public bool ShowDot { get => _showDot; private set => Set(ref _showDot, value); }
+
+    /// <summary>Colour of the dot: the limit state, or warning for a badge collapsed into a dot.</summary>
+    public string EffectiveDotKey { get => _effectiveDotKey; private set => Set(ref _effectiveDotKey, value); }
+
+    /// <summary>Screen reader hint for the indicator, e.g. „2 źródła z problemami”, „limit przekroczony”.</summary>
+    public string SpokenHint { get => _spokenHint; private set => Set(ref _spokenHint, value); }
+
+    public void SetIndicator(string badge, string dotKey, bool collapsed, string hint)
+    {
+        SpokenHint = hint;
+        BadgeText = badge;
+        DotColorKey = dotKey;
+        ShowBadge = badge.Length > 0 && !collapsed;
+        ShowDot = dotKey.Length > 0 || (badge.Length > 0 && collapsed);
+        EffectiveDotKey = dotKey.Length > 0 ? dotKey : "ColorStatusWarning";
+    }
 }
 
 /// <summary>
@@ -40,6 +73,7 @@ public sealed class NavEntry(ScreenInfo info, Command command) : ObservableObjec
 public sealed class ShellViewModel : ObservableObject
 {
     private const string SidebarCollapsedKey = "shell.sidebarCollapsed";
+    private const string DrawerWidthKey = "shell.drawerWidth";
 
     private LayoutState _layout = LayoutState.Wide;
     private bool _collapsedByUser;
@@ -47,10 +81,13 @@ public sealed class ShellViewModel : ObservableObject
     private bool _isRefreshing;
     private bool _hadSyncError;
     private IDispatcherTimer? _timer;
+    private double _drawerWidth;
+    private double _windowWidth;
 
     private ShellViewModel()
     {
         _collapsedByUser = ViewModels.ViewState.GetBool(SidebarCollapsedKey, false);
+        _drawerWidth = ClampDrawer(ViewModels.ViewState.GetInt(DrawerWidthKey, (int)Token("SizeDrawerWidth", 420)));
         Navigation = new NavigationService();
         Navigation.Navigated += (_, _) => UpdateActive();
 
@@ -114,7 +151,30 @@ public sealed class ShellViewModel : ObservableObject
     public bool IsDrawerOpen => DrawerService.IsOpen;
 
     /// <summary>Column reserved for the drawer in push mode.</summary>
-    public GridLength DrawerColumn => new(IsDrawerOpen && Layout == LayoutState.Wide ? Token("SizeDrawerWidth", 420) : 0);
+    public GridLength DrawerColumn => new(IsDrawerOpen && Layout == LayoutState.Wide ? DrawerWidth : 0);
+
+    /// <summary>
+    /// Drawer width chosen by dragging its left edge (§4.6.1: 360–640, remembered); in narrow windows never wider
+    /// than the content area.
+    /// </summary>
+    public double DrawerWidth => Layout == LayoutState.Narrow && _windowWidth > 0
+        ? Math.Min(_drawerWidth, Math.Max(0, _windowWidth - SidebarColumn.Value))
+        : _drawerWidth;
+
+    /// <summary>Live resize while dragging; <paramref name="save"/> stores the width when the drag ends.</summary>
+    public void ResizeDrawer(double width, bool save)
+    {
+        _drawerWidth = ClampDrawer(width);
+        OnPropertyChanged(nameof(DrawerWidth));
+        OnPropertyChanged(nameof(DrawerColumn));
+        if (save)
+        {
+            ViewModels.ViewState.Set(DrawerWidthKey, (int)Math.Round(_drawerWidth));
+        }
+    }
+
+    private static double ClampDrawer(double width) =>
+        Math.Clamp(width, Token("SizeDrawerMin", 360), Token("SizeDrawerMax", 640));
 
     public bool IsDrawerScrimVisible => IsDrawerOpen && Layout != LayoutState.Wide;
 
@@ -188,6 +248,9 @@ public sealed class ShellViewModel : ObservableObject
             return;
         }
 
+        _windowWidth = width;
+        OnPropertyChanged(nameof(DrawerWidth));
+
         Layout = width >= Token("BreakpointWide", 1280) ? LayoutState.Wide
             : width >= Token("BreakpointMedium", 900) ? LayoutState.Medium
             : LayoutState.Narrow;
@@ -209,11 +272,12 @@ public sealed class ShellViewModel : ObservableObject
 
     private void OnLayoutChanged()
     {
+        UpdateIndicators();
         foreach (var name in new[]
                  {
                      nameof(IsNarrow), nameof(IsSidebarExpanded), nameof(IsSidebarCollapsed), nameof(IsOverlayOpen),
                      nameof(SidebarColumn), nameof(SidebarWidth), nameof(SidebarColumnSpan), nameof(ToggleSidebarLabel),
-                     nameof(ToggleSidebarGlyph), nameof(ToggleSidebarTooltip), nameof(DrawerColumn), nameof(IsDrawerScrimVisible)
+                     nameof(ToggleSidebarGlyph), nameof(ToggleSidebarTooltip), nameof(DrawerColumn), nameof(IsDrawerScrimVisible), nameof(DrawerWidth)
                  })
         {
             OnPropertyChanged(name);
@@ -504,6 +568,7 @@ public sealed class ShellViewModel : ObservableObject
             PricingColorKey = "ColorTextTertiary";
         }
 
+        UpdateIndicators();
         foreach (var name in new[]
                  {
                      nameof(SyncText), nameof(SyncColorKey), nameof(SyncTooltip), nameof(SourcesText), nameof(SkippedText),
@@ -511,6 +576,28 @@ public sealed class ShellViewModel : ObservableObject
                  })
         {
             OnPropertyChanged(name);
+        }
+    }
+
+    /// <summary>
+    /// Sidebar state indicators (§4.7.1): „Źródła” — number of enabled sources whose last sync skipped files;
+    /// „Limity” — dot when a live limit (5 h / 7 dni) reaches 80% (warning) or 100% (danger).
+    /// </summary>
+    private void UpdateIndicators()
+    {
+        var problems = AppState.Engine.LastSync?.Sources.Count(report => report.Problems.Count > 0 && AppState.Config.IsSourceEnabled(report.Source)) ?? 0;
+        var peak = AppState.Limits?.Values.Where(limits => limits.IsAvailable)
+            .Select(limits => Math.Max(limits.FiveHourUtilization, limits.SevenDayUtilization) * 100)
+            .DefaultIfEmpty(0).Max() ?? 0;
+        var limitKey = peak >= 100 ? "ColorStatusDanger" : peak >= 80 ? "ColorStatusWarning" : string.Empty;
+        foreach (var entry in OverviewItems.Concat(AnalysisItems).Concat(SystemItems).Concat(FooterItems))
+        {
+            var badge = entry.Info.Screen == Screen.Sources && problems > 0 ? Fmt.Number(problems) : string.Empty;
+            var dot = entry.Info.Screen == Screen.Limits ? limitKey : string.Empty;
+            var hint = badge.Length > 0 ? $"{Fmt.Count(problems, "źródło", "źródła", "źródeł")} z problemami"
+                : dot.Length > 0 ? (peak >= 100 ? "limit przekroczony" : "limit powyżej 80 procent")
+                : string.Empty;
+            entry.SetIndicator(badge, dot, IsSidebarCollapsed, hint);
         }
     }
 

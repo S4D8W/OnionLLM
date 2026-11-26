@@ -120,6 +120,11 @@ public partial class MainShellPage : ContentPage
             await DebugSelfTest.PaletteAsync(_shell);
         }
 
+        if (Environment.GetEnvironmentVariable("ONIONLLM_UI_SELFTEST") is { Length: > 0 })
+        {
+            await DebugSelfTest.UiAsync(_shell);
+        }
+
         // Developer aid: ONIONLLM_SCREEN_SMOKE=1 cycles breakpoints, theme and density on the start screen and logs it.
         if (Environment.GetEnvironmentVariable("ONIONLLM_SCREEN_SMOKE") is { Length: > 0 })
         {

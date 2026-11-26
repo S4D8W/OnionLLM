@@ -84,7 +84,7 @@ public sealed class ChartData
 /// hover crosshair with an in-canvas tooltip, entry (M4) and morph (M5) animation, Loading/Empty/Error states and a
 /// generated <c>SemanticProperties.Description</c>.
 /// </summary>
-public abstract class ChartView : GraphicsView, IDrawable
+public abstract class ChartView : GraphicsView, IDrawable, OnionLLM.Navigation.IKeyboardTarget
 {
     public static readonly BindableProperty DataProperty = BindableProperty.Create(
         nameof(Data), typeof(ChartData), typeof(ChartView), ChartData.Empty, propertyChanged: (b, o, n) => ((ChartView)b).OnDataChanged((ChartData)o, (ChartData)n));
@@ -103,11 +103,27 @@ public abstract class ChartView : GraphicsView, IDrawable
         EndHoverInteraction += (_, _) => { HoverIndex = -1; Invalidate(); };
         EndInteraction += (_, e) =>
         {
+            OnionLLM.Navigation.KeyboardRouter.Target = this;
             var index = IndexAt(e.Touches.FirstOrDefault());
             if (index >= 0)
             {
                 CategoryActivated?.Invoke(this, index);
             }
+        };
+
+        // §4.8.1 keyboard: Tab focuses the chart, ←/→ move the crosshair (Home/End jump), Enter = click.
+        Focused += (_, _) =>
+        {
+            OnionLLM.Navigation.KeyboardRouter.Target = this;
+            if (HoverIndex < 0 && Data.Categories.Count > 0)
+            {
+                MoveCrosshair(Data.Categories.Count - 1);
+            }
+        };
+        Unfocused += (_, _) =>
+        {
+            HoverIndex = -1;
+            Invalidate();
         };
         ThemeService.ThemeChanged += (_, _) => Invalidate();
         DensityService.DensityChanged += (_, _) => Invalidate();
@@ -263,6 +279,48 @@ public abstract class ChartView : GraphicsView, IDrawable
         }
 
         return ticks.ToArray();
+    }
+
+    public bool HandleKey(OnionLLM.Navigation.KeyboardAction action)
+    {
+        var count = Data.Categories.Count;
+        if (count == 0 || State != ChartState.Ready)
+        {
+            return false;
+        }
+
+        var current = HoverIndex < 0 ? count - 1 : HoverIndex;
+        switch (action)
+        {
+            case OnionLLM.Navigation.KeyboardAction.Expand:
+                MoveCrosshair(Math.Min(count - 1, HoverIndex < 0 ? current : current + 1));
+                return true;
+            case OnionLLM.Navigation.KeyboardAction.Collapse:
+                MoveCrosshair(Math.Max(0, HoverIndex < 0 ? current : current - 1));
+                return true;
+            case OnionLLM.Navigation.KeyboardAction.Home:
+                MoveCrosshair(0);
+                return true;
+            case OnionLLM.Navigation.KeyboardAction.End:
+                MoveCrosshair(count - 1);
+                return true;
+            case OnionLLM.Navigation.KeyboardAction.Activate when HoverIndex >= 0:
+                CategoryActivated?.Invoke(this, HoverIndex);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>Keyboard crosshair: highlight + tooltip, and the category read out (series values, §9.3).</summary>
+    private void MoveCrosshair(int index)
+    {
+        HoverIndex = index;
+        Invalidate();
+        var data = Data;
+        var values = data.Series.Where(series => series.IsVisible && index < series.Points.Count && !double.IsNaN(series.Points[index]))
+            .Select(series => $"{series.Label}: {data.Format(series.Points[index])}");
+        SemanticScreenReader.Announce($"{data.Detail(index)}. {string.Join(", ", values)}");
     }
 
     private void Hover(PointF point)

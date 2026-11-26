@@ -23,7 +23,7 @@ public partial class ReportsView : ContentView, IScreenView
         Table.Columns =
         [
             new DataColumn { Key = nameof(ReportRowViewModel.Period), Header = "Okres", SubtitleKey = nameof(ReportRowViewModel.Project), Star = 2.2, Sortable = true, Format = CellFormat.Strong },
-            new DataColumn { Key = nameof(ReportRowViewModel.ModelsText), Header = "Modele", Star = 2, Priority = 3, Format = CellFormat.Mono },
+            new DataColumn { Key = nameof(ReportRowViewModel.ModelsText), Header = "Modele", Star = 2, Priority = 3, CellFactory = ModelsCell },
             new DataColumn { Key = nameof(ReportRowViewModel.Input), Header = "Wejście", Align = ColumnAlign.End, Priority = 3, Format = CellFormat.Number },
             new DataColumn { Key = nameof(ReportRowViewModel.Output), Header = "Wyjście", Align = ColumnAlign.End, Priority = 3, Format = CellFormat.Number },
             new DataColumn { Key = nameof(ReportRowViewModel.CacheWrite), Header = "Zapis cache", Align = ColumnAlign.End, Priority = 3, Format = CellFormat.Number },
@@ -63,6 +63,34 @@ public partial class ReportsView : ContentView, IScreenView
     }
 
     public Task RefreshAsync(bool force) => _viewModel.RefreshAsync();
+
+    /// <summary>„Modele”: up to 2 ModelTags + „+N” (§4.4.8, §6.3); the full list stays in the TSV copy and the drawer.</summary>
+    private static View ModelsCell()
+    {
+        var stack = new HorizontalStackLayout { Spacing = Ui.D("Space100"), VerticalOptions = LayoutOptions.Center };
+        stack.BindingContextChanged += (_, _) =>
+        {
+            stack.Children.Clear();
+            if (stack.BindingContext is not ReportRowViewModel row)
+            {
+                return;
+            }
+
+            foreach (var model in row.Models.Take(2))
+            {
+                stack.Children.Add(new ModelTag { Model = model });
+            }
+
+            if (row.Models.Count > 2)
+            {
+                var more = Ui.Text("Text.Caption", $"+{row.Models.Count - 2}");
+                more.VerticalOptions = LayoutOptions.Center;
+                ToolTipProperties.SetText(more, string.Join(", ", row.Models.Skip(2).Select(Fmt.Model)));
+                stack.Children.Add(more);
+            }
+        };
+        return stack;
+    }
 
     /// <summary>KPI: 4 columns on wide, 2×2 otherwise; analysis row side by side on wide only (§6.3 pkt 5).</summary>
     private void ApplyLayout()

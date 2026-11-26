@@ -2,7 +2,7 @@
 
 > **Dla kogo:** agenci i ludzie, którzy projektują lub implementują UI aplikacji OnionLLM (MAUI, desktop Windows + macOS).
 > **Status dokumentu:** obowiązujący, docelowy. Opisuje, jak aplikacja **ma** wyglądać i się zachowywać — nie jak wygląda dziś. Jeśli kod jest niezgodny z tym dokumentem, rację ma dokument, a kod jest do poprawy.
-> **Wersja:** 1.5 · 2026-11-26
+> **Wersja:** 1.6 · 2026-11-26
 
 ## Spis treści
 
@@ -1096,6 +1096,8 @@ Mała pigułka statusu: kropka 6 + tekst `type.caption` `SemiBold`; tło `status
 
 #### 4.5.1 DataTable
 
+**Wiersze-separatory (1.6):** wiersz implementujący `ISeparatorRow` (`IsSeparator`, `SeparatorText`) jest rysowany jako cienka linia z podpisem (ikona `pause`, `type.caption`), w wysokości `size.row.heightDense`; nie da się go zaznaczyć ani kliknąć, klawiatura go pomija. Użycie: przerwy między blokami (§6.5).
+
 **Cel:** podstawowy sposób prezentacji list danych (raporty, sesje, projekty, modele, bloki, źródła).
 
 **Anatomia:**
@@ -1917,12 +1919,12 @@ Wszystkie ekrany §6.1–6.9 są zbudowane z komponentów §4 (pliki `Views/*Vie
 
 | Ekran | Nierenderowane / uproszczone | Powód |
 | --- | --- | --- |
-| Dziś (§6.1) | TrendDelta, sparkline 7/30 dni, budżet dnia; Alt+↑/↓ na karcie źródła (kolejność: przeciąganie i menu karty z „Przesuń w górę/dół”); oś bloku to odcinek start → teraz | Wymaga danych (§11.4); karty nie są fokusowalne; brak serii kosztu wewnątrz bloku |
+| Dziś (§6.1) | TrendDelta, sparkline 7/30 dni, budżet dnia; oś bloku to odcinek start → teraz | Wymaga danych (§11.4) |
 | Limity (§6.2) | Historia wykorzystania, prognozy 5 h / 7 d, Budżety, podsumowanie powiadomień | Wymaga danych |
-| Raporty (§6.3) | Heatmapa „Dni × godziny” (jest kalendarz 12 mies.), udział „Projekty” w donucie, TrendDelta KPI; kolumna „Modele” jako tekst zamiast ModelTagów | Wymaga danych; czytelność wiersza |
+| Raporty (§6.3) | Heatmapa „Dni × godziny” (jest kalendarz 12 mies.), udział „Projekty” w donucie, TrendDelta KPI | Wymaga danych |
 | Sesje (§6.4) | Filtr „Tylko aktywne”, StatusBadge „Aktywna” w wierszu, „Przebieg” w drawerze | Wymaga danych (`SessionRow.IsActive`, seria w sesji) |
-| Bloki (§6.5) | Przerwy są wierszami tabeli (nieaktywnymi), nie osobnym separatorem; „Sesje w bloku” w drawerze | Ograniczenie DataTable; Wymaga danych |
-| Projekty (§6.6) | Eksport tylko „Kopiuj jako tabelę”; „Top projekty” jako paski ProgressBar zamiast BarChart poziomego | Brak eksportu projektów w Core; brak poziomego wariantu wykresu |
+| Bloki (§6.5) | „Sesje w bloku” w drawerze | Wymaga danych |
+| Projekty (§6.6) | — (pełny zakres; §6.6 nie przewiduje eksportu — jest „Kopiuj jako tabelę”) | — |
 | Modele (§6.7) | — (pełny zakres) | — |
 | Źródła (§6.8) | Kolumny „Ostatnia aktywność” i „Wpisy” | Wymaga danych (statystyki ledgera per źródło) |
 | Ustawienia (§6.9) | „Powiadomienia i budżety”, waluta, pozostałe pola „Okno i zasobnik” poza „Zawsze na wierzchu”, podgląd na żywo statusline, opcja „Bez limitu” limitu tokenów | Wymaga danych / platformy; podgląd wymaga renderera CLI; config zna tylko `max` lub liczbę |
@@ -2204,7 +2206,7 @@ Na macOS Ctrl → ⌘, Alt → ⌥. Skróty są pokazywane w tooltipach, menu i 
 | Alt+↑ / Alt+↓ | Przesuń kartę źródła | Dziś |
 | ? (Shift+/) | Lista skrótów (dialog) | globalny |
 
-**Stan wdrożenia (1.5):** działają wszystkie skróty z tabeli poza Ctrl+Shift+M (mini-widok — `Wymaga platformy`) i Alt+↑/↓ na karcie źródła (karty nie są fokusowalne — kolejność zmienia przeciąganie i menu karty, §6.10). Ctrl+F i „/” ustawiają fokus w pierwszym widocznym SearchField ekranu, Ctrl+E otwiera menu pierwszego widocznego SplitButton („Eksportuj”); na ekranach bez nich skrót nic nie robi. Ctrl+Shift+L, Ctrl+Shift+T i „Przełącz gęstość” z palety zapisują konfigurację (`ViewModels/WindowActions.cs`) i pokazują Toast z nowym stanem; Ustawienia odświeżają te pola, żeby autozapis nie przywrócił starej wartości. Lista skrótów: `Navigation/ShortcutHelp.cs`; na macOS ⇧⌘/.
+**Stan wdrożenia (1.5):** działają wszystkie skróty z tabeli poza Ctrl+Shift+M (mini-widok — `Wymaga platformy`). Alt+↑/↓ (1.6) przesuwa kartę źródła, która ostatnio dostała kliknięcie lub fokus swojego przycisku „Więcej” (Tab); fokus wraca na kartę po przesunięciu. Ctrl+F i „/” ustawiają fokus w pierwszym widocznym SearchField ekranu, Ctrl+E otwiera menu pierwszego widocznego SplitButton („Eksportuj”); na ekranach bez nich skrót nic nie robi. Ctrl+Shift+L, Ctrl+Shift+T i „Przełącz gęstość” z palety zapisują konfigurację (`ViewModels/WindowActions.cs`) i pokazują Toast z nowym stanem; Ustawienia odświeżają te pola, żeby autozapis nie przywrócił starej wartości. Lista skrótów: `Navigation/ShortcutHelp.cs`; na macOS ⇧⌘/.
 
 Implementacja: `Navigation/ShortcutService` z implementacjami platformowymi (Windows: `PreviewKeyDown` na korzeniu okna WinUI; macOS: menu „Widok” w pasku menu — `MenuBarItems` z `KeyboardAccelerator`, natywnie odkrywalne i zamieniane na `UIKeyCommand`; Wstecz/Dalej na macOS: ⌘[ / ⌘]). Skróty nie działają, gdy fokus jest w polu tekstowym, z wyjątkiem Ctrl+K, Esc, F5 i Ctrl+1–8.
 
@@ -2253,7 +2255,7 @@ Każdy PR zmieniający UI zawiera w opisie wypełnioną listę:
 - [ ] **Teksty** zgodne z §8 (ton, odmiana liczebników, słownik etykiet).
 - [ ] `AutomationId` na nowych elementach interaktywnych.
 - [ ] DESIGN.md zaktualizowany (lub „nie dotyczy” z uzasadnieniem).
-- [ ] Zmieniony ekran przechodzi test dymny (`ONIONLLM_START_SCREEN=<Ekran> ONIONLLM_SCREEN_SMOKE=1 ONIONLLM_DIAG_LOG=<plik>` → „smoke done”); zmiany w nawigacji, skrótach lub palecie — `ONIONLLM_PALETTE_SELFTEST=1` („palette selftest done: 0 failures”); w onboardingu — `ONIONLLM_ONBOARDING=1 ONIONLLM_ONBOARDING_SELFTEST=1` („onboarding selftest done”).
+- [ ] Zmieniony ekran przechodzi test dymny (`ONIONLLM_START_SCREEN=<Ekran> ONIONLLM_SCREEN_SMOKE=1 ONIONLLM_DIAG_LOG=<plik>` → „smoke done”); zmiany w nawigacji, skrótach lub palecie — `ONIONLLM_PALETTE_SELFTEST=1` („palette selftest done: 0 failures”); w onboardingu — `ONIONLLM_ONBOARDING=1 ONIONLLM_ONBOARDING_SELFTEST=1` („onboarding selftest done”); wskaźniki paska bocznego, drawer, obrys nagłówka, filtry na narrow, klawiatura wykresów i tabel, Alt+↑/↓ — `ONIONLLM_UI_SELFTEST=1` („ui selftest done: 0 failures”).
 - [ ] Nowy lub zmieniony komponent ma przykład w Galerii komponentów (DEBUG); autotest galerii przechodzi (`ONIONLLM_START_SCREEN=Gallery ONIONLLM_GALLERY_SELFTEST=1 ONIONLLM_DIAG_LOG=<plik>` — w logu każdy krok „selftest ok”, na końcu „selftest done”).
 
 ---
@@ -2414,7 +2416,7 @@ Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls
 | TextField (Default/Mono/Number) | 4.2.1 | `Controls/Inputs.cs` (`TextField`, `BareEntry`) | Docelowe — wdrożone (1.3) |
 | SearchField | 4.2.2 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3) |
 | Select | 4.2.3 | `Controls/Inputs.cs` (menu w `PopoverHost`) | Docelowe — wdrożone (1.3) |
-| DateRangePicker | 4.2.4 | `Controls/Inputs.cs` (`DateRangePicker`, `RangeCalendar`) | Docelowe — wdrożone (1.3) (kalendarz jednomiesięczny na każdym breakpoincie) |
+| DateRangePicker | 4.2.4 | `Controls/Inputs.cs` (`DateRangePicker`, `RangeCalendar`) | Docelowe — wdrożone (1.3; dwa miesiące na `bp.wide` i tydzień od `StartOfWeek` — 1.6) (dni bez danych w `text.tertiary` — nie: kalendarz nie zna danych ekranu) |
 | SegmentedControl | 4.2.5 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3) |
 | Toggle | 4.2.6 | `Styles.Controls.xaml` | Docelowe — wdrożone (1.3) |
 | Checkbox | 4.2.7 | `Styles.Controls.xaml` | Docelowe — wdrożone (1.3) |
@@ -2441,7 +2443,7 @@ Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls
 | PricingMarker | 4.5.5 | `Controls/Badges.cs` | Docelowe — wdrożone (1.3) (`≈`: Wymaga danych) |
 | MoneyLabel, TokensLabel | 4.5.6 | `Controls/Metrics.cs` (`MetricLabel` z `Format` = Cost/Tokens/Number/Percent) | Docelowe — wdrożone (1.3) |
 | TokenBreakdown | 4.5.7 | `Controls/Metrics.cs` | Docelowe — wdrożone (1.3) |
-| Drawer | 4.6.1 | `Controls/Drawer.cs` + `Navigation/Keyboard.cs` (`DrawerService`) | Docelowe — wdrożone (1.3) (zmiana szerokości przeciąganiem — nie) |
+| Drawer | 4.6.1 | `Controls/Drawer.cs` + `Navigation/Keyboard.cs` (`DrawerService`) | Docelowe — wdrożone (1.3; zmiana szerokości przeciąganiem lewej krawędzi, 360–640, zapamiętywana — 1.6) |
 | Dialog | 4.6.2 | `Controls/DialogHost` + `Navigation/Overlays.cs` (`DialogService.ConfirmAsync` / `FormAsync` / `InfoAsync`) | Docelowe — wdrożone (1.2, potwierdzenia; formularze — 12.3; informacyjny — 1.5) |
 | Toast | 4.6.3 | `Controls/ToastHost` + `Navigation/Overlays.cs` (`ToastService`) | Docelowe — wdrożone (1.2) |
 | Banner | 4.6.4 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
@@ -2449,9 +2451,9 @@ Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls
 | Menu | 4.6.6 | `Controls/Popover.cs` (`Menu`, `PopoverService`, `PopoverHost`); menu kontekstowe wierszy — `MenuFlyout` | Docelowe — wdrożone (1.3) |
 | CommandPalette | 4.6.7 | `Controls/CommandPalette.cs` + `Navigation/CommandPalette.cs` | Docelowe — wdrożone (1.5) |
 | Onboarding | 7.5 | `Views/OnboardingView.cs` | Docelowe — wdrożone (1.5, zakres w §7.5) |
-| Sidebar, NavItem | 4.7.1–4.7.2 | `Controls/Sidebar`, `Controls/GlyphButton.cs` (`NavItem`) | Docelowe — wdrożone (1.2) |
-| PageHeader | 4.7.3 | `Controls/PageHeader` | Docelowe — wdrożone (1.2; obrys po przewinięciu — 12.3) |
-| FilterBar | 4.7.4 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3) („Filtry (3)” w popoverze na narrow — 12.3) |
+| Sidebar, NavItem | 4.7.1–4.7.2 | `Controls/Sidebar`, `Controls/GlyphButton.cs` (`NavItem`) | Docelowe — wdrożone (1.2; wskaźniki stanu — 1.6: „Źródła” = liczba włączonych źródeł z pominiętymi plikami, „Limity” = kropka przy limicie 5 h / 7 dni ≥ 80% / ≥ 100%; na szynie licznik staje się kropką) |
+| PageHeader | 4.7.3 | `Controls/PageHeader` | Docelowe — wdrożone (1.2; dolny obrys po przewinięciu treści — 1.6; nagłówek leży poza obszarem przewijania, więc tło 92% nie jest potrzebne) |
+| FilterBar | 4.7.4 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3; na narrow ≥ 2 FilterChip zwijają się do „Filtry (N)” z popoverem, N = chipy różne od domyślnych — 1.6) |
 | StatusBar | 4.7.5 | `Controls/StatusBar` | Docelowe — wdrożone (1.2) |
 | PricingNote | 4.7.6 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
 | Tabs, SettingsNav | 4.7.7 | `Controls/Inputs.cs` | Docelowe — wdrożone (1.3) |
@@ -2459,8 +2461,8 @@ Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls
 | EmptyState | 4.7.9 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
 | Skeleton | 4.7.10 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) (shimmer jako pulsowanie tła) |
 | ErrorState | 4.7.11 | `Controls/Containers.cs` (`EmptyState` z `IsError` i `ErrorDetails`) | Docelowe — wdrożone (1.3) |
-| ChartView (baza), ChartCard, ChartLegend | 4.8.1, 4.8.4 | `Controls/Charts/ChartView.cs`, `Controls/Charts/ChartCard.cs` | Docelowe — wdrożone (1.3) (strzałki ←/→ na wykresie — nie; najechanie i klik — tak) |
-| BarChart (+ skumulowany, tryb %), LineChart/AreaChart, Sparkline, DonutChart | 4.8.2 | `Controls/Charts/Charts.cs` | Docelowe — wdrożone (1.3) |
+| ChartView (baza), ChartCard, ChartLegend | 4.8.1, 4.8.4 | `Controls/Charts/ChartView.cs`, `Controls/Charts/ChartCard.cs` | Docelowe — wdrożone (1.3; klawiatura — 1.6: wykres jest przystankiem Tab, ←/→/Home/End przesuwają wskaźnik i ogłaszają wartości, Enter = klik) |
+| BarChart (+ skumulowany, tryb %), poziomy BarChart (`HorizontalBarChart`), LineChart/AreaChart, Sparkline, DonutChart | 4.8.2 | `Controls/Charts/Charts.cs` | Docelowe — wdrożone (1.3; poziomy — 1.6: wiersz = nazwa · słupek · wartość i udział, bez dymka) |
 | Heatmap | 4.8.2 F | `Controls/Charts/Charts.cs` | Kalendarz: wdrożone (1.3); dni × godziny: Wymaga danych |
 | BlockTimeline | 4.8.2 H | `Controls/Charts/Charts.cs` | Docelowe — wdrożone (1.3) |
 | SourceCard | 6.1 | `Controls/SourceCard.cs` | Docelowe — wdrożone (1.4) |
@@ -2503,6 +2505,7 @@ Kontrast liczony wg WCAG 2.2 (luminancja względna sRGB). Skrypt referencyjny: `
 | Wersja | Data | Zmiana |
 | --- | --- | --- |
 | 1.0 | 2026-11-26 | Pierwsza wersja docelowego design systemu. |
+| 1.6 | 2026-11-26 | Faza 12.5 (domknięcie UI): wskaźniki stanu w pasku bocznym, zmiana szerokości drawera, obrys PageHeader po przewinięciu, „Filtry (N)” na narrow, klawiatura wykresów, kalendarz dwumiesięczny, Alt+↑/↓ na kartach źródeł, wiersze-separatory DataTable (przerwy w Blokach), ModelTagi w Raportach, poziomy BarChart „Top projekty”, skrót Ctrl+E w podpowiedzi SplitButton; §6.10 zaktualizowane. |
 | 1.5 | 2026-11-26 | Faza 12.4 (powierzchnie globalne): CommandPalette wdrożona (§4.6.7 — stan wdrożenia), Dialog informacyjny, lista skrótów „?”, skróty Ctrl+K, Ctrl+F, /, Ctrl+E, Ctrl+Shift+L, Ctrl+Shift+T (§9.6 — stan wdrożenia), onboarding (§7.5 — stan wdrożenia), animacje M1 (stagger kart), M17 (crossfade zrzutu okna), M18 (szerokość panelu); nowe tokeny (§11.1); §11.4 — postęp importu; §10.3 — testy dymne i autotesty DEBUG. |
 | 1.4 | 2026-11-26 | Faza 12.3 (ekrany): wszystkie ekrany §6.1–6.9 przebudowane na komponenty; nowe §6.10 (stan wdrożenia i świadome uproszczenia); SourceCard wdrożony; §11.4 — trend per projekt i rozbicie pól VM dostarczone, nowa pozycja „statystyki ledgera per źródło”. Wzorce runtime: widok nie może trafić do nowego rodzica, będąc w starym; nie przełączać `Shadow` na żywym przycisku WinUI. |
 | 1.3 | 2026-11-26 | Faza 12.2 (biblioteka komponentów): wdrożone komponenty §4 poza CommandPalette, TrendDelta i SourceCard (rejestr §11.3 z faktycznymi plikami), popovery (`PopoverService`), Drawer (`DrawerService`), routing klawiatury list (`KeyboardRouter`), wykresy na `ChartView`; Galeria komponentów i autotest (DEBUG) w checkliście §10.3; nowe tokeny (§11.1). |

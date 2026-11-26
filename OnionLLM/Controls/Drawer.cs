@@ -27,7 +27,7 @@ public sealed class Drawer : Grid
     {
         IsVisible = false;
         HorizontalOptions = LayoutOptions.End;
-        WidthRequest = Ui.D("SizeDrawerWidth");
+        WidthRequest = ShellViewModel.Instance.DrawerWidth;
 
         _title.MaxLines = 1;
         _title.LineBreakMode = LineBreakMode.TailTruncation;
@@ -54,6 +54,7 @@ public sealed class Drawer : Grid
         _panel.StrokeThickness = 0;
         _panel.Content = new Grid { Children = { layout, new BoxView { HorizontalOptions = LayoutOptions.Start }.Styled("Divider.Edge") } };
         Children.Add(_panel);
+        Children.Add(ResizeGrip());
 
         _previous.Clicked += (_, _) => _shown?.PreviousCommand?.Execute(null);
         _next.Clicked += (_, _) => _shown?.NextCommand?.Execute(null);
@@ -67,8 +68,56 @@ public sealed class Drawer : Grid
             {
                 UpdateMode();
             }
+            else if (e.PropertyName == nameof(ShellViewModel.DrawerWidth))
+            {
+                WidthRequest = ShellViewModel.Instance.DrawerWidth;
+            }
         };
         UpdateMode();
+    }
+
+    /// <summary>Left-edge grip (§4.6.1): drag to resize 360–640; the width is remembered. Hover highlights the edge.</summary>
+    private View ResizeGrip()
+    {
+        var line = new BoxView { HorizontalOptions = LayoutOptions.Start, InputTransparent = true }.Styled("Divider.Edge");
+        line.Opacity = 0;
+        var grip = new Grid
+        {
+            WidthRequest = Ui.D("Space200"),
+            HorizontalOptions = LayoutOptions.Start,
+            BackgroundColor = Ui.Res<Color>("ColorTransparent"),
+            Children = { line },
+            AutomationId = "Drawer.Resize"
+        };
+        line.Dyn(BoxView.ColorProperty, "ColorBorderFocus");
+        ToolTipProperties.SetText(grip, "Przeciągnij, aby zmienić szerokość");
+        SemanticProperties.SetDescription(grip, "Zmień szerokość panelu szczegółów");
+        var hover = new PointerGestureRecognizer();
+        hover.PointerEntered += (_, _) => line.Opacity = 1;
+        hover.PointerExited += (_, _) => line.Opacity = 0;
+        grip.GestureRecognizers.Add(hover);
+
+        var start = 0d;
+        var pan = new PanGestureRecognizer();
+        pan.PanUpdated += (_, e) =>
+        {
+            switch (e.StatusType)
+            {
+                case GestureStatus.Started:
+                    start = Width;
+                    line.Opacity = 1;
+                    break;
+                case GestureStatus.Running:
+                    ShellViewModel.Instance.ResizeDrawer(start - e.TotalX, save: false);
+                    break;
+                default:
+                    ShellViewModel.Instance.ResizeDrawer(ShellViewModel.Instance.DrawerWidth, save: true);
+                    line.Opacity = 0;
+                    break;
+            }
+        };
+        grip.GestureRecognizers.Add(pan);
+        return grip;
     }
 
     private static IconButton Button(string glyph, string tooltip, string automationId)

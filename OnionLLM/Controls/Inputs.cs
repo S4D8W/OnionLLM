@@ -476,10 +476,37 @@ public sealed class FilterBar : ContentView
 
     private readonly Button _reset = new Button { Text = "Wyczyść filtry", IsVisible = false, AutomationId = "FilterBar.Reset" }.Styled("Button.Link");
 
+    /// <summary>Narrow windows: chips collapse into „Filtry (N)” opening a popover (§4.7.4).</summary>
+    private readonly Button _collapsed = new Button { AutomationId = "FilterBar.More" }.Styled("Button.Secondary.Sm");
+    private readonly VerticalStackLayout _popover = new();
+    private bool _isCollapsed;
+
     public FilterBar()
     {
-        Filters.CollectionChanged += (_, _) => Rebuild();
+        Filters.CollectionChanged += (_, _) =>
+        {
+            foreach (var chip in Filters.OfType<FilterChip>())
+            {
+                chip.PropertyChanged -= OnChipChanged;
+                chip.PropertyChanged += OnChipChanged;
+            }
+
+            Rebuild();
+        };
         _reset.Clicked += (_, _) => ResetCommand?.Execute(null);
+        _collapsed.ImageSource = new FontImageSource { FontFamily = "Lucide", Glyph = Icons.SlidersHorizontal, Size = Ui.D("IconSm") }
+            .Dyn(FontImageSource.ColorProperty, "ColorTextPrimary");
+        _collapsed.ContentLayout = new Button.ButtonContentLayout(Button.ButtonContentLayout.ImagePosition.Left, Ui.D("Space150"));
+        _collapsed.Clicked += (_, _) => PopoverService.Show(_collapsed, _popover, Ui.D("SizeFormLabel"));
+        _popover.Spacing = Ui.D("Space200");
+        _popover.Padding = Ui.Thick("PaddingMenu");
+        OnionLLM.Navigation.ShellViewModel.Instance.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(OnionLLM.Navigation.ShellViewModel.Layout))
+            {
+                Rebuild();
+            }
+        };
         Content = _flex;
     }
 
@@ -489,15 +516,52 @@ public sealed class FilterBar : ContentView
 
     public bool IsDirty { get => (bool)GetValue(IsDirtyProperty); set => SetValue(IsDirtyProperty, value); }
 
+    /// <summary>Chips are collapsed into „Filtry (N)” (narrow window).</summary>
+    public bool IsCollapsed => _isCollapsed;
+
     private void Rebuild()
     {
+        // Views move between the bar and the popover: detach everywhere first (never two parents at once).
+        PopoverService.Close();
         _flex.Children.Clear();
+        _popover.Children.Clear();
+        var chips = Filters.OfType<FilterChip>().ToList();
+        _isCollapsed = OnionLLM.Navigation.ShellViewModel.Instance.Layout == OnionLLM.Navigation.LayoutState.Narrow && chips.Count >= 2;
         var gap = Ui.D("Space200");
-        foreach (var view in Filters.Append(_reset))
+        var inBar = _isCollapsed ? Filters.Where(view => view is not FilterChip).Append(_collapsed) : Filters;
+        foreach (var view in inBar.Append(_reset))
         {
             view.Margin = new Thickness(0, 0, gap, gap);
             _flex.Children.Add(view);
         }
+
+        if (_isCollapsed)
+        {
+            foreach (var chip in chips)
+            {
+                chip.Margin = Ui.Thick("ThicknessZero");
+                chip.HorizontalOptions = LayoutOptions.Start;
+                _popover.Children.Add(chip);
+            }
+        }
+
+        UpdateCollapsedLabel();
+    }
+
+    private void OnChipChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(FilterChip.IsChecked) or nameof(FilterChip.SelectedIndex))
+        {
+            UpdateCollapsedLabel();
+        }
+    }
+
+    /// <summary>„Filtry (2)” — number of chips that differ from their default (checked toggle, menu not on „Wszystkie”).</summary>
+    private void UpdateCollapsedLabel()
+    {
+        var active = Filters.OfType<FilterChip>().Count(chip => chip.Variant == ChipVariant.Menu ? chip.SelectedIndex > 0 : chip.IsChecked);
+        _collapsed.Text = active > 0 ? $"Filtry ({active})" : "Filtry";
+        SemanticProperties.SetDescription(_collapsed, active > 0 ? $"Filtry, aktywne: {active}" : "Filtry");
     }
 }
 
@@ -627,7 +691,8 @@ public sealed class SplitButton : HorizontalStackLayout
         Spacing = 0;
         _main.ImageSource = new FontImageSource { FontFamily = "Lucide", Glyph = Icons.Download, Size = Ui.D("IconSm") }
             .Dyn(FontImageSource.ColorProperty, "ColorTextPrimary");
-        ToolTipProperties.SetText(_more, "Więcej opcji");
+        // §9.6: shortcuts appear in tooltips — the option menu opens with Ctrl+E.
+        ToolTipProperties.SetText(_more, $"Więcej opcji ({OnionLLM.Navigation.ShortcutService.Label("E")})");
         SemanticProperties.SetDescription(_more, "Więcej opcji eksportu");
         _more.Clicked += (_, _) => Menu.Show(_more, Options, Ui.D("SizeSelectMinWidth"));
         Children.Add(_main);
@@ -706,7 +771,9 @@ public sealed class DateRangePicker : Button
             presets.Children.Add(new Menu([new MenuEntry(preset?.ToString(), () => PresetIndex = position, IsChecked: position == PresetIndex)]));
         }
 
-        var calendar = new RangeCalendar(Since, Until);
+        // §4.2.4: two months on wide windows, one on medium/narrow.
+        var wide = OnionLLM.Navigation.ShellViewModel.Instance.Layout == OnionLLM.Navigation.LayoutState.Wide;
+        var calendar = new RangeCalendar(Since, Until, wide ? 2 : 1);
         var from = new TextField { Placeholder = "dd.mm.rrrr", Text = Fmt.DateField(Since), Kind = TextFieldKind.Number };
         var to = new TextField { Placeholder = "dd.mm.rrrr", Text = Fmt.DateField(Until), Kind = TextFieldKind.Number };
         calendar.RangeChanged += (_, _) =>
@@ -752,7 +819,7 @@ public sealed class DateRangePicker : Button
         var body = new Grid { ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star)], ColumnSpacing = Ui.D("Space400") };
         body.Add(presets);
         body.Add(new VerticalStackLayout { Spacing = Ui.D("Space300"), Children = { calendar, footer } }, 1);
-        PopoverService.Show(this, body, Ui.D("SizeDialogMd"));
+        PopoverService.Show(this, body, wide ? Ui.D("SizeDialogMd") + Ui.D("SizeDialogSm") : Ui.D("SizeDialogMd"));
     }
 
     private static bool TryParse(string text, out DateTime date) =>
@@ -760,40 +827,41 @@ public sealed class DateRangePicker : Button
             System.Globalization.DateTimeStyles.None, out date);
 }
 
-/// <summary>One-month calendar with range selection (first click = start, second = end).</summary>
+/// <summary>
+/// Range calendar (§4.2.4): two months side by side on wide windows, one otherwise; first click = start, second = end;
+/// the week starts on the configured <c>StartOfWeek</c>.
+/// </summary>
 internal sealed class RangeCalendar : VerticalStackLayout
 {
-    private static readonly string[] Days = ["pn", "wt", "śr", "cz", "pt", "sb", "nd"];
-    private readonly Grid _grid = new();
-    private readonly Label _title = Ui.Text("Text.TitleCard");
+    private static readonly string[] DayNames = ["nd", "pn", "wt", "śr", "cz", "pt", "sb"];
+    private readonly HorizontalStackLayout _months = new();
+    private readonly int _count;
+    private readonly DayOfWeek _firstDay = AppState.Config.StartOfWeek;
     private DateTime _month;
     private bool _pickingEnd;
 
-    public RangeCalendar(DateTime start, DateTime end)
+    public RangeCalendar(DateTime start, DateTime end, int months = 1)
     {
         Start = start.Date;
         End = end.Date;
-        _month = new DateTime(End.Year, End.Month, 1);
+        _count = Math.Max(1, months);
+        _month = new DateTime(End.Year, End.Month, 1).AddMonths(1 - _count);
         Spacing = Ui.D("Space200");
+        _months.Spacing = Ui.D("Space600");
         var previous = new IconButton { Glyph = Icons.ChevronLeft }.Styled("IconButton.Ghost.Sm");
         var next = new IconButton { Glyph = Icons.ChevronRight }.Styled("IconButton.Ghost.Sm");
         ToolTipProperties.SetText(previous, "Poprzedni miesiąc");
         ToolTipProperties.SetText(next, "Następny miesiąc");
+        SemanticProperties.SetDescription(previous, "Poprzedni miesiąc");
+        SemanticProperties.SetDescription(next, "Następny miesiąc");
         previous.Clicked += (_, _) => { _month = _month.AddMonths(-1); Render(); };
         next.Clicked += (_, _) => { _month = _month.AddMonths(1); Render(); };
-        var header = new Grid { ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)] };
-        _title.HorizontalTextAlignment = TextAlignment.Center;
-        _title.VerticalOptions = LayoutOptions.Center;
-        header.Add(previous);
-        header.Add(_title, 1);
-        header.Add(next, 2);
-        Children.Add(header);
-        Children.Add(_grid);
-        for (var i = 0; i < 7; i++)
-        {
-            _grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(Ui.D("SizeCalendarCell"))));
-        }
-
+        var row = new Grid { ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)] };
+        previous.VerticalOptions = next.VerticalOptions = LayoutOptions.Start;
+        row.Add(previous);
+        row.Add(_months, 1);
+        row.Add(next, 2);
+        Children.Add(row);
         Render();
     }
 
@@ -805,28 +873,43 @@ internal sealed class RangeCalendar : VerticalStackLayout
 
     private void Render()
     {
-        _title.Text = Fmt.Month(_month);
-        _grid.Children.Clear();
-        _grid.RowDefinitions.Clear();
-        for (var row = 0; row < 7; row++)
+        _months.Children.Clear();
+        for (var i = 0; i < _count; i++)
         {
-            _grid.RowDefinitions.Add(new RowDefinition(new GridLength(Ui.D("SizeCalendarCell"))));
+            _months.Children.Add(Month(_month.AddMonths(i)));
+        }
+    }
+
+    private View Month(DateTime month)
+    {
+        var title = Ui.Text("Text.TitleCard", Fmt.Month(month));
+        title.HorizontalTextAlignment = TextAlignment.Center;
+        SemanticProperties.SetHeadingLevel(title, SemanticHeadingLevel.Level3);
+        var grid = new Grid();
+        for (var i = 0; i < 7; i++)
+        {
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(Ui.D("SizeCalendarCell"))));
         }
 
-        for (var day = 0; day < 7; day++)
+        for (var r = 0; r < 7; r++)
         {
-            var label = Ui.Text("Text.Caption", Days[day]);
+            grid.RowDefinitions.Add(new RowDefinition(new GridLength(Ui.D("SizeCalendarCell"))));
+        }
+
+        for (var column = 0; column < 7; column++)
+        {
+            var label = Ui.Text("Text.Caption", DayNames[((int)_firstDay + column) % 7]);
             label.HorizontalTextAlignment = TextAlignment.Center;
             label.VerticalTextAlignment = TextAlignment.Center;
-            _grid.Add(label, day, 0);
+            grid.Add(label, column, 0);
         }
 
-        var offset = ((int)_month.DayOfWeek + 6) % 7;
-        var days = DateTime.DaysInMonth(_month.Year, _month.Month);
+        var offset = ((int)month.DayOfWeek - (int)_firstDay + 7) % 7;
+        var days = DateTime.DaysInMonth(month.Year, month.Month);
         var today = DateTime.Today;
         for (var d = 1; d <= days; d++)
         {
-            var date = new DateTime(_month.Year, _month.Month, d);
+            var date = new DateTime(month.Year, month.Month, d);
             var cell = offset + d - 1;
             var inRange = date >= Start && date <= End;
             var edge = date == Start || date == End;
@@ -845,8 +928,10 @@ internal sealed class RangeCalendar : VerticalStackLayout
             var tap = new TapGestureRecognizer();
             tap.Tapped += (_, _) => Pick(date);
             box.GestureRecognizers.Add(tap);
-            _grid.Add(box, cell % 7, cell / 7 + 1);
+            grid.Add(box, cell % 7, cell / 7 + 1);
         }
+
+        return new VerticalStackLayout { Spacing = Ui.D("Space200"), Children = { title, grid } };
     }
 
     private void Pick(DateTime date)

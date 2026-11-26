@@ -9,15 +9,35 @@
              BackgroundColor="{DynamicResource ColorBgSidebar}">
 
     <ContentView.Resources>
+        <!-- NavItem + optional state indicator (§4.7.1): StatusBadge with a count (expanded) or a status dot (rail / limits). -->
         <DataTemplate x:Key="NavEntryTemplate" x:DataType="nav:NavEntry">
-            <controls:NavItem Style="{StaticResource NavItem}"
-                              Glyph="{Binding Glyph}"
-                              Label="{Binding Label}"
-                              Shortcut="{Binding Shortcut}"
-                              IsActive="{Binding IsActive}"
-                              IsCollapsed="{Binding IsSidebarCollapsed, Source={x:Static nav:ShellViewModel.Instance}, x:DataType=nav:ShellViewModel}"
-                              Command="{Binding Command}"
-                              AutomationId="{Binding AutomationId}" />
+            <Grid>
+                <controls:NavItem Style="{StaticResource NavItem}"
+                                  Glyph="{Binding Glyph}"
+                                  Label="{Binding Label}"
+                                  Shortcut="{Binding Shortcut}"
+                                  IsActive="{Binding IsActive}"
+                                  IsCollapsed="{Binding IsSidebarCollapsed, Source={x:Static nav:ShellViewModel.Instance}, x:DataType=nav:ShellViewModel}"
+                                  Command="{Binding Command}"
+                                  SemanticProperties.Hint="{Binding SpokenHint}"
+                                  AutomationId="{Binding AutomationId}" />
+                <controls:StatusBadge Kind="Warning"
+                                      Text="{Binding BadgeText}"
+                                      IsVisible="{Binding ShowBadge}"
+                                      InputTransparent="True"
+                                      HorizontalOptions="End"
+                                      VerticalOptions="Center"
+                                      Margin="{StaticResource PaddingNavItem}" />
+                <BoxView IsVisible="{Binding ShowDot}"
+                         InputTransparent="True"
+                         Color="{Binding EffectiveDotKey, Converter={StaticResource TokenColor}}"
+                         WidthRequest="{StaticResource SizeStatusDot}"
+                         HeightRequest="{StaticResource SizeStatusDot}"
+                         CornerRadius="{StaticResource RadiusFull}"
+                         HorizontalOptions="End"
+                         VerticalOptions="Center"
+                         Margin="{StaticResource PaddingNavItem}" />
+            </Grid>
         </DataTemplate>
     </ContentView.Resources>
 

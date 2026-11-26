@@ -5,7 +5,7 @@ using OnionLLM.ViewModels;
 
 namespace OnionLLM.Views;
 
-public partial class TodayView : ContentView, IScreenView
+public partial class TodayView : ContentView, IScreenView, IKeyboardTarget
 {
     private readonly MainViewModel _viewModel = new();
 
@@ -131,6 +131,23 @@ public partial class TodayView : ContentView, IScreenView
         }
     }
 
+    private string? _keyboardCard;
+
+    /// <summary>Alt+↑ / Alt+↓ move the last activated source card (§6.1); focus follows the card.</summary>
+    public bool HandleKey(KeyboardAction action)
+    {
+        if (action is not (KeyboardAction.MoveUp or KeyboardAction.MoveDown) ||
+            _viewModel.Providers.FirstOrDefault(provider => provider.Id == _keyboardCard) is not { } card)
+        {
+            return false;
+        }
+
+        var index = _viewModel.Providers.IndexOf(card);
+        _viewModel.Move(card, index + (action == KeyboardAction.MoveUp ? -1 : 1));
+        SourcesFlex.Children.OfType<SourceCard>().FirstOrDefault(view => (view.BindingContext as SourceCardViewModel)?.Id == card.Id)?.FocusMenu();
+        return true;
+    }
+
     /// <summary>Source cards: auto-fill grid with a 320 dp minimum (§2.9.2) in the user's order (§5.11).</summary>
     private void OnProvidersChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -148,6 +165,11 @@ public partial class TodayView : ContentView, IScreenView
             FlexLayout.SetBasis(card, new Microsoft.Maui.Layouts.FlexBasis((float)Ui.D("SizeSourceCardMin")));
             FlexLayout.SetGrow(card, 1);
             card.MoveRequested += (_, move) => _viewModel.Move(move.Card, move.Index);
+            card.Activated += (_, item) =>
+            {
+                _keyboardCard = item.Id;
+                KeyboardRouter.Target = this;
+            };
             card.ConfigureRequested += (_, _) => _ = ShellViewModel.Instance.NavigateAsync(
                 ShellViewModel.Instance.Navigation.IsAvailable(Screen.Sources) ? Screen.Sources : Screen.Settings);
             SourcesFlex.Children.Add(card);

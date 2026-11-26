@@ -12,7 +12,13 @@ public enum KeyboardAction
     Collapse,
     Previous,
     Next,
-    Copy
+    Copy,
+
+    /// <summary>Alt+↑ — move the item up (source cards on Dziś, §6.1).</summary>
+    MoveUp,
+
+    /// <summary>Alt+↓ — move the item down.</summary>
+    MoveDown
 }
 
 /// <summary>A component that consumes list navigation keys (tables).</summary>
