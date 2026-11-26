@@ -80,7 +80,8 @@ public static class BlockBuilder
         DateTimeOffset now,
         double sessionLengthHours = 5,
         long? tokenLimit = null,
-        DateTimeOffset? activeBlockResetsAt = null)
+        DateTimeOffset? activeBlockResetsAt = null,
+        bool noLimit = false)
     {
         var sorted = entries.OrderBy(entry => entry.TimestampMs).ToList();
         var durationMs = (long)(sessionLengthHours * 3_600_000);
@@ -122,7 +123,7 @@ public static class BlockBuilder
 
         long? limit = tokenLimit;
         var isMax = false;
-        if (limit is null)
+        if (limit is null && !noLimit)
         {
             var completed = blocks.Where(block => !block.IsGap && !block.IsActive).Select(block => block.Totals.TotalTokens).ToArray();
             limit = completed.Length > 0 ? completed.Max() : null;

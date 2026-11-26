@@ -345,7 +345,7 @@ public sealed class SettingsView : ContentView, IScreenView
         return Stack(
             costMode,
             Row("Długość bloku", Number(nameof(SettingsViewModel.SessionLength), "h"), "sessionLength", "Od 1 do 24 godzin.", nameof(SettingsViewModel.SessionLengthError)),
-            Row("Limit tokenów bloku", limit, "tokenLimit", "Maksimum z historii = największy zakończony blok.", nameof(SettingsViewModel.TokenLimitError)),
+            Row("Limit tokenów bloku", limit, "tokenLimit", "Bez limitu — bloki bez procentu i ostrzeżeń. Maksimum z historii = największy zakończony blok.", nameof(SettingsViewModel.TokenLimitError)),
             Row("Odświeżanie danych", Number(nameof(SettingsViewModel.RefreshInterval), "s"), "refreshInterval", "Od 5 do 3600 sekund.", nameof(SettingsViewModel.RefreshIntervalError)),
             Row("Sesja aktywna, jeśli ostatnie zdarzenie młodsze niż", Number(nameof(SettingsViewModel.ActiveMinutes), "min"), "activeMinutes", "Od 1 do 240 minut.", nameof(SettingsViewModel.ActiveMinutesError)));
     }

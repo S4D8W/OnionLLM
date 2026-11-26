@@ -19,6 +19,15 @@ public sealed record SourceSyncReport
     public IReadOnlyList<FileSyncProblem> Problems { get; init; } = [];
 }
 
+/// <summary>
+/// Postęp synchronizacji (import historii w UI): źródło <paramref name="Source"/> (numer <paramref name="SourceIndex"/> z
+/// <paramref name="SourceCount"/>), przetworzone pliki z wszystkich plików źródła i liczba wpisów wczytanych w tej synchronizacji.
+/// </summary>
+public sealed record SyncProgress(string Source, int SourceIndex, int SourceCount, int Files, int TotalFiles, long Entries);
+
+/// <summary>Statystyki ledgera jednego źródła: pliki, wpisy, ostatni wpis.</summary>
+public sealed record SourceStatistics(int Files, long Entries, DateTimeOffset? LastEntry);
+
 public sealed record SyncReport(IReadOnlyList<SourceSyncReport> Sources, DateTimeOffset FinishedAt, TimeSpan Duration);
 
 /// <summary>
@@ -48,7 +57,8 @@ public sealed class UsageLedger
 
     public string DatabasePath { get; }
 
-    public SyncReport Sync(IEnumerable<IUsageSource> sources, OnionConfig config, CancellationToken cancellationToken = default)
+    public SyncReport Sync(IEnumerable<IUsageSource> sources, OnionConfig config, CancellationToken cancellationToken = default,
+        IProgress<SyncProgress>? progress = null)
     {
         var started = DateTimeOffset.UtcNow;
         var reports = new List<SourceSyncReport>();
@@ -66,15 +76,11 @@ public sealed class UsageLedger
             }
 
             using var connection = Open();
-            foreach (var source in sources)
+            var enabled = sources.Where(source => config.IsSourceEnabled(source.Id)).ToList();
+            for (var index = 0; index < enabled.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!config.IsSourceEnabled(source.Id))
-                {
-                    continue;
-                }
-
-                reports.Add(SyncSource(connection, source, config, cancellationToken));
+                reports.Add(SyncSource(connection, enabled[index], config, cancellationToken, progress, index, enabled.Count));
             }
 
             SetMeta(connection, "last_sync", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString());
@@ -90,7 +96,8 @@ public sealed class UsageLedger
         return new SyncReport(reports, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow - started);
     }
 
-    private SourceSyncReport SyncSource(SqliteConnection connection, IUsageSource source, OnionConfig config, CancellationToken cancellationToken)
+    private SourceSyncReport SyncSource(SqliteConnection connection, IUsageSource source, OnionConfig config, CancellationToken cancellationToken,
+        IProgress<SyncProgress>? progress = null, int sourceIndex = 0, int sourceCount = 1)
     {
         var versionKey = "parser:" + source.Id;
         var versionChanged = GetMeta(connection, versionKey) != source.ParserVersion.ToString();
@@ -112,8 +119,11 @@ public sealed class UsageLedger
             known.Clear();
         }
 
-        foreach (var file in files)
+        long loaded = 0;
+        progress?.Report(new SyncProgress(source.Id, sourceIndex, sourceCount, 0, files.Length, 0));
+        for (var position = 0; position < files.Length; position++)
         {
+            var file = files[position];
             cancellationToken.ThrowIfCancellationRequested();
             if (known.TryGetValue(file.Path, out var state) && state.Size == file.Size && state.ModifiedMs == file.ModifiedMs)
             {
@@ -139,6 +149,8 @@ public sealed class UsageLedger
 
             ReplaceFile(connection, source.Id, file, entries, diagnostics.SkippedLines);
             parsed++;
+            loaded += entries.Count;
+            progress?.Report(new SyncProgress(source.Id, sourceIndex, sourceCount, position + 1, files.Length, loaded));
             skipped += diagnostics.SkippedLines;
             foreach (var (reason, count) in diagnostics.Reasons)
             {
@@ -150,6 +162,8 @@ public sealed class UsageLedger
         {
             SetMeta(connection, versionKey, source.ParserVersion.ToString());
         }
+
+        progress?.Report(new SyncProgress(source.Id, sourceIndex, sourceCount, files.Length, files.Length, loaded));
 
         return new SourceSyncReport
         {
@@ -319,6 +333,28 @@ public sealed class UsageLedger
         using var reader = command.ExecuteReader();
         reader.Read();
         return (reader.GetInt32(0), reader.GetInt64(1));
+    }
+
+    /// <summary>
+    /// Statystyki per źródło (ekran Źródła): liczba plików, wpisów i czas ostatniego wpisu. Źródła bez wpisów nie występują.
+    /// </summary>
+    public IReadOnlyDictionary<string, SourceStatistics> SourceStatistics()
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT e.source, COUNT(*), MAX(e.ts), (SELECT COUNT(*) FROM SourceFiles f WHERE f.source = e.source)
+            FROM Entries e GROUP BY e.source
+            """;
+        using var reader = command.ExecuteReader();
+        var result = new Dictionary<string, SourceStatistics>(StringComparer.OrdinalIgnoreCase);
+        while (reader.Read())
+        {
+            result[reader.GetString(0)] = new SourceStatistics(reader.GetInt32(3), reader.GetInt64(1),
+                reader.IsDBNull(2) ? null : DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(2)));
+        }
+
+        return result;
     }
 
     private void ReplaceFile(SqliteConnection connection, string source, SourceFile file, List<UsageEntry> entries, int skipped)

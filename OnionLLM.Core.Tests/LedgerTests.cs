@@ -78,6 +78,49 @@ public class LedgerTests
     }
 
     [Fact]
+    public void Source_statistics_count_files_entries_and_last_entry()
+    {
+        using var directory = new TempDirectory();
+        directory.Write("projects/demo/a.jsonl", TestData.ClaudeLine("2026-11-24T10:00:00Z", "m1", "r1", 1, 1) + "\n" +
+            TestData.ClaudeLine("2026-11-24T11:30:00Z", "m2", "r2", 1, 1));
+        var config = TestData.ConfigWith("claude", directory.Path);
+        var ledger = new UsageLedger(Path.Combine(directory.Path, "ledger.db"));
+        ledger.Sync([new ClaudeSource()], config);
+
+        var statistics = ledger.SourceStatistics();
+
+        var claude = statistics["claude"];
+        Assert.Equal(1, claude.Files);
+        Assert.Equal(2, claude.Entries);
+        Assert.Equal(DateTimeOffset.Parse("2026-11-24T11:30:00Z"), claude.LastEntry);
+        Assert.False(statistics.ContainsKey("codex"));
+    }
+
+    [Fact]
+    public void Sync_reports_progress_per_file_and_source()
+    {
+        using var directory = new TempDirectory();
+        directory.Write("projects/demo/a.jsonl", TestData.ClaudeLine("2026-11-24T10:00:00Z", "m1", "r1", 1, 1));
+        directory.Write("projects/demo/b.jsonl", TestData.ClaudeLine("2026-11-24T11:00:00Z", "m2", "r2", 1, 1));
+        var config = TestData.ConfigWith("claude", directory.Path);
+        var ledger = new UsageLedger(Path.Combine(directory.Path, "ledger.db"));
+        var reports = new Collector();
+
+        ledger.Sync([new ClaudeSource()], config, progress: reports);
+
+        Assert.Equal(new SyncProgress("claude", 0, 1, 0, 2, 0), reports.Items[0]);
+        Assert.Equal(new SyncProgress("claude", 0, 1, 2, 2, 2), reports.Items[^1]);
+        Assert.Contains(reports.Items, item => item.Files == 1 && item.Entries == 1);
+    }
+
+    private sealed class Collector : IProgress<SyncProgress>
+    {
+        public List<SyncProgress> Items { get; } = [];
+
+        public void Report(SyncProgress value) => Items.Add(value);
+    }
+
+    [Fact]
     public void Ledger_from_schema_4_gains_the_source_data_column()
     {
         using var directory = new TempDirectory();

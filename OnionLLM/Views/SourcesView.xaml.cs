@@ -19,7 +19,9 @@ public partial class SourcesView : ContentView, IScreenView
         [
             new DataColumn { Key = nameof(SourceRowViewModel.Name), Header = "Źródło", Star = 2.4, CellFactory = SourceCell },
             new DataColumn { Key = nameof(SourceRowViewModel.StateText), Header = "Stan", Star = 1.2, CellFactory = StateCell },
-            new DataColumn { Key = nameof(SourceRowViewModel.Files), Header = "Pliki", Align = ColumnAlign.End, Priority = 2, Format = CellFormat.Number },
+            new DataColumn { Key = nameof(SourceRowViewModel.LastActivityText), Header = "Ostatnia aktywność", Star = 1.3, Priority = 2 },
+            new DataColumn { Key = nameof(SourceRowViewModel.Entries), Header = "Wpisy", Align = ColumnAlign.End, Priority = 3, Format = CellFormat.Number },
+            new DataColumn { Key = nameof(SourceRowViewModel.Files), Header = "Pliki", Align = ColumnAlign.End, Priority = 3, Format = CellFormat.Number },
             new DataColumn { Key = nameof(SourceRowViewModel.Skipped), Header = "Pominięte", Align = ColumnAlign.End, Priority = 2, CellFactory = SkippedCell },
             new DataColumn { Key = nameof(SourceRowViewModel.Enabled), Header = "Włączone", Star = 0.8, CellFactory = ToggleCell }
         ];

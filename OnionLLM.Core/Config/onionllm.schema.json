@@ -10,7 +10,7 @@
     "offline": { "type": "boolean", "default": false, "description": "Nie pobieraj cennika z sieci." },
     "startOfWeek": { "enum": ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"], "default": "monday" },
     "sessionLengthHours": { "type": "number", "exclusiveMinimum": 0, "maximum": 168, "default": 5, "description": "Długość bloku rozliczeniowego Claude (godziny)." },
-    "tokenLimit": { "type": "string", "default": "max", "description": "Limit tokenów bloku: liczba lub 'max' (największy zakończony blok)." },
+    "tokenLimit": { "type": "string", "default": "max", "description": "Limit tokenów bloku: liczba, 'max' (największy zakończony blok) lub 'none' (bez limitu)." },
     "projectAliases": { "type": ["string", "null"], "description": "Aliasy projektów: 'klucz=Nazwa,klucz2=Nazwa2'." },
     "refreshIntervalSeconds": { "type": "integer", "minimum": 5, "default": 30 },
     "activeSessionMinutes": { "type": "integer", "minimum": 1, "default": 15, "description": "Po ilu minutach bez aktywności sesja jest zakończona." },

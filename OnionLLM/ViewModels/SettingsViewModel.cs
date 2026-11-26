@@ -251,7 +251,8 @@ public sealed class SettingsViewModel : ObservableObject
 
     public string[] CostModes { get; } = ["Automatyczny", "Wyliczany", "Zapisany"];
 
-    public string[] TokenLimitModes { get; } = ["Maksimum z historii", "Własny"];
+    /// <summary>§6.9.5: „Bez limitu” (<c>none</c>) · „Maksimum z historii” (<c>max</c>) · „Własny” (liczba).</summary>
+    public string[] TokenLimitModes { get; } = ["Bez limitu", "Maksimum z historii", "Własny"];
 
     public string[] MismatchRanges { get; } = ["7 dni", "30 dni", "90 dni", "Cała historia"];
 
@@ -352,12 +353,12 @@ public sealed class SettingsViewModel : ObservableObject
         get => _tokenLimitModeIndex;
         set
         {
-            Field(ref _tokenLimitModeIndex, value, "tokenLimit", immediate: value == 0);
+            Field(ref _tokenLimitModeIndex, value, "tokenLimit", immediate: value != 2);
             OnPropertyChanged(nameof(IsCustomTokenLimit));
         }
     }
 
-    public bool IsCustomTokenLimit => TokenLimitModeIndex == 1;
+    public bool IsCustomTokenLimit => TokenLimitModeIndex == 2;
 
     public string TokenLimitValue { get => _tokenLimitValue; set => Field(ref _tokenLimitValue, value, "tokenLimit"); }
 
@@ -433,8 +434,10 @@ public sealed class SettingsViewModel : ObservableObject
             _alwaysOnTop = config.Window.AlwaysOnTop;
             _costModeIndex = (int)config.CostMode;
             _sessionLength = config.SessionLengthHours.ToString(CultureInfo.InvariantCulture);
-            _tokenLimitModeIndex = config.TokenLimit.Equals("max", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
-            _tokenLimitValue = _tokenLimitModeIndex == 1 ? config.TokenLimit : "";
+            _tokenLimitModeIndex = config.IsTokenLimitDisabled ? 0
+                : config.TokenLimit.Equals("max", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(config.TokenLimit) ? 1
+                : 2;
+            _tokenLimitValue = _tokenLimitModeIndex == 2 ? config.TokenLimit : "";
             _refreshInterval = config.RefreshIntervalSeconds.ToString(CultureInfo.InvariantCulture);
             _activeMinutes = config.ActiveSessionMinutes.ToString(CultureInfo.InvariantCulture);
             _projectAliases = config.ProjectAliases ?? "";
@@ -539,6 +542,10 @@ public sealed class SettingsViewModel : ObservableObject
         }
 
         if (TokenLimitModeIndex == 0)
+        {
+            config.TokenLimit = "none";
+        }
+        else if (TokenLimitModeIndex == 1)
         {
             config.TokenLimit = "max";
         }

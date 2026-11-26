@@ -108,6 +108,9 @@ public sealed record SessionRow
     public IReadOnlyList<string> EstimatedModels { get; init; } = [];
     public IReadOnlyList<ModelBreakdown> ModelBreakdowns { get; init; } = [];
 
+    /// <summary>Ostatnia aktywność nie starsza niż <c>activeSessionMinutes</c> względem chwili raportu (UI: „Aktywna”).</summary>
+    public bool IsActive { get; init; }
+
     public TimeSpan Duration => LastActivity - FirstActivity;
 }
 

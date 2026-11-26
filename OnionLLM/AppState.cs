@@ -1,6 +1,7 @@
 using OnionLLM.Core;
 using OnionLLM.Core.Config;
 using OnionLLM.Core.Limits;
+using OnionLLM.Core.Storage;
 
 namespace OnionLLM;
 
@@ -52,6 +53,25 @@ public static class AppState
     /// <summary>Zmiana <see cref="IsSyncing"/>, <see cref="LastSyncSucceededAt"/> lub <see cref="LastSyncError"/>.</summary>
     public static event EventHandler? SyncStateChanged;
 
+    /// <summary>Postęp bieżącej synchronizacji per źródło (import historii, §7.5); czyszczony na początku każdej synchronizacji.</summary>
+    public static IReadOnlyDictionary<string, SyncProgress> Progress
+    {
+        get
+        {
+            var current = _progress;
+            lock (current)
+            {
+                return new Dictionary<string, SyncProgress>(current, StringComparer.OrdinalIgnoreCase);
+            }
+        }
+    }
+
+    /// <summary>Nowy odczyt <see cref="Progress"/> (na wątku UI, najwyżej co <see cref="Design.MotionTokens.ProgressInterval"/>).</summary>
+    public static event EventHandler? ProgressChanged;
+
+    private static Dictionary<string, SyncProgress> _progress = new(StringComparer.OrdinalIgnoreCase);
+    private static long _progressPostedAt;
+
     /// <summary>Synchronizacja + cennik + limity (limity co 5 min); bezpieczne do wołania z UI.</summary>
     public static async Task RefreshDataAsync(bool force = false, CancellationToken cancellationToken = default)
     {
@@ -60,7 +80,9 @@ public static class AppState
         try
         {
             await Engine.LoadPricingAsync(cancellationToken: cancellationToken);
-            await Engine.SyncAsync(force, TimeSpan.FromSeconds(10), cancellationToken);
+            _progress = new Dictionary<string, SyncProgress>(StringComparer.OrdinalIgnoreCase);
+            await Engine.SyncAsync(force, TimeSpan.FromSeconds(10), cancellationToken, new ProgressSink());
+            MainThread.BeginInvokeOnMainThread(() => ProgressChanged?.Invoke(null, EventArgs.Empty));
             LastSyncSucceededAt = DateTimeOffset.UtcNow;
             LastSyncError = null;
         }
@@ -84,6 +106,27 @@ public static class AppState
             }
             catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException or HttpRequestException)
             {
+            }
+        }
+    }
+
+    /// <summary>Collects progress from the sync thread; posts to the UI thread at most every poll interval and at source ends.</summary>
+    private sealed class ProgressSink : IProgress<SyncProgress>
+    {
+        public void Report(SyncProgress value)
+        {
+            var current = _progress;
+            lock (current)
+            {
+                current[value.Source] = value;
+            }
+
+            var now = Environment.TickCount64;
+            var due = now - Interlocked.Read(ref _progressPostedAt) >= Design.MotionTokens.ProgressInterval.TotalMilliseconds;
+            if (due || value.Files == value.TotalFiles)
+            {
+                Interlocked.Exchange(ref _progressPostedAt, now);
+                MainThread.BeginInvokeOnMainThread(() => ProgressChanged?.Invoke(null, EventArgs.Empty));
             }
         }
     }

@@ -18,9 +18,13 @@
                 <ColumnDefinition Width="{Binding DrawerColumn}" />
             </Grid.ColumnDefinitions>
 
-            <Grid Grid.Column="1" RowDefinitions="*,Auto">
-                <ContentView x:Name="Presenter" />
-                <controls:StatusBar Grid.Row="1" />
+            <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto">
+                <!-- S-IMPORT (§6.0): history import continued in the background. -->
+                <controls:Banner Kind="Info" Title="Import historii w toku" Message="{Binding ImportBannerText}"
+                                 IsVisible="{Binding IsImportBannerVisible}" Margin="{DynamicResource LayoutPagePadding}"
+                                 AutomationId="Shell.ImportBanner" />
+                <ContentView x:Name="Presenter" Grid.Row="1" />
+                <controls:StatusBar Grid.Row="2" />
             </Grid>
 
             <!-- Click outside the sidebar overlay closes it (no scrim, §4.7.1). -->

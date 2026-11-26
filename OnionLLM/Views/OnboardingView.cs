@@ -1,4 +1,5 @@
 using OnionLLM.Controls;
+using OnionLLM.Controls.Charts;
 using OnionLLM.Core.Config;
 using OnionLLM.Core.Sources;
 using OnionLLM.Design;
@@ -468,27 +469,48 @@ public sealed class OnboardingView : ContentView
     }
 
     /// <summary>
-    /// History import (§7.5): the first full sync. Per-file progress needs sync progress events in Core
-    /// (Wymaga danych) — until then a spinner, the list of tracked tools and the result when it finishes.
-    /// „Kontynuuj w tle” leaves the import running and opens Dziś.
+    /// History import (§7.5): the first full sync. OnionRings show the progress of up to three tools (rings = sources,
+    /// percent of files), the list shows „Pliki X z Y · N wpisów” per tool. „Kontynuuj w tle” leaves the import running
+    /// (banner <c>S-IMPORT</c> on the screens) and opens Dziś.
     /// </summary>
     private async Task ImportAsync()
     {
         var tools = AppState.Engine.Sources.Where(source => AppState.Config.IsSourceEnabled(source.Id) && _detected.Any(item => item.Source.Id == source.Id)).ToList();
         var background = new TaskCompletionSource();
+        var rings = new OnionRings { HeightRequest = Ui.D("SizeRingHero"), WidthRequest = Ui.D("SizeRingHero"), HorizontalOptions = LayoutOptions.Center };
         var list = new VerticalStackLayout { Spacing = Ui.D("Space100") };
+        var items = new Dictionary<string, ListItem>(StringComparer.OrdinalIgnoreCase);
         foreach (var source in tools)
         {
-            list.Children.Add(new ListItem
+            var item = new ListItem
             {
                 Title = source.DisplayName,
+                Subtitle = "Czeka w kolejce",
                 Leading = new SourceBadge { SourceId = source.Id, Initial = source.DisplayName[..1].ToUpperInvariant(), Size = BadgeSize.Sm }
-            });
+            };
+            items[source.Id] = item;
+            list.Children.Add(item);
         }
 
-        var spinner = new HorizontalStackLayout { Spacing = Ui.D("Space200") };
-        spinner.Children.Add(new ActivityIndicator { IsRunning = true });
-        spinner.Children.Add(Ui.Text("Text.Body", "Wczytywanie historii z dysku. Nic nie jest wysyłane do internetu."));
+        void Update()
+        {
+            var progress = AppState.Progress;
+            foreach (var (id, item) in items)
+            {
+                item.Subtitle = progress.TryGetValue(id, out var current)
+                    ? (current.Files == current.TotalFiles ? "Gotowe · " : "") +
+                      $"Pliki {Fmt.Number(current.Files)} z {Fmt.Number(current.TotalFiles)} · {Fmt.Count(current.Entries, "wpis", "wpisy", "wpisów")}"
+                    : "Czeka w kolejce";
+            }
+
+            rings.Rings = tools.Take(3).Select(source => new OnionRing(source.DisplayName,
+                progress.TryGetValue(source.Id, out var current) && current.TotalFiles > 0 ? current.Files * 100.0 / current.TotalFiles : 0,
+                DesignTokens.SourceKey(source.Id))).ToList();
+            SemanticProperties.SetDescription(rings, "Postęp importu: " + string.Join(", ", rings.Rings.Select(ring => $"{ring.Name} {Fmt.Percent(ring.Percent)}")));
+        }
+
+        var note = Ui.Text("Text.Secondary", "Wczytywanie historii z dysku. Nic nie jest wysyłane do internetu.");
+        note.HorizontalTextAlignment = TextAlignment.Center;
         var continueButton = new Button { Text = "Kontynuuj w tle", AutomationId = "Onboarding.Background" }.Styled("Button.Secondary");
         continueButton.Clicked += (_, _) => background.TrySetResult();
 
@@ -498,32 +520,44 @@ public sealed class OnboardingView : ContentView
         _description.Text = tools.Count > 0
             ? $"Śledzone narzędzia: {tools.Count}. Duża historia może wczytywać się kilka minut."
             : "Wczytywanie danych.";
-        _body.Content = new VerticalStackLayout { Spacing = Ui.D("Space400"), Children = { spinner, list } };
+        _body.Content = new VerticalStackLayout { Spacing = Ui.D("Space400"), Children = { rings, note, list } };
         _skip.IsVisible = false;
         _footer.Children.Clear();
         _footer.Children.Add(continueButton);
+        Update();
         SemanticScreenReader.Announce("Import historii");
 
-        var sync = AppState.RefreshDataAsync(force: true);
-        var finished = await Task.WhenAny(sync, background.Task);
-        if (finished != sync)
-        {
-            _ = sync.ContinueWith(task =>
-            {
-                _ = task.Exception; // observed: the status bar reports sync errors
-                MainThread.BeginInvokeOnMainThread(ToastImported);
-            }, TaskScheduler.Default);
-            return;
-        }
-
+        void OnProgress(object? sender, EventArgs e) => Update();
+        AppState.ProgressChanged += OnProgress;
         try
         {
-            await sync;
-            ToastImported();
+            var sync = AppState.RefreshDataAsync(force: true);
+            var finished = await Task.WhenAny(sync, background.Task);
+            if (finished != sync)
+            {
+                ShellViewModel.Instance.ShowImportBanner();
+                _ = sync.ContinueWith(task =>
+                {
+                    _ = task.Exception; // observed: the status bar reports sync errors
+                    MainThread.BeginInvokeOnMainThread(ToastImported);
+                }, TaskScheduler.Default);
+                return;
+            }
+
+            try
+            {
+                await sync;
+                Update();
+                ToastImported();
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+            {
+                // StatusBar and its error toast report the failure (§5.7).
+            }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+        finally
         {
-            // StatusBar and its error toast report the failure (§5.7).
+            AppState.ProgressChanged -= OnProgress;
         }
     }
 

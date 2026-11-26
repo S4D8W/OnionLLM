@@ -22,7 +22,7 @@ public partial class SessionsView : ContentView, IScreenView
         // §6.4 table: Sesja · Źródło · Start · Czas trwania · Modele · Wywołania · Tokeny · Koszt.
         Table.Columns =
         [
-            new DataColumn { Key = nameof(SessionItemViewModel.Title), Header = "Sesja", SubtitleKey = nameof(SessionItemViewModel.SessionShort), Star = 2.4, Format = CellFormat.Strong, IsId = false },
+            new DataColumn { Key = nameof(SessionItemViewModel.Title), Header = "Sesja", Star = 2.4, CellFactory = SessionCell },
             new DataColumn { Key = nameof(SessionItemViewModel.Source), Header = "Źródło", Star = 1.6, Priority = 2, CellFactory = SourceCell },
             new DataColumn { Key = nameof(SessionItemViewModel.Start), Header = "Start", Star = 1.3, Priority = 2, Sortable = true, Format = CellFormat.Number },
             new DataColumn { Key = nameof(SessionItemViewModel.Duration), Header = "Czas trwania", Align = ColumnAlign.End, Priority = 3, Sortable = true, Format = CellFormat.Number },
@@ -57,6 +57,22 @@ public partial class SessionsView : ContentView, IScreenView
     public void OnNavigatedFrom() => _viewModel.Search = string.Empty;
 
     public Task RefreshAsync(bool force) => _viewModel.RefreshAsync();
+
+    /// <summary>„Sesja”: project (strong) + short ID (Mono, tertiary) + StatusBadge `Live` „Aktywna” while it lasts (§6.4).</summary>
+    private static View SessionCell()
+    {
+        var title = Ui.Text("Text.BodyStrong");
+        title.LineBreakMode = LineBreakMode.TailTruncation;
+        title.SetBinding(Label.TextProperty, nameof(SessionItemViewModel.Title));
+        var badge = new StatusBadge { Text = "Aktywna", Kind = StatusKind.Live, VerticalOptions = LayoutOptions.Center };
+        badge.SetBinding(IsVisibleProperty, nameof(SessionItemViewModel.IsActive));
+        var id = Ui.Text("Text.MonoSm").Dyn(Label.TextColorProperty, "ColorTextTertiary");
+        id.SetBinding(Label.TextProperty, nameof(SessionItemViewModel.SessionShort));
+        var line = new Grid { ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Auto)], ColumnSpacing = Ui.D("Space200") };
+        line.Add(title);
+        line.Add(badge, 1);
+        return new VerticalStackLayout { VerticalOptions = LayoutOptions.Center, Spacing = Ui.D("Space050"), Children = { line, id } };
+    }
 
     internal static View SourceCell()
     {

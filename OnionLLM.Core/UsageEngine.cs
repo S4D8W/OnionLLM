@@ -101,7 +101,8 @@ public sealed class UsageEngine : IDisposable
     }
 
     /// <summary>Synchronizuje ledger z plikami źródeł (nie częściej niż co <paramref name="minInterval"/>, chyba że <paramref name="force"/>).</summary>
-    public async Task<SyncReport?> SyncAsync(bool force = false, TimeSpan? minInterval = null, CancellationToken cancellationToken = default)
+    public async Task<SyncReport?> SyncAsync(bool force = false, TimeSpan? minInterval = null, CancellationToken cancellationToken = default,
+        IProgress<SyncProgress>? progress = null)
     {
         await _syncLock.WaitAsync(cancellationToken);
         try
@@ -112,7 +113,7 @@ public sealed class UsageEngine : IDisposable
                 return LastSync;
             }
 
-            LastSync = await Task.Run(() => Ledger.Sync(Sources, Config, cancellationToken), cancellationToken);
+            LastSync = await Task.Run(() => Ledger.Sync(Sources, Config, cancellationToken, progress), cancellationToken);
             _lastSyncAt = DateTimeOffset.UtcNow;
             return LastSync;
         }
@@ -271,7 +272,8 @@ public sealed class UsageEngine : IDisposable
             moment,
             sessionLengthHours ?? Config.SessionLengthHours,
             tokenLimitOverride ?? Config.ParseTokenLimit(),
-            activeResetsAt);
+            activeResetsAt,
+            noLimit: tokenLimitOverride is null && Config.IsTokenLimitDisabled);
     }
 
     public Task<IReadOnlyDictionary<string, ProviderLimits>> ReadLimitsAsync(CancellationToken cancellationToken = default) =>
@@ -360,11 +362,11 @@ public sealed class UsageEngine : IDisposable
 
         var blocks = BlockBuilder.Build(
             entries.Where(entry => entry.Source == ClaudeSource.SourceId && entry.TimestampMs >= moment.AddDays(-3).ToUnixTimeMilliseconds()),
-            calculator, moment, Config.SessionLengthHours, Config.ParseTokenLimit(), resetsAt);
+            calculator, moment, Config.SessionLengthHours, Config.ParseTokenLimit(), resetsAt, noLimit: Config.IsTokenLimitDisabled);
 
         // Limit „max” liczony z dłuższej historii niż 3 dni.
         long? blockLimit = blocks.TokenLimit;
-        if (Config.ParseTokenLimit() is null)
+        if (Config.ParseTokenLimit() is null && !Config.IsTokenLimitDisabled)
         {
             var history = BlockBuilder.Build(entries.Where(entry => entry.Source == ClaudeSource.SourceId), calculator, moment, Config.SessionLengthHours);
             blockLimit = history.TokenLimit;

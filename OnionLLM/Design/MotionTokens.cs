@@ -34,6 +34,9 @@ public static class MotionTokens
     /// <summary>Toast auto-close (§4.6.3).</summary>
     public static TimeSpan ToastVisible { get; } = TimeSpan.FromSeconds(5);
 
+    /// <summary>Import progress updates reach the UI at most this often (§7.5).</summary>
+    public static TimeSpan ProgressInterval { get; } = TimeSpan.FromMilliseconds(200);
+
     /// <summary>Polling step while waiting for a screen to finish loading (command palette drill-down).</summary>
     public static TimeSpan PollInterval { get; } = TimeSpan.FromMilliseconds(50);
 

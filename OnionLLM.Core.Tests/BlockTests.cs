@@ -34,6 +34,24 @@ public class BlockTests
     }
 
     [Fact]
+    public void No_limit_mode_skips_the_historical_maximum()
+    {
+        var entries = new[]
+        {
+            TestData.Entry("2026-11-24T08:15:00Z", 100, 0),
+            TestData.Entry("2026-11-24T13:30:00Z", 100, 0)
+        };
+
+        var report = BlockBuilder.Build(entries, Calculator, DateTimeOffset.Parse("2026-11-24T14:00:00Z"), noLimit: true);
+
+        Assert.Null(report.TokenLimit);
+        Assert.False(report.TokenLimitIsMax);
+        Assert.True(new OnionConfig { TokenLimit = "none" }.IsTokenLimitDisabled);
+        Assert.Null(new OnionConfig { TokenLimit = "NONE" }.ParseTokenLimit());
+        ConfigLoader.Validate(new OnionConfig { TokenLimit = "none" });
+    }
+
+    [Fact]
     public void Active_block_has_burn_rate_and_projection()
     {
         var entries = new[]

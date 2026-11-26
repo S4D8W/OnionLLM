@@ -486,6 +486,50 @@ public sealed class ShellViewModel : ObservableObject
         UpdateStatus();
     }
 
+    // ===== S-IMPORT (§6.0, §7.5): history import continued in the background =====
+
+    public bool IsImportBannerVisible { get; private set; }
+
+    public string ImportBannerText { get; private set; } = string.Empty;
+
+    /// <summary>Shown after „Kontynuuj w tle” until the first sync finishes; the text follows the sync progress.</summary>
+    public void ShowImportBanner()
+    {
+        IsImportBannerVisible = true;
+        AppState.ProgressChanged += OnImportProgress;
+        AppState.SyncStateChanged += OnImportSyncState;
+        OnImportProgress(null, EventArgs.Empty);
+    }
+
+    private void OnImportProgress(object? sender, EventArgs e)
+    {
+        var progress = AppState.Progress.Values.ToList();
+        var current = progress.Where(item => item.Files < item.TotalFiles).OrderBy(item => item.SourceIndex).FirstOrDefault() ?? progress.LastOrDefault();
+        var entries = progress.Sum(item => item.Entries);
+        ImportBannerText = current is null
+            ? "Wczytywanie historii z dysku…"
+            : $"{AppState.Engine.FindSource(current.Source)?.DisplayName ?? current.Source} ({current.SourceIndex + 1} z {current.SourceCount}): " +
+              $"pliki {Fmt.Number(current.Files)} z {Fmt.Number(current.TotalFiles)} · {Fmt.Count(entries, "wpis", "wpisy", "wpisów")}. Dane na ekranach uzupełniają się na bieżąco.";
+        OnPropertyChanged(nameof(ImportBannerText));
+        OnPropertyChanged(nameof(IsImportBannerVisible));
+    }
+
+    private void OnImportSyncState(object? sender, EventArgs e)
+    {
+        if (AppState.IsSyncing)
+        {
+            return;
+        }
+
+        AppState.ProgressChanged -= OnImportProgress;
+        AppState.SyncStateChanged -= OnImportSyncState;
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            IsImportBannerVisible = false;
+            OnPropertyChanged(nameof(IsImportBannerVisible));
+        });
+    }
+
     // ===== Status bar (§4.7.5) =====
 
     public string SyncText { get; private set; } = "Aktualizowanie…";

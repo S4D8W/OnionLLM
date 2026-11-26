@@ -23,9 +23,11 @@ public sealed class SourceRowViewModel : ObservableObject
     private readonly Action<SourceRowViewModel> _save;
     private string _configError = string.Empty;
 
-    public SourceRowViewModel(SourceSummary summary, SourceSyncReport? sync, IReadOnlyList<string> roots, SourceSettings settings, Action<SourceRowViewModel> save)
+    public SourceRowViewModel(SourceSummary summary, SourceSyncReport? sync, IReadOnlyList<string> roots, SourceSettings settings, Action<SourceRowViewModel> save,
+        SourceStatistics? statistics = null)
     {
         Summary = summary;
+        Statistics = statistics;
         Sync = sync;
         Roots = roots;
         _save = save;
@@ -40,6 +42,18 @@ public sealed class SourceRowViewModel : ObservableObject
     }
 
     public SourceSummary Summary { get; }
+
+    /// <summary>Ledger statistics (entries, last entry) — null when the source has no entries yet.</summary>
+    public SourceStatistics? Statistics { get; }
+
+    /// <summary>„Ostatnia aktywność” (§6.8): relative time of the newest entry.</summary>
+    public string LastActivityText => Statistics?.LastEntry is { } last ? Fmt.Relative(last) : "—";
+
+    /// <summary>Sort key for „Ostatnia aktywność”.</summary>
+    public long LastActivityValue => Statistics?.LastEntry?.ToUnixTimeMilliseconds() ?? 0;
+
+    /// <summary>„Wpisy”: number of entries in the ledger.</summary>
+    public string Entries => Statistics is { } statistics ? Fmt.Number(statistics.Entries) : "—";
 
     public SourceSyncReport? Sync { get; }
 
@@ -177,13 +191,14 @@ public sealed class SourcesViewModel : ObservableObject
             await AppState.RefreshDataAsync(force);
             var engine = AppState.Engine;
             var snapshot = await Task.Run(() => engine.BuildDashboard(AppState.Limits));
+            var statistics = await Task.Run(engine.Ledger.SourceStatistics);
             var config = AppState.Config;
             _all = snapshot.Sources.Select(summary =>
             {
                 var source = engine.FindSource(summary.Id);
                 var roots = source?.ResolveRoots(config).Where(Directory.Exists).ToList() ?? [];
                 return new SourceRowViewModel(summary, engine.LastSync?.Sources.FirstOrDefault(sync => sync.Source == summary.Id), roots,
-                    config.GetSource(summary.Id), SaveSource);
+                    config.GetSource(summary.Id), SaveSource, statistics.GetValueOrDefault(summary.Id));
             }).ToList();
             _loaded = true;
             var active = _all.Count(row => row.Status == SourceStatus.Active);
@@ -427,6 +442,8 @@ public sealed class SourcesViewModel : ObservableObject
         var sync = row.Sync;
         var items = new List<KeyValueItem>
         {
+            new("Wpisy w bazie", row.Entries, IsNumeric: true),
+            new("Ostatnia aktywność", row.LastActivityText),
             new("Pliki", sync is null ? "—" : Fmt.Number(sync.Files), IsNumeric: true),
             new("Przetworzone pliki", sync is null ? "—" : Fmt.Number(sync.ParsedFiles), IsNumeric: true),
             new("Pominięte linie", sync is null ? "—" : Fmt.Number(sync.SkippedLines), IsNumeric: true),

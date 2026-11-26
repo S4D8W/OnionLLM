@@ -15,6 +15,9 @@ public sealed class SessionItemViewModel(SessionRow row)
 
     public string SessionShort => Fmt.SessionId(Row.SessionId);
 
+    /// <summary>Last activity within <c>activeSessionMinutes</c> — StatusBadge „Aktywna” (§6.4).</summary>
+    public bool IsActive => Row.IsActive;
+
     public string SourceId => Row.Source;
 
     public string Source => AppState.Engine.FindSource(Row.Source)?.DisplayName ?? Row.Source;
@@ -49,6 +52,7 @@ public sealed class SessionsViewModel : ObservableObject
     private const int PageSize = 300;
     private static readonly RangePreset[] PresetOrder = [RangePreset.Today, RangePreset.Last7Days, RangePreset.Last30Days, RangePreset.AllTime, RangePreset.Custom];
 
+    private bool _onlyActive;
     private int _rangeIndex = 1;
     private int _sourceIndex;
     private string _search = string.Empty;
@@ -180,11 +184,26 @@ public sealed class SessionsViewModel : ObservableObject
         }
     }
 
+    /// <summary>„Tylko aktywne” (§6.4): sessions whose last activity is within <c>activeSessionMinutes</c>.</summary>
+    public bool OnlyActive
+    {
+        get => _onlyActive;
+        set
+        {
+            if (Set(ref _onlyActive, value))
+            {
+                _shown = PageSize;
+                OnPropertyChanged(nameof(IsFiltered));
+                Apply();
+            }
+        }
+    }
+
     public bool HasProjectFilter => _project is not null;
 
     public string ProjectFilterText => "Projekt: " + _project;
 
-    public bool IsFiltered => RangeIndex != 1 || SourceIndex != 0 || Search.Length > 0 || _project is not null;
+    public bool IsFiltered => RangeIndex != 1 || SourceIndex != 0 || Search.Length > 0 || _project is not null || OnlyActive;
 
     public IReadOnlyList<SessionItemViewModel> Sessions { get => _sessions; private set => Set(ref _sessions, value); }
 
@@ -203,7 +222,7 @@ public sealed class SessionsViewModel : ObservableObject
     public TableState TableState => _error is not null ? TableState.Error
         : !_loaded ? TableState.Loading
         : _filtered.Count > 0 ? TableState.Ready
-        : Search.Length > 0 || _project is not null ? TableState.NoResults
+        : Search.Length > 0 || _project is not null || OnlyActive ? TableState.NoResults
         : TableState.Empty;
 
     public string EmptyTitle => TableState == TableState.NoResults
@@ -288,6 +307,11 @@ public sealed class SessionsViewModel : ObservableObject
         if (_project is { } project)
         {
             rows = rows.Where(row => string.Equals(row.Project, project, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (OnlyActive)
+        {
+            rows = rows.Where(row => row.IsActive);
         }
 
         if (!string.IsNullOrWhiteSpace(Search))
@@ -449,6 +473,8 @@ public sealed class SessionsViewModel : ObservableObject
         _sourceIndex = 0;
         _search = string.Empty;
         _project = null;
+        _onlyActive = false;
+        OnPropertyChanged(nameof(OnlyActive));
         ViewState.Set(StateKey + "preset", 1);
         ViewState.Set(StateKey + "source", "");
         foreach (var name in new[] { nameof(RangeIndex), nameof(SourceIndex), nameof(Search) })

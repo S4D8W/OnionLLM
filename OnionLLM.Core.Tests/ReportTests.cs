@@ -89,6 +89,21 @@ public class ReportTests
     }
 
     [Fact]
+    public void Sessions_are_active_within_the_configured_minutes()
+    {
+        var entries = new[]
+        {
+            TestData.Entry("2026-11-24T11:50:00Z", 1, 0, session: "recent"),
+            TestData.Entry("2026-11-24T11:00:00Z", 1, 0, session: "old")
+        };
+
+        var report = Builder().BuildSessions(entries, new ReportQuery(), DateTimeOffset.Parse("2026-11-24T12:00:00Z"));
+
+        Assert.True(report.Sessions.Single(session => session.SessionId == "recent").IsActive);
+        Assert.False(report.Sessions.Single(session => session.SessionId == "old").IsActive);
+    }
+
+    [Fact]
     public void Rows_always_carry_model_and_source_breakdowns_with_credits_and_1h_cache()
     {
         var entries = new[]

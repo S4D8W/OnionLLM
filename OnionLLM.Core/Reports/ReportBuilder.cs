@@ -176,7 +176,10 @@ public sealed class ReportBuilder(OnionConfig config, CostCalculator calculator)
             totals.Add(entry, cost);
         }
 
-        var sessions = groups.Values.Select(accumulator => accumulator.ToRow(this));
+        var activeSince = now.AddMinutes(-config.ActiveSessionMinutes);
+        var sessions = groups.Values.Select(accumulator => accumulator.ToRow(this) is var row && row.LastActivity >= activeSince
+            ? row with { IsActive = true }
+            : row);
         sessions = query.Order == SortOrder.Desc
             ? sessions.OrderByDescending(row => row.LastActivity)
             : sessions.OrderBy(row => row.LastActivity);

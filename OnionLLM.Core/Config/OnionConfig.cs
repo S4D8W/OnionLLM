@@ -215,17 +215,20 @@ public sealed class OnionConfig
         return result;
     }
 
-    /// <summary>Limit tokenów bloku lub null dla trybu <c>max</c>.</summary>
+    /// <summary><c>tokenLimit: "none"</c> — bloki bez limitu (bez procentu i ostrzeżeń, także bez maksimum z historii).</summary>
+    public bool IsTokenLimitDisabled => TokenLimit?.Trim().Equals("none", StringComparison.OrdinalIgnoreCase) == true;
+
+    /// <summary>Limit tokenów bloku lub null dla trybów <c>max</c> i <c>none</c> (rozróżnia je <see cref="IsTokenLimitDisabled"/>).</summary>
     public long? ParseTokenLimit()
     {
-        if (string.IsNullOrWhiteSpace(TokenLimit) || TokenLimit.Equals("max", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(TokenLimit) || TokenLimit.Equals("max", StringComparison.OrdinalIgnoreCase) || IsTokenLimitDisabled)
         {
             return null;
         }
 
         return long.TryParse(TokenLimit, out var limit) && limit > 0
             ? limit
-            : throw new ConfigException($"Niepoprawny limit tokenów: '{TokenLimit}' (oczekiwano liczby lub 'max').");
+            : throw new ConfigException($"Niepoprawny limit tokenów: '{TokenLimit}' (oczekiwano liczby, 'max' lub 'none').");
     }
 
     public OnionConfig Clone()

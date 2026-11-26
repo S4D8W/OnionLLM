@@ -18,6 +18,7 @@
             <controls:DateRangePicker Presets="{Binding Presets}" PresetIndex="{Binding RangeIndex}" CustomIndex="{Binding CustomPresetIndex}"
                                       Since="{Binding Since}" Until="{Binding Until}" DisplayText="{Binding RangeText}" AutomationId="Sessions.Range" />
             <controls:FilterChip Variant="Menu" Label="Źródło" ItemsSource="{Binding SourceChoiceNames}" SelectedIndex="{Binding SourceIndex}" AutomationId="Sessions.Source" />
+            <controls:FilterChip Label="Tylko aktywne" IsChecked="{Binding OnlyActive}" AutomationId="Sessions.OnlyActive" />
             <controls:FilterChip Variant="Removable" Label="{Binding ProjectFilterText}" IsVisible="{Binding HasProjectFilter}"
                                  RemoveCommand="{Binding ClearProjectCommand}" AutomationId="Sessions.ProjectFilter" />
             <controls:SearchField x:Name="SearchBox" Placeholder="Szukaj: ID sesji, projekt, model, źródło" Query="{Binding Search}"
