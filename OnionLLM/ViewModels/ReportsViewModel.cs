@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using OnionLLM.Core.Export;
 using OnionLLM.Core.Reports;
 
@@ -35,6 +36,8 @@ public sealed class ReportsViewModel : ObservableObject
     private string _totalTokens = "";
     private string _totalCost = "";
     private string _totalDetails = "";
+    private string _dateRangeSummary = "";
+    private string _chartDescription = "";
     private string _pricingNote = "";
     private string _status = "";
     private bool _isBusy;
@@ -162,6 +165,8 @@ public sealed class ReportsViewModel : ObservableObject
     public string TotalTokens { get => _totalTokens; private set => Set(ref _totalTokens, value); }
     public string TotalCost { get => _totalCost; private set => Set(ref _totalCost, value); }
     public string TotalDetails { get => _totalDetails; private set => Set(ref _totalDetails, value); }
+    public string DateRangeSummary { get => _dateRangeSummary; private set => Set(ref _dateRangeSummary, value); }
+    public string ChartDescription { get => _chartDescription; private set => Set(ref _chartDescription, value); }
 
     /// <summary>Stopka: modele bez ceny (*) i z ceną szacowaną (~).</summary>
     public string PricingNote { get => _pricingNote; private set { if (Set(ref _pricingNote, value)) { OnPropertyChanged(nameof(HasPricingNote)); } } }
@@ -204,6 +209,71 @@ public sealed class ReportsViewModel : ObservableObject
         };
     }
 
+    private static readonly CultureInfo PolishCulture = CultureInfo.GetCultureInfo("pl-PL");
+
+    private string FormatPeriod(ReportRow row)
+    {
+        var start = row.PeriodStart;
+        var label = Period switch
+        {
+            ReportPeriod.Monthly => start.ToString("MMMM yyyy", PolishCulture),
+            ReportPeriod.Weekly => FormatWeek(start),
+            _ => start.ToString("ddd, d MMM yyyy", PolishCulture)
+        };
+        return label;
+
+        string FormatWeek(DateOnly weekStart)
+        {
+            var weekEnd = weekStart.AddDays(6);
+            if (weekStart.Year != weekEnd.Year)
+            {
+                return $"{weekStart.ToString("d MMM yyyy", PolishCulture)} – {weekEnd.ToString("d MMM yyyy", PolishCulture)}";
+            }
+
+            return weekStart.Month == weekEnd.Month
+                ? $"{weekStart.Day}–{weekEnd.ToString("d MMM yyyy", PolishCulture)}"
+                : $"{weekStart.ToString("d MMM", PolishCulture)} – {weekEnd.ToString("d MMM yyyy", PolishCulture)}";
+        }
+    }
+
+    private string FormatChartDate(DateOnly date, bool includeYear) => Period == ReportPeriod.Monthly
+        ? date.ToString("MMM yy", PolishCulture)
+        : date.ToString(includeYear ? "d MMM yy" : "d MMM", PolishCulture);
+
+    private string DescribeRange(ReportQuery query, UsageReport report)
+    {
+        var name = RangeIndex switch
+        {
+            0 => "Ostatnie 7 dni",
+            1 => "Ostatnie 30 dni",
+            2 => "Ten miesiąc",
+            3 => "Ostatnie 90 dni",
+            4 => "Cała historia",
+            _ => "Własny zakres"
+        };
+        var from = query.Since ?? (report.Rows.Count == 0 ? null : report.Rows.Min(row => row.PeriodStart));
+        if (from is null)
+        {
+            return RangeIndex == 4 ? "Cała historia · brak danych" : $"{name} · brak danych";
+        }
+
+        var until = query.Until ?? DateOnly.FromDateTime(DateTime.Today);
+        var dateRange = FormatDateRange(from.Value, until);
+        return RangeIndex == 4 ? $"Cała historia · {dateRange}" : $"{name} · {dateRange}";
+    }
+
+    private static string FormatDateRange(DateOnly from, DateOnly until)
+    {
+        if (from.Year != until.Year)
+        {
+            return $"{from.ToString("d MMM yyyy", PolishCulture)} – {until.ToString("d MMM yyyy", PolishCulture)}";
+        }
+
+        return from.Month == until.Month
+            ? $"{from.Day}–{until.ToString("d MMM yyyy", PolishCulture)}"
+            : $"{from.ToString("d MMM", PolishCulture)} – {until.ToString("d MMM yyyy", PolishCulture)}";
+    }
+
     private static string SourceName(string id) => AppState.Engine.FindSource(id)?.DisplayName ?? id;
 
     public async Task RefreshAsync()
@@ -244,7 +314,7 @@ public sealed class ReportsViewModel : ObservableObject
                 Rows.Add(new ReportRowViewModel
                 {
                     Row = row,
-                    Period = row.Period + (row.Project is null ? "" : "  ·  " + row.Project),
+                    Period = FormatPeriod(row) + (row.Project is null ? "" : "  ·  " + row.Project),
                     Subtitle = string.Join(", ", row.Models.Take(4).Select(model =>
                                    Fmt.Model(model) + (row.UnpricedModels.Contains(model) ? "*" : "") + (row.EstimatedModels.Contains(model) ? "~" : ""))) +
                                (row.Models.Count > 4 ? $" +{row.Models.Count - 4}" : ""),
@@ -262,20 +332,26 @@ public sealed class ReportsViewModel : ObservableObject
             TotalCost = Fmt.Cost(_report.Totals.CostUsd) + Fmt.Marker(_report.UnpricedModels, _report.EstimatedModels);
             TotalDetails = Fmt.Summary(_report.Totals) +
                            (_report.Totals.HasStoredCost ? $"  ·  zapisany {Fmt.Cost(_report.Totals.StoredCostUsd)} / wyliczony {Fmt.Cost(_report.Totals.CalculatedCostUsd)}" : "");
+            DateRangeSummary = DescribeRange(query, _report);
             PricingNote = Fmt.PricingNote(_report.UnpricedModels, _report.EstimatedModels);
             Status = _report.Rows.Count == 0
                 ? "Brak danych w wybranym zakresie."
                 : $"{_report.Rows.Count} wierszy · cennik: {AppState.Engine.Pricing.Origin} · dotknij wiersza, aby zobaczyć szczegóły";
 
             // Wykres chronologicznie (po okresie), sumując ewentualne wiersze projektów.
-            Chart.Bars = _report.Rows
-                .GroupBy(row => row.PeriodStart)
-                .OrderBy(group => group.Key)
+            var chartGroups = _report.Rows.GroupBy(row => row.PeriodStart).OrderBy(group => group.Key).ToArray();
+            var includeYear = Period == ReportPeriod.Monthly ||
+                              (chartGroups.Length > 1 && chartGroups[0].Key.Year != chartGroups[^1].Key.Year);
+            Chart.Bars = chartGroups
                 .Select(group => new BarChartDrawable.Bar(
-                    Period == ReportPeriod.Monthly ? group.Key.ToString("MM.yy") : group.Key.ToString("dd.MM"),
+                    FormatChartDate(group.Key, includeYear),
                     group.Sum(row => row.Totals.CostUsd),
                     group.Sum(row => row.Totals.TotalTokens)))
                 .ToArray();
+            var highestBar = Chart.Bars.OrderByDescending(bar => bar.Cost).FirstOrDefault();
+            ChartDescription = highestBar is null
+                ? "Brak danych do wyświetlenia na wykresie."
+                : $"Koszt w {Chart.Bars.Count} okresach. Najwyższy: {Fmt.Cost(highestBar.Cost)} ({highestBar.Label}).";
             ChartChanged?.Invoke(this, EventArgs.Empty);
         }
         catch (ArgumentException exception)
@@ -346,7 +422,7 @@ public sealed class ReportsViewModel : ObservableObject
     }
 }
 
-/// <summary>Prosty wykres słupkowy kosztu (wysokość) z etykietami okresów.</summary>
+/// <summary>Wykres słupkowy kosztu z siatką, skalą wartości i etykietami okresów.</summary>
 public sealed class BarChartDrawable : IDrawable
 {
     public sealed record Bar(string Label, double Cost, long Tokens);
@@ -361,32 +437,54 @@ public sealed class BarChartDrawable : IDrawable
         }
 
         var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
-        var textColor = dark ? Color.FromArgb("#8F94A3") : Color.FromArgb("#7A7F8C");
-        const float labelHeight = 14;
-        const float topPadding = 14;
-        var chartHeight = dirtyRect.Height - labelHeight - topPadding;
+        var textColor = Color.FromArgb(dark ? "#A4A9B6" : "#727986");
+        var gridColor = Color.FromArgb(dark ? "#343846" : "#E7E9F0");
+        const float labelWidth = 48;
+        const float labelHeight = 17;
+        const float topPadding = 5;
+        var plotLeft = dirtyRect.Left + labelWidth;
+        var plotRight = dirtyRect.Right - 4;
+        var plotTop = dirtyRect.Top + topPadding;
+        var plotBottom = dirtyRect.Bottom - labelHeight;
+        var plotHeight = Math.Max(1, plotBottom - plotTop);
+        var plotWidth = Math.Max(1, plotRight - plotLeft);
         var max = Math.Max(Bars.Max(bar => bar.Cost), 0.0001);
-        var slot = dirtyRect.Width / Bars.Count;
-        var barWidth = Math.Max(2, Math.Min(28, slot * 0.7f));
-        var labelEvery = Math.Max(1, (int)Math.Ceiling(Bars.Count / Math.Max(1, dirtyRect.Width / 42)));
+        var slot = plotWidth / Bars.Count;
+        var barWidth = Math.Max(2, Math.Min(26, slot * 0.68f));
+        var labelEvery = Math.Max(1, (int)Math.Ceiling(Bars.Count / Math.Max(1, plotWidth / 44)));
 
         canvas.FontSize = 8;
         canvas.FontColor = textColor;
+        canvas.StrokeSize = 1;
+        for (var step = 0; step <= 4; step++)
+        {
+            var fraction = step / 4f;
+            var y = plotBottom - fraction * plotHeight;
+            canvas.StrokeColor = gridColor;
+            canvas.DrawLine(plotLeft, y, plotRight, y);
+            if (step > 0)
+            {
+                canvas.DrawString(Fmt.Cost(max * fraction), dirtyRect.Left, y - 6, labelWidth - 5, 12,
+                    HorizontalAlignment.Right, VerticalAlignment.Center);
+            }
+        }
+
         for (var index = 0; index < Bars.Count; index++)
         {
             var bar = Bars[index];
-            var height = (float)(bar.Cost / max * chartHeight);
-            var x = dirtyRect.Left + slot * index + (slot - barWidth) / 2;
-            var y = topPadding + chartHeight - height;
-            canvas.FillColor = Color.FromArgb(index == Bars.Count - 1 ? "#7767F5" : "#4F3FD5");
+            var height = (float)(bar.Cost / max * plotHeight);
+            var x = plotLeft + slot * index + (slot - barWidth) / 2;
+            var y = plotBottom - height;
+            canvas.FillColor = Color.FromArgb(index == Bars.Count - 1
+                ? dark ? "#9B8AFF" : "#7257E8"
+                : dark ? "#48B8B1" : "#159C99");
             canvas.FillRoundedRectangle(x, y, barWidth, Math.Max(1, height), 3);
 
             if (index % labelEvery == 0 || index == Bars.Count - 1)
             {
-                canvas.DrawString(bar.Label, x - 12, dirtyRect.Height - labelHeight, barWidth + 24, labelHeight, HorizontalAlignment.Center, VerticalAlignment.Center);
+                canvas.DrawString(bar.Label, plotLeft + slot * index - 8, plotBottom + 1, slot + 16, labelHeight - 1,
+                    HorizontalAlignment.Center, VerticalAlignment.Center);
             }
         }
-
-        canvas.DrawString($"max {Fmt.Cost(max)}", dirtyRect.Left, 0, dirtyRect.Width, topPadding, HorizontalAlignment.Right, VerticalAlignment.Top);
     }
 }
