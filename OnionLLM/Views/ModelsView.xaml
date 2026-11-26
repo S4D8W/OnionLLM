@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Modele (DESIGN.md §6.7): PageHeader → Banner (bez ceny / cennik offline) → FilterBar → table with prices → drawer. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             xmlns:vm="clr-namespace:OnionLLM.ViewModels"
+             x:Class="OnionLLM.Views.ModelsView"
+             x:DataType="vm:ModelsViewModel">
+    <Grid RowDefinitions="Auto,Auto,Auto,*"
+          Padding="{DynamicResource LayoutPagePadding}"
+          RowSpacing="{StaticResource Space300}">
+        <controls:PageHeader Title="Modele" Subtitle="{Binding Subtitle}">
+            <Button Style="{StaticResource Button.Secondary.Sm}" Text="Kopiuj jako tabelę" Command="{Binding CopyTableCommand}" AutomationId="Models.Copy" />
+        </controls:PageHeader>
+
+        <controls:Banner Grid.Row="1" IsVisible="{Binding HasBanner}" Kind="{Binding BannerKind}" Title="{Binding BannerTitle}"
+                         Message="{Binding BannerMessage}" ActionText="{Binding BannerAction}" ActionCommand="{Binding AddPricesCommand}" />
+
+        <controls:FilterBar Grid.Row="2" IsDirty="{Binding IsFiltered}" ResetCommand="{Binding ResetFiltersCommand}">
+            <controls:DateRangePicker Presets="{Binding Presets}" PresetIndex="{Binding RangeIndex}" CustomIndex="{Binding CustomPresetIndex}"
+                                      Since="{Binding Since}" Until="{Binding Until}" DisplayText="{Binding RangeText}" AutomationId="Models.Range" />
+            <controls:FilterChip Variant="Menu" Label="Źródło" ItemsSource="{Binding SourceChoiceNames}" SelectedIndex="{Binding SourceIndex}" AutomationId="Models.Source" />
+            <controls:FilterChip Label="Tylko bez ceny" IsChecked="{Binding OnlyUnpriced}" AutomationId="Models.Unpriced" />
+            <controls:SearchField Placeholder="Szukaj modelu" Query="{Binding Search}" MinimumWidthRequest="{StaticResource SizeDrawerMin}" AutomationId="Models.Search" />
+        </controls:FilterBar>
+
+        <controls:DataTable x:Name="Table" Grid.Row="3"
+                            ItemsSource="{Binding Rows}"
+                            SortKey="{Binding SortKey}"
+                            SortDescending="{Binding SortDescending}"
+                            SelectedItem="{Binding SelectedRow}"
+                            RowActivatedCommand="{Binding OpenDetailsCommand}"
+                            State="{Binding TableState}"
+                            AutomationPrefix="Models">
+            <controls:DataTable.EmptyView>
+                <controls:EmptyState Variant="Inline" Title="{Binding EmptyTitle}" ActionText="{Binding EmptyAction}" ActionCommand="{Binding EmptyCommand}" />
+            </controls:DataTable.EmptyView>
+        </controls:DataTable>
+    </Grid>
+</ContentView>

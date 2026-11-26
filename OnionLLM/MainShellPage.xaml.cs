@@ -21,6 +21,7 @@ public partial class MainShellPage : ContentPage
         navigation.Register(Screen.Sessions, () => new SessionsView());
         navigation.Register(Screen.Blocks, () => new BlocksView());
         navigation.Register(Screen.Projects, () => new ProjectsView());
+        navigation.Register(Screen.Models, () => new ModelsView());
         navigation.Register(Screen.Sources, () => new SourcesView());
         navigation.Register(Screen.Settings, () => new SettingsView());
 #if DEBUG

@@ -626,9 +626,24 @@ public sealed class SettingsViewModel : ObservableObject
 
     // ===== Pricing overrides (§6.9.7) =====
 
-    private async Task EditOverrideAsync(PricingOverrideViewModel? existing)
+    /// <summary>„Nadpisz cenę” from the model drawer (§6.7): edit the existing override of the model or start a new one.</summary>
+    public async Task OverrideModelAsync(string model)
     {
-        var draft = existing?.Copy() ?? new PricingOverrideViewModel(new PricingOverrideForm());
+        await LoadAsync();
+        var existing = PricingOverrides.FirstOrDefault(item => item.Key.Equals(model, StringComparison.OrdinalIgnoreCase));
+        await EditOverrideAsync(existing, model);
+    }
+
+    /// <summary>„Usuń nadpisanie” from the model drawer.</summary>
+    public async Task RemoveModelOverrideAsync(string model)
+    {
+        await LoadAsync();
+        RemoveOverride(PricingOverrides.FirstOrDefault(item => item.Key.Equals(model, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private async Task EditOverrideAsync(PricingOverrideViewModel? existing, string? key = null)
+    {
+        var draft = existing?.Copy() ?? new PricingOverrideViewModel(new PricingOverrideForm { Key = key ?? string.Empty });
         var error = Ui.Text("Text.Caption").Dyn(Label.TextColorProperty, "ColorStatusDanger");
         View Field(string label, string property, bool mono = false, string suffix = "$ / 1 M")
         {
