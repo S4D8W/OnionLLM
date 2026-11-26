@@ -116,4 +116,21 @@ public class ConfigTests
         Assert.DoesNotContain("\"cacheCreationInputTokenCostAbove1h\"", json);
         Assert.Equal(7e-6, config.Clone().PricingOverrides["legacy-style"].CacheCreationInputTokenCostAbove1h);
     }
+
+    [Fact]
+    public void Null_threshold_and_budget_entries_are_dropped_not_crashing()
+    {
+        using var directory = new TempDirectory();
+        var path = directory.Write("onionllm.json", """
+            { "notifications": { "thresholds": { "block": null, "fiveHour": { "warn": 70 } } },
+              "budgets": { "perSource": { "codex": null } } }
+            """);
+
+        var config = ConfigLoader.Load(path);
+
+        Assert.False(config.Notifications.Thresholds.ContainsKey("block"));
+        Assert.Equal(70, config.Notifications.For("fiveHour").Warn);
+        Assert.Equal(80, config.Notifications.For("block").Warn);
+        Assert.Empty(config.Budgets.PerSource);
+    }
 }

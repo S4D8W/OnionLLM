@@ -24,6 +24,7 @@ internal static class TrayIcon
     private static SubclassProc? _proc;
     private static uint _taskbarCreated;
     private static IDispatcherTimer? _clickTimer;
+    private static bool _ignoreNextUp;
 
     public static bool IsVisible => _added;
 
@@ -151,6 +152,10 @@ internal static class TrayIcon
             var notification = (uint)(lParam.ToInt64() & 0xFFFF);
             switch (notification)
             {
+                case WmLButtonUp when _ignoreNextUp:
+                    // The button-up that ends a double click must not start the single-click timer again.
+                    _ignoreNextUp = false;
+                    break;
                 case WmLButtonUp:
                     // Single click toggles the mini view — after the double-click time, so a double click only opens the window.
                     MainThread.BeginInvokeOnMainThread(() =>
@@ -164,6 +169,7 @@ internal static class TrayIcon
                     });
                     break;
                 case WmLButtonDblClk:
+                    _ignoreNextUp = true;
                     MainThread.BeginInvokeOnMainThread(async () =>
                     {
                         _clickTimer?.Stop();
@@ -172,7 +178,8 @@ internal static class TrayIcon
                     });
                     break;
                 case WmContextMenu:
-                case WmRButtonUp:
+                    // NOTIFYICON_VERSION_4 sends WM_CONTEXTMENU for the mouse and the keyboard; WM_RBUTTONUP is ignored
+                    // (handling both opened the menu twice).
                     ShowMenu();
                     break;
                 case NinBalloonUserClick:
@@ -275,7 +282,7 @@ internal static class TrayIcon
     private const uint NiifUser = 0x4, NiifNoSound = 0x10, NiifLargeIcon = 0x20;
     private const uint NinBalloonUserClick = 0x0400 + 5;
     private const uint NotifyIconVersion4 = 4;
-    private const uint WmLButtonUp = 0x0202, WmLButtonDblClk = 0x0203, WmRButtonUp = 0x0205, WmContextMenu = 0x007B;
+    private const uint WmLButtonUp = 0x0202, WmLButtonDblClk = 0x0203, WmContextMenu = 0x007B;
     private const uint MfString = 0x0, MfGrayed = 0x1, MfChecked = 0x8, MfPopup = 0x10, MfDefault = 0x1000, MfSeparator = 0x800;
     private const uint TpmRightButton = 0x2, TpmReturnCmd = 0x100, TpmNoNotify = 0x80;
     private const uint ImageIcon = 1, LrLoadFromFile = 0x10;

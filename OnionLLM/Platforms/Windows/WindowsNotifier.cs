@@ -22,6 +22,14 @@ internal static class WindowsNotifier
             manager.NotificationInvoked += OnInvoked;
             manager.Register();
             _registered = true;
+
+            // The click started the app (MSIX, app not running): handle it like a click in the running app.
+            if (Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs() is { Kind: Microsoft.Windows.AppLifecycle.ExtendedActivationKind.AppNotification } activation &&
+                activation.Data is AppNotificationActivatedEventArgs launch)
+            {
+                Handle(launch);
+            }
+
             return AppNotificationManager.IsSupported();
         }
         catch (Exception exception) when (exception is System.Runtime.InteropServices.COMException or InvalidOperationException or UnauthorizedAccessException or TypeLoadException or DllNotFoundException)
@@ -74,12 +82,20 @@ internal static class WindowsNotifier
         }
     }
 
-    private static void OnInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
+    private static void OnInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args) => Handle(args);
+
+    private static void Handle(AppNotificationActivatedEventArgs args)
     {
         var action = args.Arguments.TryGetValue("action", out var value) ? value : "open";
         var limit = args.Arguments.TryGetValue("limit", out var key) ? key : string.Empty;
         MainThread.BeginInvokeOnMainThread(async () =>
         {
+            // At launch the main window may not exist yet.
+            for (var attempt = 0; attempt < 100 && WindowService.Main?.Handler is null; attempt++)
+            {
+                await Task.Delay(Design.MotionTokens.PollInterval);
+            }
+
             if (action == "mute")
             {
                 NotificationCenter.Mute(TimeSpan.FromHours(1));

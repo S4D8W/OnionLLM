@@ -817,6 +817,18 @@ public sealed class SettingsViewModel : ObservableObject
             DensityIndex = (int)config.Appearance.Density;
             MotionIndex = (int)config.Appearance.Motion;
             AlwaysOnTop = config.Window.AlwaysOnTop;
+            TrayEnabled = config.Tray.Enabled;
+            CloseToTray = config.Window.CloseToTray;
+            MiniAlwaysOnTop = config.MiniView.AlwaysOnTop;
+            var order = config.MiniView.Modules.Concat(MiniViewSettings.AllModules.Except(config.MiniView.Modules)).ToList();
+            if (!MiniModules.Select(row => row.Id).SequenceEqual(order) || MiniModules.Any(row => row.Shown != config.MiniView.Modules.Contains(row.Id)))
+            {
+                MiniModules.Clear();
+                foreach (var id in order)
+                {
+                    MiniModules.Add(new MiniModuleRow(id) { Shown = config.MiniView.Modules.Contains(id) });
+                }
+            }
         }
         finally
         {

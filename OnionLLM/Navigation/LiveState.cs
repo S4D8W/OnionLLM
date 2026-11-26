@@ -12,6 +12,8 @@ public static class LiveState
     private static readonly TimeSpan MinimumInterval = TimeSpan.FromSeconds(20);
     private static DateTimeOffset _builtAt = DateTimeOffset.MinValue;
     private static int _building;
+    private static int _scheduled;
+    private static int _rerun;
 
     public static event EventHandler? Updated;
 
@@ -27,14 +29,31 @@ public static class LiveState
 
     public static void Start()
     {
+        // A refresh within the throttle window or during a build is not dropped: one trailing update follows.
         AppState.Refreshed += (_, _) => _ = UpdateAsync();
         AppState.Changed += (_, _) => _ = UpdateAsync(force: true);
     }
 
     public static async Task UpdateAsync(bool force = false)
     {
-        if ((!force && DateTimeOffset.UtcNow - _builtAt < MinimumInterval) || Interlocked.Exchange(ref _building, 1) == 1)
+        var wait = MinimumInterval - (DateTimeOffset.UtcNow - _builtAt);
+        if (!force && wait > TimeSpan.Zero)
         {
+            if (Interlocked.Exchange(ref _scheduled, 1) == 0)
+            {
+                _ = Task.Delay(wait).ContinueWith(_ =>
+                {
+                    Interlocked.Exchange(ref _scheduled, 0);
+                    return UpdateAsync(force: true);
+                }, TaskScheduler.Default);
+            }
+
+            return;
+        }
+
+        if (Interlocked.Exchange(ref _building, 1) == 1)
+        {
+            Interlocked.Exchange(ref _rerun, 1); // run again after the current build
             return;
         }
 
@@ -54,6 +73,10 @@ public static class LiveState
         finally
         {
             Interlocked.Exchange(ref _building, 0);
+            if (Interlocked.Exchange(ref _rerun, 0) == 1)
+            {
+                _ = UpdateAsync(force: true);
+            }
         }
     }
 

@@ -91,6 +91,8 @@ public sealed class MiniViewPage : ContentPage
             return;
         }
 
+        // Keyboard shortcuts (Ctrl+Shift+M — back to the main window) work in the mini view too.
+        ShortcutService.Attach(Window);
 #if WINDOWS
         Platforms.Windows.WindowPlatform.ConfigureMini(Window, AppState.Config.MiniView.AlwaysOnTop);
         Platforms.Windows.WindowPlatform.MakeDragHandle(_header, Window);

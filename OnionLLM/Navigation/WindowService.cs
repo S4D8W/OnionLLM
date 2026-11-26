@@ -62,7 +62,7 @@ public static class WindowService
     public static bool HideInsteadOfClose()
     {
         var config = AppState.Config;
-        if (IsQuitting || !config.Tray.Enabled || !config.Window.CloseToTray || !TrayAvailable)
+        if (IsQuitting || !config.Tray.Enabled || !config.Window.CloseToTray || !TrayVisible)
         {
             return false;
         }
@@ -81,6 +81,14 @@ public static class WindowService
     public static bool TrayAvailable =>
 #if WINDOWS
         true;
+#else
+        false;
+#endif
+
+    /// <summary>The tray icon was actually added (not only enabled) — hiding the window is safe only then.</summary>
+    public static bool TrayVisible =>
+#if WINDOWS
+        Platforms.Windows.TrayIcon.IsVisible;
 #else
         false;
 #endif
@@ -106,11 +114,23 @@ public static class WindowService
         }
 
         var page = new MiniViewPage();
-        Mini = new Window(page) { Title = "OnionLLM — mini-widok", Width = Design.DesignTokens.Double("SizeMiniWidth", 360), Height = Design.DesignTokens.Double("SizeMiniMinHeight", 140) };
-        Mini.Destroying += (_, _) =>
+        var window = new Window(page) { Title = "OnionLLM — mini-widok", Width = Design.DesignTokens.Double("SizeMiniWidth", 360), Height = Design.DesignTokens.Double("SizeMiniMinHeight", 140) };
+        Mini = window;
+        window.Destroying += (_, _) =>
         {
             page.Detach();
+            if (!ReferenceEquals(Mini, window))
+            {
+                return;
+            }
+
+            // Closed by the system (Alt+F4…): never leave the app without a visible window.
             Mini = null;
+            if (IsMainHidden && !IsQuitting)
+            {
+                _ = ShowMainAsync();
+            }
+
             Changed?.Invoke(null, EventArgs.Empty);
         };
         application.OpenWindow(Mini);

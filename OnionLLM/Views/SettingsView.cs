@@ -482,9 +482,9 @@ public sealed class SettingsView : ContentView, IScreenView
         thresholdError.SetBinding(Label.TextProperty, nameof(SettingsViewModel.ThresholdError));
         thresholds.Children.Add(thresholdError);
         var quiet = new HorizontalStackLayout { Spacing = Ui.D("Space200") };
-        var from = new TextField { Kind = TextFieldKind.Number, Placeholder = "22:00" };
+        var from = new TextField { Placeholder = "22:00", MaximumWidthRequest = Ui.D("SizeSelectMinWidth") };
         from.SetBinding(TextField.TextProperty, nameof(SettingsViewModel.QuietFrom), BindingMode.TwoWay);
-        var to = new TextField { Kind = TextFieldKind.Number, Placeholder = "08:00" };
+        var to = new TextField { Placeholder = "08:00", MaximumWidthRequest = Ui.D("SizeSelectMinWidth") };
         to.SetBinding(TextField.TextProperty, nameof(SettingsViewModel.QuietTo), BindingMode.TwoWay);
         quiet.Children.Add(Toggle(nameof(SettingsViewModel.QuietEnabled)));
         quiet.Children.Add(new Label { Text = "od", VerticalOptions = LayoutOptions.Center }.Styled("Text.Body"));

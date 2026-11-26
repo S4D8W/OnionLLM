@@ -142,7 +142,7 @@ public static class ConfigLoader
 
         foreach (var (limit, threshold) in config.Notifications?.Thresholds ?? [])
         {
-            if (!NotificationSettings.Limits.Contains(limit, StringComparer.OrdinalIgnoreCase) || threshold.Warn is < 50 or > 100 ||
+            if (threshold is null || !NotificationSettings.Limits.Contains(limit, StringComparer.OrdinalIgnoreCase) || threshold.Warn is < 50 or > 100 ||
                 threshold.Exceed is < 50 or > 200 || threshold.Warn > threshold.Exceed)
             {
                 throw new ConfigException($"notifications.thresholds.{limit}: ostrzeżenie 50–100%, przekroczenie 50–200% i nie mniej niż ostrzeżenie.");
@@ -151,7 +151,7 @@ public static class ConfigLoader
 
         var budgets = config.Budgets ?? new BudgetSettings();
         var amounts = new[] { budgets.DailyUsd, budgets.MonthlyUsd }
-            .Concat(budgets.PerSource.Values.SelectMany(source => new[] { source.DailyUsd, source.MonthlyUsd }));
+            .Concat(budgets.PerSource.Values.Where(source => source is not null).SelectMany(source => new[] { source.DailyUsd, source.MonthlyUsd }));
         if (amounts.Any(amount => amount is <= 0))
         {
             throw new ConfigException("Budżety (budgets) muszą być większe od 0 albo puste.");
@@ -180,10 +180,12 @@ public static class ConfigLoader
         config.MiniView ??= new MiniViewSettings();
         config.MiniView.Modules = (config.MiniView.Modules ?? []).Where(module => MiniViewSettings.AllModules.Contains(module)).Distinct().ToList();
         config.Notifications ??= new NotificationSettings();
-        config.Notifications.Thresholds = new Dictionary<string, ThresholdSettings>(config.Notifications.Thresholds ?? [], StringComparer.OrdinalIgnoreCase);
+        config.Notifications.Thresholds = new Dictionary<string, ThresholdSettings>(
+            (config.Notifications.Thresholds ?? []).Where(pair => pair.Value is not null), StringComparer.OrdinalIgnoreCase);
         config.Notifications.QuietHours ??= new QuietHoursSettings();
         config.Currency.Display = (config.Currency.Display ?? "USD").Trim().ToUpperInvariant();
-        config.Budgets.PerSource = new Dictionary<string, SourceBudget>(config.Budgets.PerSource ?? [], StringComparer.OrdinalIgnoreCase);
+        config.Budgets.PerSource = new Dictionary<string, SourceBudget>(
+            (config.Budgets.PerSource ?? []).Where(pair => pair.Value is not null), StringComparer.OrdinalIgnoreCase);
         config.Sources = new Dictionary<string, SourceSettings>(config.Sources ?? [], StringComparer.OrdinalIgnoreCase);
         config.PricingOverrides = new Dictionary<string, PricingOverride>(config.PricingOverrides ?? [], StringComparer.OrdinalIgnoreCase);
         config.ModelAliases = new Dictionary<string, string>(
