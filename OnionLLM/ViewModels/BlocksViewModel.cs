@@ -18,6 +18,12 @@ public sealed class BlockItemViewModel : Controls.ISeparatorRow
 
     public long? TokenLimit { get; init; }
 
+    /// <summary>Cumulative cost and sessions of the block (one ledger read for the whole table).</summary>
+    public BlockDetails? Details { get; init; }
+
+    /// <summary>Samples of the block timeline (§4.8.2 H).</summary>
+    private const int TimelineSamples = 48;
+
     public bool IsGap => Block.IsGap;
 
     public bool IsActive => Block.IsActive;
@@ -40,8 +46,21 @@ public sealed class BlockItemViewModel : Controls.ISeparatorRow
         ? Math.Clamp((DateTimeOffset.Now - Block.Start) / (Block.End - Block.Start), 0, 1)
         : Block.LastActivity is { } last && Block.End > Block.Start ? Math.Clamp((last - Block.Start) / (Block.End - Block.Start), 0, 1) : 1;
 
-    /// <summary>Start and end values only — per-entry cumulative series in a block: Wymaga danych.</summary>
-    public IReadOnlyList<double> Series => IsGap ? [] : [0, Block.Totals.CostUsd];
+    /// <summary>Cumulative cost sampled evenly from the block start to „teraz” (active) or the last activity.</summary>
+    public IReadOnlyList<double> Series
+    {
+        get
+        {
+            if (IsGap || Details is null)
+            {
+                return [];
+            }
+
+            var end = Block.IsActive ? (DateTimeOffset.Now < Block.End ? DateTimeOffset.Now : Block.End)
+                : Block.Start + (Block.End - Block.Start) * Now;
+            return TimeSeries.Resample(Details.Points, Block.Start, end, TimelineSamples);
+        }
+    }
 }
 
 /// <summary>Screen „Bloki” (DESIGN.md §6.5).</summary>
@@ -201,8 +220,14 @@ public sealed class BlocksViewModel : ObservableObject
                 ? claudeLimits.FiveHourReset
                 : null;
             var now = DateTimeOffset.Now;
-            _report = await Task.Run(() => AppState.Engine.BuildBlocks(since, now: now, activeResetsAt: resetsAt));
-            Blocks = _report.Blocks.Reverse().Select(block => new BlockItemViewModel { Block = block, TokenLimit = _report.TokenLimit }).ToList();
+            (_report, var details) = await Task.Run(() =>
+            {
+                var report = AppState.Engine.BuildBlocks(since, now: now, activeResetsAt: resetsAt);
+                return (report, AppState.Engine.BuildBlocksDetails(report.Blocks.ToList()));
+            });
+            Blocks = _report.Blocks.Reverse()
+                .Select(block => new BlockItemViewModel { Block = block, TokenLimit = _report.TokenLimit, Details = details.GetValueOrDefault(block.Id) })
+                .ToList();
             _error = null;
             _loaded = true;
         }
@@ -262,6 +287,30 @@ public sealed class BlocksViewModel : ObservableObject
         }
 
         content.Children.Add(new Section { Title = "Modele", Body = models });
+        if (item.Details is { Sessions.Count: > 0 } details)
+        {
+            // §4.6.1 / §6.5: sessions that worked in the block, by cost; tap opens Sesje with the session drawer.
+            var sessions = new VerticalStackLayout { Spacing = Ui.D("Space100") };
+            foreach (var session in details.Sessions.Take(8))
+            {
+                var id = session.SessionId;
+                sessions.Children.Add(new ListItem
+                {
+                    Title = string.IsNullOrWhiteSpace(session.Project) ? Fmt.SessionId(id, 40) : session.Project!,
+                    Subtitle = $"{Fmt.SessionId(id)} · {Fmt.Time(session.FirstActivity)}–{Fmt.Time(session.LastActivity)}",
+                    Trailing = Ui.Text("Text.TableNum.Cost", Fmt.Cost(session.Totals.CostUsd)),
+                    Command = new Command(() => _ = ShellViewModel.Instance.NavigateAsync(Screen.Sessions, new EntityTarget(id)))
+                });
+            }
+
+            if (details.Sessions.Count > 8)
+            {
+                sessions.Children.Add(Ui.Text("Text.Caption", $"+{details.Sessions.Count - 8} {Fmt.Plural(details.Sessions.Count - 8, "sesja", "sesje", "sesji")}"));
+            }
+
+            content.Children.Add(new Section { Title = $"Sesje w bloku ({details.Sessions.Count})", Body = sessions });
+        }
+
         content.Children.Add(new Section
         {
             Title = "Szczegóły",

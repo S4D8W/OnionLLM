@@ -34,6 +34,8 @@
                         </Border.GestureRecognizers>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource Space600}">
                             <controls:HeroMetric Value="{Binding TodayCost}"
+                                                 Yesterday="{Binding YesterdayCost}"
+                                                 WeekAverage="{Binding WeekAverageCost}"
                                                  Marker="{Binding TodayMarker}"
                                                  Caption="{Binding TodayCaption}"
                                                  IsStale="{Binding IsStale}"
@@ -104,8 +106,11 @@
                 <!-- KPI row (§6.1 pkt 4) -->
                 <Grid x:Name="KpiGrid" ColumnSpacing="{DynamicResource LayoutGridGap}" RowSpacing="{DynamicResource LayoutGridGap}">
                     <controls:StatTile x:Name="WeekTile" Title="7 dni" Value="{Binding WeekCost}" Caption="{Binding WeekTokens}"
+                                       TrendCurrent="{Binding WeekCostValue}" TrendBaseline="{Binding PreviousWeekCost}" TrendLabel="vs poprzednie 7 dni"
+                                       Sparkline="{Binding WeekSeries}"
                                        IsLoading="{Binding IsLoading}" Variant="Interactive" AutomationId="Today.Kpi.Week" />
                     <controls:StatTile x:Name="MonthTile" Title="30 dni" Value="{Binding MonthCost}" Caption="{Binding MonthTokens}"
+                                       Sparkline="{Binding MonthSeries}"
                                        IsLoading="{Binding IsLoading}" Variant="Interactive" AutomationId="Today.Kpi.Month" />
                     <controls:StatTile x:Name="TokensTile" Title="Tokeny dziś" Value="{Binding TodayTokens}"
                                        IsLoading="{Binding IsLoading}" AutomationId="Today.Kpi.Tokens" />

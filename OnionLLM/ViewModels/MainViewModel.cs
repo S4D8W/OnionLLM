@@ -122,6 +122,10 @@ public sealed class MainViewModel : ObservableObject
     private bool _showUndetected;
     private bool _bannerClosed;
     private DashboardSnapshot? _snapshot;
+    private BlockDetails? _blockDetails;
+
+    /// <summary>Samples of the block timeline (§4.8.2 H): cumulative cost spread evenly from the block start to now.</summary>
+    private const int TimelineSamples = 48;
     private IReadOnlyList<OnionRing> _rings = [];
 
     public MainViewModel()
@@ -234,8 +238,26 @@ public sealed class MainViewModel : ObservableObject
         ? Math.Clamp((DateTimeOffset.Now - block.Start) / (block.End - block.Start), 0, 1)
         : 1;
 
-    /// <summary>Cumulative cost samples; only start and now are known (per-entry series: Wymaga danych).</summary>
-    public IReadOnlyList<double> BlockSeries => _snapshot?.ActiveBlock is { } block ? [0, block.Totals.CostUsd] : [];
+    /// <summary>Cumulative cost of the active block, sampled evenly from its start to now (§6.1 pkt 5).</summary>
+    public IReadOnlyList<double> BlockSeries => _snapshot?.ActiveBlock is { } block && _blockDetails is { } details
+        ? TimeSeries.Resample(details.Points, block.Start, DateTimeOffset.Now < block.End ? DateTimeOffset.Now : block.End, TimelineSamples)
+        : [];
+
+    /// <summary>Cost yesterday (hero TrendDelta „vs wczoraj”); NaN without a series.</summary>
+    public double YesterdayCost => _snapshot?.YesterdayCost ?? double.NaN;
+
+    /// <summary>Average daily cost of the 7 days before today (hero TrendDelta „vs średnia 7 dni”).</summary>
+    public double WeekAverageCost => _snapshot?.Average7DaysCost ?? double.NaN;
+
+    /// <summary>KPI „7 dni”: daily cost sparkline and the previous 7 days as the trend baseline.</summary>
+    public IReadOnlyList<double> WeekSeries => _snapshot?.DailyCost is { Count: >= 7 } daily ? daily.Skip(daily.Count - 7).ToList() : [];
+
+    public double WeekCostValue => _snapshot?.Last7Days.CostUsd ?? double.NaN;
+
+    public double PreviousWeekCost => _snapshot?.DailyCost is { Count: >= 14 } daily ? daily.Skip(daily.Count - 14).Take(7).Sum() : double.NaN;
+
+    /// <summary>KPI „30 dni”: daily cost sparkline (no 60-day history in the snapshot — no trend).</summary>
+    public IReadOnlyList<double> MonthSeries => _snapshot?.DailyCost ?? [];
 
     public double BlockProjection => _snapshot?.ActiveBlock?.Projection?.TotalCostUsd ?? double.NaN;
 
@@ -302,7 +324,11 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             await AppState.RefreshDataAsync(force, cancellationToken);
-            _snapshot = await Task.Run(() => AppState.Engine.BuildDashboard(AppState.Limits), cancellationToken);
+            (_snapshot, _blockDetails) = await Task.Run(() =>
+            {
+                var snapshot = AppState.Engine.BuildDashboard(AppState.Limits);
+                return (snapshot, snapshot.ActiveBlock is { } active ? AppState.Engine.BuildBlockDetails(active) : null);
+            }, cancellationToken);
             Error = null;
             ApplySnapshot();
         }
@@ -365,6 +391,7 @@ public sealed class MainViewModel : ObservableObject
                      nameof(SessionsToday), nameof(SessionsValue), nameof(SessionsCaption), nameof(HasActiveSessions), nameof(ActiveSessionsBadge),
                      nameof(HasActiveBlock), nameof(BlockRemaining), nameof(BlockCost), nameof(BlockTokens), nameof(HasBurnRate),
                      nameof(BurnCostPerHour), nameof(BurnTokensPerMinute), nameof(BurnLevel), nameof(BlockNow), nameof(BlockSeries),
+                     nameof(YesterdayCost), nameof(WeekAverageCost), nameof(WeekSeries), nameof(WeekCostValue), nameof(PreviousWeekCost), nameof(MonthSeries),
                      nameof(BlockProjection), nameof(BlockProjectionText), nameof(HasBlockLimit), nameof(BlockLimitPercent), nameof(BlockLimitTitle),
                      nameof(UndetectedToggleText), nameof(HiddenCount), nameof(SkippedFiles), nameof(LimitsUnavailable), nameof(HasBanner),
                      nameof(BannerKind), nameof(BannerTitle), nameof(BannerMessage)

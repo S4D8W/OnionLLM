@@ -67,6 +67,9 @@ public sealed class ReportsViewModel : ObservableObject
     private DateTime _since = DateTime.Today.AddDays(-29);
     private DateTime _until = DateTime.Today;
     private int _metricIndex;
+    private int _activityModeIndex;
+    private double[,]? _hourly;
+    private List<(string Key, double Cost)> _projectShares = [];
     private int _shareIndex;
     private string _sortKey = string.Empty;
     private bool _sortDescending = true;
@@ -93,6 +96,7 @@ public sealed class ReportsViewModel : ObservableObject
         _since = ViewState.GetDate(StateKey + "since", _since);
         _until = ViewState.GetDate(StateKey + "until", _until);
         _metricIndex = ViewState.GetInt(StateKey + "metric", 0, Metrics.Length - 1);
+        _activityModeIndex = ViewState.GetInt(StateKey + "activity", 0, 1);
         _sortKey = ViewState.GetString(StateKey + "sort", string.Empty);
         _sortDescending = ViewState.GetBool(StateKey + "sortDesc", true);
 
@@ -118,7 +122,41 @@ public sealed class ReportsViewModel : ObservableObject
 
     public string[] Metrics { get; } = ["Koszt", "Tokeny", "Cache %"];
 
-    public string[] ShareModes { get; } = ["Źródła", "Modele"];
+    public string[] ShareModes { get; } = ["Źródła", "Modele", "Projekty"];
+
+    /// <summary>„Aktywność” card modes (§4.8.2 F).</summary>
+    public string[] ActivityModes { get; } = ["Kalendarz", "Dni × godziny"];
+
+    public int ActivityModeIndex
+    {
+        get => _activityModeIndex;
+        set
+        {
+            if (Set(ref _activityModeIndex, value))
+            {
+                ViewState.Set(StateKey + "activity", value);
+                OnPropertyChanged(nameof(IsCalendar));
+                OnPropertyChanged(nameof(IsHourly));
+                OnPropertyChanged(nameof(ActivitySubtitle));
+            }
+        }
+    }
+
+    public bool IsCalendar => ActivityModeIndex == 0;
+
+    public bool IsHourly => ActivityModeIndex == 1;
+
+    public string ActivitySubtitle => IsHourly ? $"Koszt wg dnia tygodnia i godziny · {RangeText}" : "Koszt dzienny · ostatnie 12 miesięcy";
+
+    /// <summary>Cost per [DayOfWeek, hour] in the current range and filters.</summary>
+    public double[,]? Hourly { get => _hourly; private set => Set(ref _hourly, value); }
+
+    /// <summary>KPI „Koszt łącznie”: TrendDelta against the previous range of the same length (§6.3 pkt 3).</summary>
+    public double TotalCostValue => _report?.Totals.CostUsd ?? double.NaN;
+
+    public double PreviousCost { get; private set; } = double.NaN;
+
+    public string PreviousLabel { get; private set; } = string.Empty;
 
     public Command ExportCsvCommand { get; }
 
@@ -323,6 +361,25 @@ public sealed class ReportsViewModel : ObservableObject
             Activity = daily.Rows.OrderBy(row => row.PeriodStart)
                 .Select(row => (row.PeriodStart.ToDateTime(TimeOnly.MinValue), row.Totals.CostUsd)).ToList();
 
+            // Days × hours heatmap, project shares and the previous range (§6.3) — same filters as the report.
+            var plain = query with { Breakdown = false, BySource = false, GroupByProject = false };
+            Hourly = (await Task.Run(() => AppState.Engine.BuildHourly(plain))).Cost;
+            var projects = await Task.Run(() => AppState.Engine.BuildReport(ReportPeriod.Monthly, plain with { GroupByProject = true }));
+            _projectShares = projects.Rows.GroupBy(row => row.Project ?? ProjectRowViewModel.NoProject)
+                .Select(group => (group.Key, group.Sum(row => row.Totals.CostUsd))).ToList();
+            if (since is { } start)
+            {
+                var length = until.DayNumber - start.DayNumber + 1;
+                var previous = plain with { Since = start.AddDays(-length), Until = start.AddDays(-1) };
+                PreviousCost = (await Task.Run(() => AppState.Engine.BuildReport(ReportPeriod.Daily, previous))).Totals.CostUsd;
+                PreviousLabel = $"vs poprzednie {Fmt.Count(length, "dzień", "dni", "dni")}";
+            }
+            else
+            {
+                PreviousCost = double.NaN;
+                PreviousLabel = string.Empty;
+            }
+
             var firstDay = since ?? _report.Rows.Select(row => (DateOnly?)row.PeriodStart).Min() ?? until;
             RangeText = DateRanges.Describe(Preset, since ?? firstDay, until);
             var days = until.DayNumber - firstDay.DayNumber + 1;
@@ -349,7 +406,8 @@ public sealed class ReportsViewModel : ObservableObject
                      {
                          nameof(RangeText), nameof(TotalRow), nameof(TableState), nameof(Error), nameof(TotalCost), nameof(TotalMarker),
                          nameof(TotalTokens), nameof(TotalTokensCaption), nameof(AverageTitle), nameof(AverageCost), nameof(CacheShare),
-                         nameof(StoredCaption), nameof(ShareCenterLabel), nameof(PricingNote), nameof(IsFiltered)
+                         nameof(StoredCaption), nameof(ShareCenterLabel), nameof(PricingNote), nameof(IsFiltered),
+                         nameof(TotalCostValue), nameof(PreviousCost), nameof(PreviousLabel), nameof(ActivitySubtitle)
                      })
             {
                 OnPropertyChanged(name);
@@ -501,7 +559,10 @@ public sealed class ReportsViewModel : ObservableObject
         };
 
         var shareBySource = ShareIndex == 0 && SourceId is null;
-        var shares = (shareBySource
+        var byProject = ShareIndex == 2;
+        var shares = (byProject
+                ? _projectShares.Select(item => (Key: item.Key, Label: item.Key, Cost: item.Cost))
+                : shareBySource
                 ? _report.Rows.SelectMany(row => row.SourceBreakdowns).GroupBy(s => s.Source).Select(g => (Key: g.Key, Label: SourceName(g.Key), Cost: g.Sum(s => s.Totals.CostUsd)))
                 : _report.Rows.SelectMany(row => row.ModelBreakdowns).GroupBy(m => m.Model).Select(g => (Key: g.Key, Label: Fmt.Model(g.Key), Cost: g.Sum(m => m.Totals.CostUsd))))
             .OrderByDescending(item => item.Cost).ToList();
@@ -517,7 +578,7 @@ public sealed class ReportsViewModel : ObservableObject
             shareSeries.Add(new ChartSeries { Id = "other", Label = "Pozostałe", ColorKey = "ColorChartOther", Points = [shares.Skip(6).Sum(item => item.Cost)] });
         }
 
-        Share = new ChartData { Categories = ["Udział"], Series = shareSeries, Description = $"Udział {(shareBySource ? "źródeł" : "modeli")} w koszcie, {RangeText}." };
+        Share = new ChartData { Categories = ["Udział"], Series = shareSeries, Description = $"Udział {(byProject ? "projektów" : shareBySource ? "źródeł" : "modeli")} w koszcie, {RangeText}." };
         OnPropertyChanged(nameof(ShareCenterLabel));
     }
 

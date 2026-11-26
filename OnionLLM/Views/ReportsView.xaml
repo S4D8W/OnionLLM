@@ -30,7 +30,9 @@
         <ScrollView Grid.Row="2">
             <VerticalStackLayout Spacing="{DynamicResource LayoutSectionGap}">
                 <Grid x:Name="KpiGrid" ColumnDefinitions="*,*,*,*" ColumnSpacing="{DynamicResource LayoutGridGap}" RowSpacing="{DynamicResource LayoutGridGap}">
-                    <controls:StatTile Title="Koszt łącznie" Value="{Binding TotalCost}" Marker="{Binding TotalMarker}" Caption="{Binding StoredCaption}" AutomationId="Reports.Kpi.Cost" />
+                    <controls:StatTile Title="Koszt łącznie" Value="{Binding TotalCost}" Marker="{Binding TotalMarker}" Caption="{Binding StoredCaption}"
+                                       TrendCurrent="{Binding TotalCostValue}" TrendBaseline="{Binding PreviousCost}" TrendLabel="{Binding PreviousLabel}"
+                                       AutomationId="Reports.Kpi.Cost" />
                     <controls:StatTile Grid.Column="1" Title="Tokeny" Value="{Binding TotalTokens}" Caption="{Binding TotalTokensCaption}" AutomationId="Reports.Kpi.Tokens" />
                     <controls:StatTile Grid.Column="2" Title="{Binding AverageTitle}" Value="{Binding AverageCost}" AutomationId="Reports.Kpi.Average" />
                     <controls:StatTile Grid.Column="3" Title="Udział cache" Value="{Binding CacheShare}" AutomationId="Reports.Kpi.Cache" />
@@ -54,11 +56,17 @@
                             <charts:DonutChart Data="{Binding Share}" CenterLabel="{Binding ShareCenterLabel}" />
                         </charts:ChartCard.Chart>
                     </charts:ChartCard>
-                    <controls:Card x:Name="ActivityCard" Grid.Column="1" Title="Aktywność" Subtitle="Koszt dzienny · ostatnie 12 miesięcy">
+                    <controls:Card x:Name="ActivityCard" Grid.Column="1" Title="Aktywność" Subtitle="{Binding ActivitySubtitle}">
+                        <controls:Card.Actions>
+                            <controls:SegmentedControl ItemsSource="{Binding ActivityModes}" SelectedIndex="{Binding ActivityModeIndex}" IsSmall="True" Label="Widok aktywności" />
+                        </controls:Card.Actions>
                         <controls:Card.Body>
-                            <ScrollView Orientation="Horizontal">
-                                <charts:Heatmap Days="{Binding Activity}" />
-                            </ScrollView>
+                            <Grid>
+                                <ScrollView Orientation="Horizontal" IsVisible="{Binding IsCalendar}">
+                                    <charts:Heatmap Days="{Binding Activity}" />
+                                </ScrollView>
+                                <charts:HourHeatmap Values="{Binding Hourly}" IsVisible="{Binding IsHourly}" AutomationId="Reports.HourHeatmap" />
+                            </Grid>
                         </controls:Card.Body>
                     </controls:Card>
                 </Grid>

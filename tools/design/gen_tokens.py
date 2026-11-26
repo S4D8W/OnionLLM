@@ -109,6 +109,7 @@ SEMANTIC = {
     "ColorHeroDecoration": ("#14FFFFFF", "#14FFFFFF"),
     "ColorHeroHover": ("#1AFFFFFF", "#1AFFFFFF"),
     "ColorHeroPillBg": ("#1FFFFFFF", "#1FFFFFFF"),
+    "ColorHeroTrendWorse": ("#FFB4B4", "#FFB4B4"), "ColorHeroTrendBetter": ("#9FF0C4", "#9FF0C4"),
     "ColorHeroProgressWarning": ("#FFD27A", "#FFD27A"),
     "ColorHeroProgressDanger": ("#FF9A9A", "#FF9A9A"),
     "ColorStripe": ("#33FFFFFF", "#33FFFFFF"),

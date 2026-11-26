@@ -1,4 +1,5 @@
 using OnionLLM.Controls;
+using OnionLLM.Controls.Charts;
 using OnionLLM.Core.Export;
 using OnionLLM.Core.Reports;
 using OnionLLM.Navigation;
@@ -380,6 +381,46 @@ public sealed class SessionsViewModel : ObservableObject
         }
     }
 
+    /// <summary>Samples of the „Przebieg” chart (§6.4 drawer).</summary>
+    private const int TimelineSamples = 36;
+
+    /// <summary>
+    /// „Przebieg” (§6.4): cumulative cost over the session (area chart, time on the X axis). Loaded in the background
+    /// from the ledger when the drawer opens.
+    /// </summary>
+    private static View Timeline(SessionRow row)
+    {
+        var chart = new LineChart { IsArea = true, State = ChartState.Loading, AutomationId = "Sessions.Drawer.Timeline" };
+        chart.Dyn(VisualElement.HeightRequestProperty, "SizeChartAux");
+        _ = LoadAsync();
+        return chart;
+
+        async Task LoadAsync()
+        {
+            try
+            {
+                var points = await Task.Run(() => AppState.Engine.BuildSessionTimeline(row.Source, row.SessionId, row.FirstActivity, row.LastActivity));
+                var end = row.LastActivity > row.FirstActivity ? row.LastActivity : row.FirstActivity.AddMinutes(1);
+                var samples = TimeSeries.Resample(points, row.FirstActivity, end, TimelineSamples);
+                var step = (end - row.FirstActivity) / (TimelineSamples - 1);
+                var times = Enumerable.Range(0, TimelineSamples).Select(i => Fmt.ToLocal(row.FirstActivity + step * i)).ToList();
+                chart.Data = new ChartData
+                {
+                    Categories = times.Select(time => Fmt.Time(time)).ToList(),
+                    CategoryDetails = times.Select(time => Fmt.DateTimeShort(time, Fmt.NowLocal)).ToList(),
+                    Series = [new ChartSeries { Id = "cost", Label = "Koszt narastająco", ColorKey = "ColorDataCost", Points = samples }],
+                    Unit = ChartUnit.Cost,
+                    Description = $"Przebieg sesji: koszt rośnie do {Fmt.CostSpoken(row.Totals.CostUsd)} w {Fmt.Duration(row.Duration)}."
+                };
+                chart.State = points.Count == 0 ? ChartState.Error : ChartState.Ready;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+            {
+                chart.State = ChartState.Error;
+            }
+        }
+    }
+
     /// <summary>Session drawer (§6.4): KPI, tokens, models, details with copyable ID and path.</summary>
     public void OpenDetails(SessionItemViewModel? item)
     {
@@ -419,6 +460,7 @@ public sealed class SessionsViewModel : ObservableObject
                     .Select(m => new KeyValueItem(Fmt.Model(m.Model) + Fmt.Marker(m), $"{Fmt.Cost(m.Totals.CostUsd)} · {Fmt.Tokens(m.Totals.TotalTokens)}", IsNumeric: true)).ToList()
             }
         });
+        content.Children.Add(new Section { Title = "Przebieg", Body = Timeline(row) });
         var details = new List<KeyValueItem>
         {
             new("ID sesji", row.SessionId, IsMono: true, CanCopy: true),

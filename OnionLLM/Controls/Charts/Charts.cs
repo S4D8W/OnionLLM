@@ -545,6 +545,138 @@ public sealed class Heatmap : GraphicsView, IDrawable
 }
 
 /// <summary>
+/// Heatmap „Dni × godziny” (§4.8.2 F): 7 rows (weekdays from <c>StartOfWeek</c>) × 24 hours, values summed over the range;
+/// quantile colours <c>heat.0–4</c>, hour labels every 3 h, hover shows the cell value.
+/// </summary>
+public sealed class HourHeatmap : GraphicsView, IDrawable
+{
+    private static readonly string[] DayNames = ["nd", "pn", "wt", "śr", "cz", "pt", "sb"];
+
+    public static readonly BindableProperty ValuesProperty = BindableProperty.Create(
+        nameof(Values), typeof(double[,]), typeof(HourHeatmap), null, propertyChanged: (b, _, _) => ((HourHeatmap)b).Update());
+
+    private (int Day, int Hour) _hover = (-1, -1);
+
+    public HourHeatmap()
+    {
+        Drawable = this;
+        HeightRequest = Ui.D("SizeChartAux");
+        ThemeService.ThemeChanged += (_, _) => Invalidate();
+        StartHoverInteraction += (_, e) => HoverAt(e.Touches.FirstOrDefault());
+        MoveHoverInteraction += (_, e) => HoverAt(e.Touches.FirstOrDefault());
+        EndHoverInteraction += (_, _) => { _hover = (-1, -1); Invalidate(); };
+    }
+
+    /// <summary>Cost per [DayOfWeek, hour] (0 = Sunday).</summary>
+    public double[,]? Values { get => (double[,]?)GetValue(ValuesProperty); set => SetValue(ValuesProperty, value); }
+
+    private float Label => (float)Ui.D("Space600");
+
+    private float Header => (float)Ui.D("Space400");
+
+    private DayOfWeek FirstDay => AppState.Config.StartOfWeek;
+
+    public void Draw(ICanvas canvas, RectF rect)
+    {
+        if (Values is not { } values || rect.Width < Label * 2 || rect.Height < Header * 2)
+        {
+            return;
+        }
+
+        var gap = (float)Ui.D("Space050");
+        var legend = (float)Ui.D("Space400");
+        var cellWidth = (rect.Width - Label) / 24 - gap;
+        var cellHeight = (rect.Height - Header - legend - gap * 2) / 7 - gap;
+        var levels = Quantiles(values);
+        canvas.FontSize = (float)Ui.D("TypeCaptionSize");
+        canvas.FontColor = DesignTokens.Color("ColorDataAxis");
+        for (var hour = 0; hour < 24; hour += 3)
+        {
+            SafeText.Draw(canvas, hour.ToString("00", System.Globalization.CultureInfo.InvariantCulture), rect.Left + Label + hour * (cellWidth + gap), rect.Top,
+                (cellWidth + gap) * 3, Header, HorizontalAlignment.Left, VerticalAlignment.Center);
+        }
+
+        for (var row = 0; row < 7; row++)
+        {
+            var day = ((int)FirstDay + row) % 7;
+            var y = rect.Top + Header + row * (cellHeight + gap);
+            canvas.FontColor = DesignTokens.Color("ColorDataAxis");
+            SafeText.Draw(canvas, DayNames[day], rect.Left, y, Label - gap, cellHeight, HorizontalAlignment.Left, VerticalAlignment.Center);
+            for (var hour = 0; hour < 24; hour++)
+            {
+                var value = values[day, hour];
+                var level = value <= 0 ? 0 : 1 + levels.Count(q => value > q);
+                var x = rect.Left + Label + hour * (cellWidth + gap);
+                canvas.FillColor = DesignTokens.Color("ColorHeat" + Math.Min(4, level));
+                canvas.FillRoundedRectangle(x, y, cellWidth, cellHeight, (float)Ui.D("RadiusXs") / 2);
+                if (_hover == (day, hour))
+                {
+                    canvas.StrokeColor = DesignTokens.Color("ColorBorderFocus");
+                    canvas.StrokeSize = (float)Ui.D("StrokeDefault");
+                    canvas.DrawRoundedRectangle(x, y, cellWidth, cellHeight, (float)Ui.D("RadiusXs") / 2);
+                }
+            }
+        }
+
+        var legendY = rect.Bottom - legend;
+        canvas.FontColor = DesignTokens.Color("ColorTextTertiary");
+        if (_hover.Day >= 0)
+        {
+            var text = $"{DayNames[_hover.Day]} {_hover.Hour:00}:00–{(_hover.Hour + 1) % 24:00}:00 · {new ChartData().Format(values[_hover.Day, _hover.Hour])}";
+            canvas.FontColor = DesignTokens.Color("ColorTextPrimary");
+            SafeText.Draw(canvas, text, rect.Left, legendY, rect.Width, legend, HorizontalAlignment.Right, VerticalAlignment.Center);
+        }
+        else
+        {
+            SafeText.Draw(canvas, "Kolor = koszt w danej godzinie (suma z zakresu)", rect.Left + Label, legendY, rect.Width - Label, legend, HorizontalAlignment.Left, VerticalAlignment.Center);
+        }
+    }
+
+    private static double[] Quantiles(double[,] values)
+    {
+        var list = values.Cast<double>().Where(value => value > 0).OrderBy(value => value).ToList();
+        return list.Count == 0 ? [] : [list[list.Count / 4], list[list.Count / 2], list[list.Count * 3 / 4]];
+    }
+
+    private void Update()
+    {
+        Invalidate();
+        if (Values is not { } values)
+        {
+            return;
+        }
+
+        var best = (Day: 0, Hour: 0, Value: 0d);
+        for (var day = 0; day < 7; day++)
+        {
+            for (var hour = 0; hour < 24; hour++)
+            {
+                if (values[day, hour] > best.Value)
+                {
+                    best = (day, hour, values[day, hour]);
+                }
+            }
+        }
+
+        SemanticProperties.SetDescription(this, best.Value > 0
+            ? $"Rozkład kosztu według dnia tygodnia i godziny. Najwięcej: {DayNames[best.Day]} {best.Hour}:00, {new ChartData().Format(best.Value)}."
+            : "Brak danych w wybranym zakresie.");
+    }
+
+    private void HoverAt(PointF point)
+    {
+        var gap = (float)Ui.D("Space050");
+        var legend = (float)Ui.D("Space400");
+        var cellWidth = ((float)Width - Label) / 24;
+        var cellHeight = ((float)Height - Header - legend - gap * 2) / 7;
+        var column = (int)((point.X - Label) / cellWidth);
+        var row = (int)((point.Y - Header) / cellHeight);
+        _hover = column is >= 0 and < 24 && row is >= 0 and < 7 && point.X >= Label ? (((int)FirstDay + row) % 7, column) : (-1, -1);
+        Invalidate();
+    }
+}
+
+/// <summary>
 /// 5-hour block timeline (§4.8.2 H): track, cumulative cost area in the Claude colour, „teraz” line, dashed projection
 /// to the end of the block, optional limit line. Mini variant (24 dp) for table cells.
 /// </summary>

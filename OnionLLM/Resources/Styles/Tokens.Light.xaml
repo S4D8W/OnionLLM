@@ -70,6 +70,8 @@
     <Color x:Key="ColorHeroDecoration">#14FFFFFF</Color>
     <Color x:Key="ColorHeroHover">#1AFFFFFF</Color>
     <Color x:Key="ColorHeroPillBg">#1FFFFFFF</Color>
+    <Color x:Key="ColorHeroTrendWorse">#FFB4B4</Color>
+    <Color x:Key="ColorHeroTrendBetter">#9FF0C4</Color>
     <Color x:Key="ColorHeroProgressWarning">#FFD27A</Color>
     <Color x:Key="ColorHeroProgressDanger">#FF9A9A</Color>
     <Color x:Key="ColorStripe">#33FFFFFF</Color>
@@ -157,6 +159,8 @@
     <SolidColorBrush x:Key="ColorHeroDecorationBrush" Color="#14FFFFFF" />
     <SolidColorBrush x:Key="ColorHeroHoverBrush" Color="#1AFFFFFF" />
     <SolidColorBrush x:Key="ColorHeroPillBgBrush" Color="#1FFFFFFF" />
+    <SolidColorBrush x:Key="ColorHeroTrendWorseBrush" Color="#FFB4B4" />
+    <SolidColorBrush x:Key="ColorHeroTrendBetterBrush" Color="#9FF0C4" />
     <SolidColorBrush x:Key="ColorHeroProgressWarningBrush" Color="#FFD27A" />
     <SolidColorBrush x:Key="ColorHeroProgressDangerBrush" Color="#FF9A9A" />
     <SolidColorBrush x:Key="ColorStripeBrush" Color="#33FFFFFF" />

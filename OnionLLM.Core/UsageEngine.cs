@@ -39,6 +39,15 @@ public sealed record DashboardSnapshot
     public SessionBlock? ActiveBlock { get; init; }
     public long? BlockTokenLimit { get; init; }
     public DateTimeOffset GeneratedAt { get; init; }
+
+    /// <summary>Koszt dzienny z 30 dni (od najstarszego; ostatni = dziś) — sparkline KPI i porównania na „Dziś”.</summary>
+    public IReadOnlyList<double> DailyCost { get; init; } = [];
+
+    /// <summary>Koszt wczoraj (TrendDelta „vs wczoraj”); null bez serii.</summary>
+    public double? YesterdayCost => DailyCost.Count >= 2 ? DailyCost[^2] : null;
+
+    /// <summary>Średni koszt dzienny 7 dni przed dziś (TrendDelta „vs średnia 7 dni”); null bez serii.</summary>
+    public double? Average7DaysCost => DailyCost.Count >= 8 ? DailyCost.Skip(DailyCost.Count - 8).Take(7).Average() : null;
     public PricingOrigin PricingOrigin { get; init; }
     public SyncReport? Sync { get; init; }
 }
@@ -243,6 +252,52 @@ public sealed class UsageEngine : IDisposable
         return reports.Build(LoadEntries(fromMs, toMs, query.Sources), period, query, moment);
     }
 
+    /// <summary>Heatmapa „dni × godziny” (Raporty): rozkład kosztu w zakresie zapytania.</summary>
+    public HourlyReport BuildHourly(ReportQuery query, DateTimeOffset? now = null)
+    {
+        var reports = Reports;
+        var moment = now ?? DateTimeOffset.Now;
+        var (from, to) = reports.ResolveRange(query, ReportPeriod.Daily, moment);
+        var (fromMs, toMs) = reports.ToUtcRange(from?.AddDays(-1), to?.AddDays(1));
+        var entries = reports.Filter(LoadEntries(fromMs, toMs, query.Sources), query, from, to);
+        return TimeSeries.Hourly(entries, reports.Calculator, reports.TimeZone, from, to);
+    }
+
+    /// <summary>Przebieg sesji (drawer sesji): koszt i tokeny narastająco, punkt na wpis.</summary>
+    public IReadOnlyList<CumulativePoint> BuildSessionTimeline(string source, string sessionId, DateTimeOffset firstActivity, DateTimeOffset lastActivity)
+    {
+        var entries = LoadEntries(firstActivity.ToUnixTimeMilliseconds(), lastActivity.ToUnixTimeMilliseconds() + 1, [source])
+            .Where(entry => entry.SessionId.Equals(sessionId, StringComparison.OrdinalIgnoreCase));
+        return TimeSeries.Cumulative(entries, Reports.Calculator);
+    }
+
+    /// <summary>Szczegóły bloku Claude (drawer bloku, oś bloku): koszt narastający i sesje w bloku.</summary>
+    public BlockDetails BuildBlockDetails(SessionBlock block)
+    {
+        var entries = LoadEntries(block.Start.ToUnixTimeMilliseconds(), block.End.ToUnixTimeMilliseconds(), [ClaudeSource.SourceId]);
+        return TimeSeries.Block(entries, Reports.Calculator);
+    }
+
+    /// <summary>Szczegóły wielu bloków jednym odczytem ledgera (tabela Bloków: mini-osie). Klucz = <see cref="SessionBlock.Id"/>.</summary>
+    public IReadOnlyDictionary<string, BlockDetails> BuildBlocksDetails(IReadOnlyCollection<SessionBlock> blocks)
+    {
+        var real = blocks.Where(block => !block.IsGap).ToList();
+        if (real.Count == 0)
+        {
+            return new Dictionary<string, BlockDetails>();
+        }
+
+        var entries = LoadEntries(real.Min(block => block.Start).ToUnixTimeMilliseconds(), real.Max(block => block.End).ToUnixTimeMilliseconds(),
+            [ClaudeSource.SourceId]);
+        var calculator = Reports.Calculator;
+        return real.ToDictionary(block => block.Id, block =>
+        {
+            var from = block.Start.ToUnixTimeMilliseconds();
+            var to = block.End.ToUnixTimeMilliseconds();
+            return TimeSeries.Block(entries.Where(entry => entry.TimestampMs >= from && entry.TimestampMs < to), calculator);
+        });
+    }
+
     public SessionReport BuildSessions(ReportQuery query, string? sessionId = null, DateTimeOffset? now = null)
     {
         var reports = Reports;
@@ -294,6 +349,7 @@ public sealed class UsageEngine : IDisposable
         var totalsToday = new TokenCounts();
         var totals7 = new TokenCounts();
         var totals30 = new TokenCounts();
+        var daily = new double[30];
         var perSource = new Dictionary<string, (TokenCounts Today, TokenCounts Week, TokenCounts Month, Dictionary<string, long> Models,
             Dictionary<string, long> SessionLast, bool Unpriced, bool Estimated)>(StringComparer.OrdinalIgnoreCase);
 
@@ -307,6 +363,12 @@ public sealed class UsageEngine : IDisposable
 
             var cost = calculator.Calculate(entry);
             var date = reports.LocalDate(entry.TimestampMs);
+            var dayIndex = date.DayNumber - from30.DayNumber;
+            if (dayIndex is >= 0 and < 30)
+            {
+                daily[dayIndex] += cost.CostUsd;
+            }
+
             data.Month.Add(entry, cost);
             totals30.Add(entry, cost);
             if (date >= from7)
@@ -381,6 +443,7 @@ public sealed class UsageEngine : IDisposable
             ActiveBlock = blocks.Active,
             BlockTokenLimit = blockLimit,
             GeneratedAt = moment,
+            DailyCost = daily,
             PricingOrigin = Pricing.Origin,
             Sync = LastSync
         };

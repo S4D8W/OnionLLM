@@ -109,6 +109,45 @@ internal static class DebugSelfTest
         var top = ElementTree.Find<Controls.Charts.HorizontalBarChart>(shell.Navigation.CurrentView).FirstOrDefault();
         Check(top is not null && top.Data.Categories.Count > 0, $"Top projekty chart has {top?.Data.Categories.Count ?? 0} rows");
 
+        // Data layer (Faza 12.5 pkt 2): trends, hourly heatmap, project shares, block and session series.
+        await shell.NavigateAsync(Screen.Reports);
+        await Task.Delay(TimeSpan.FromSeconds(4));
+        var reportsVm = (ViewModels.ReportsViewModel)shell.Navigation.CurrentView!.BindingContext;
+        Check(reportsVm.Hourly is not null, "Raporty: hourly heatmap data");
+        Diagnostics.Trace($"ui: previous range cost {reportsVm.PreviousCost} ({reportsVm.PreviousLabel}), total {reportsVm.TotalCostValue}");
+        reportsVm.ShareIndex = 2;
+        await Task.Delay(TimeSpan.FromMilliseconds(300));
+        Check(reportsVm.Share.Series.Count > 0, $"Raporty: project share has {reportsVm.Share.Series.Count} series");
+        reportsVm.ShareIndex = 0;
+        reportsVm.ActivityModeIndex = 1;
+        await Task.Delay(TimeSpan.FromMilliseconds(300));
+        Check(ElementTree.FirstVisible<Controls.Charts.HourHeatmap>(shell.Navigation.CurrentView) is not null, "Raporty: days × hours view visible");
+        reportsVm.ActivityModeIndex = 0;
+
+        await shell.NavigateAsync(Screen.Blocks);
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        var blockRows = ((ViewModels.BlocksViewModel)shell.Navigation.CurrentView!.BindingContext).Blocks.Where(block => !block.IsGap).ToList();
+        Check(blockRows.Count == 0 || blockRows[0].Series.Count > 2, $"Bloki: timeline samples {blockRows.FirstOrDefault()?.Series.Count ?? 0}, sessions {blockRows.FirstOrDefault()?.Details?.Sessions.Count ?? 0}");
+
+        await shell.NavigateAsync(Screen.Today);
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        var todayVm = (ViewModels.MainViewModel)shell.Navigation.CurrentView!.BindingContext;
+        Diagnostics.Trace($"ui: today yesterday {todayVm.YesterdayCost:0.00}, avg7 {todayVm.WeekAverageCost:0.00}, week series {todayVm.WeekSeries.Count}, block samples {todayVm.BlockSeries.Count}");
+        Check(todayVm.MonthSeries.Count == 30, "Dziś: 30-day series");
+
+        await shell.NavigateAsync(Screen.Sessions);
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        var sessionsVm = (ViewModels.SessionsViewModel)shell.Navigation.CurrentView!.BindingContext;
+        if (sessionsVm.Sessions.FirstOrDefault() is { } firstSession)
+        {
+            sessionsVm.OpenDetails(firstSession);
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            var timeline = DrawerService.Current?.Content is { } drawerContent ? ElementTree.Find<Controls.Charts.LineChart>(drawerContent).FirstOrDefault() : null;
+            Check(timeline?.State == Controls.Charts.ChartState.Ready && timeline.Data.Series[0].Points.Count > 1, $"Sesje: timeline {timeline?.State}");
+            Diagnostics.Trace($"ui: active sessions {sessionsVm.Sessions.Count(item => item.IsActive)}");
+            DrawerService.Close();
+        }
+
         Diagnostics.Trace($"ui selftest done: {failures} failures");
     }
 

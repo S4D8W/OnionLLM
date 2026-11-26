@@ -155,6 +155,27 @@ public sealed class StatTile : Card
     public static readonly BindableProperty IsLoadingProperty = BindableProperty.Create(
         nameof(IsLoading), typeof(bool), typeof(StatTile), false, propertyChanged: (b, _, _) => ((StatTile)b).Update());
 
+    /// <summary>§4.3.2 context row: TrendDelta of <see cref="TrendCurrent"/> against <see cref="TrendBaseline"/>.</summary>
+    public static readonly BindableProperty TrendBaselineProperty = BindableProperty.Create(
+        nameof(TrendBaseline), typeof(double), typeof(StatTile), double.NaN, propertyChanged: (b, _, v) => ((StatTile)b)._trend.Baseline = (double)v);
+
+    public static readonly BindableProperty TrendCurrentProperty = BindableProperty.Create(
+        nameof(TrendCurrent), typeof(double), typeof(StatTile), 0d, propertyChanged: (b, _, v) => ((StatTile)b)._trend.Current = (double)v);
+
+    public static readonly BindableProperty TrendLabelProperty = BindableProperty.Create(
+        nameof(TrendLabel), typeof(string), typeof(StatTile), string.Empty, propertyChanged: (b, _, v) => ((StatTile)b)._trend.Comparison = (string)v);
+
+    /// <summary>Optional sparkline at the bottom of the tile (§4.3.2).</summary>
+    public static readonly BindableProperty SparklineProperty = BindableProperty.Create(
+        nameof(Sparkline), typeof(IReadOnlyList<double>), typeof(StatTile), null, propertyChanged: (b, _, v) =>
+        {
+            var tile = (StatTile)b;
+            tile._spark.Points = v as IReadOnlyList<double> ?? [];
+            tile._spark.IsVisible = v is IReadOnlyList<double> { Count: > 1 };
+        });
+
+    private readonly TrendDelta _trend = new();
+    private readonly Charts.Sparkline _spark = new() { ColorKey = "ColorDataCost", IsVisible = false };
     private readonly Label _value = Ui.Text("Text.MetricLg");
     private readonly Label _caption = Ui.Text("Text.Caption");
     private readonly VerticalStackLayout _extra = [];
@@ -168,7 +189,7 @@ public sealed class StatTile : Card
         Body = new VerticalStackLayout
         {
             Spacing = Ui.D("Space100"),
-            Children = { _value, _skeleton, _caption, _extra }
+            Children = { _value, _skeleton, _trend, _caption, _extra, _spark }
         };
         Update();
     }
@@ -181,6 +202,14 @@ public sealed class StatTile : Card
     public string Caption { get => (string)GetValue(CaptionProperty); set => SetValue(CaptionProperty, value); }
 
     public bool IsLoading { get => (bool)GetValue(IsLoadingProperty); set => SetValue(IsLoadingProperty, value); }
+
+    public double TrendBaseline { get => (double)GetValue(TrendBaselineProperty); set => SetValue(TrendBaselineProperty, value); }
+
+    public double TrendCurrent { get => (double)GetValue(TrendCurrentProperty); set => SetValue(TrendCurrentProperty, value); }
+
+    public string TrendLabel { get => (string)GetValue(TrendLabelProperty); set => SetValue(TrendLabelProperty, value); }
+
+    public IReadOnlyList<double>? Sparkline { get => (IReadOnlyList<double>?)GetValue(SparklineProperty); set => SetValue(SparklineProperty, value); }
 
     /// <summary>Optional extra content below the caption (e.g. a small TokenBreakdown or a link).</summary>
     public View? Extra
@@ -216,6 +245,104 @@ public sealed class StatTile : Card
     }
 }
 
+/// <summary>Meaning of a change for <see cref="TrendDelta"/> colours (§4.3.4: colour follows meaning, not direction).</summary>
+public enum TrendMeaning
+{
+    /// <summary>Cost, tokens: growth = warning, drop = success.</summary>
+    HigherIsWorse,
+
+    /// <summary>Cache share: growth = success.</summary>
+    HigherIsBetter
+}
+
+/// <summary>
+/// Trend (§4.3.4): arrow + percent change against a baseline, coloured by meaning; under 2% „bez zmian” (tertiary);
+/// no baseline (missing or 0) → not rendered. <c>OnHero</c>: hero text in a pill, meaning colour only on the icon.
+/// </summary>
+public sealed class TrendDelta : HorizontalStackLayout
+{
+    public static readonly BindableProperty CurrentProperty = Prop(nameof(Current), typeof(double), 0d);
+    public static readonly BindableProperty BaselineProperty = Prop(nameof(Baseline), typeof(double), double.NaN);
+    public static readonly BindableProperty ComparisonProperty = Prop(nameof(Comparison), typeof(string), string.Empty);
+    public static readonly BindableProperty MeaningProperty = Prop(nameof(Meaning), typeof(TrendMeaning), TrendMeaning.HigherIsWorse);
+    public static readonly BindableProperty OnHeroProperty = Prop(nameof(OnHero), typeof(bool), false);
+
+    private const double NeutralBand = 2;
+
+    private readonly Label _icon = Ui.Icon(string.Empty, "Text.Icon.Xs");
+    private readonly Label _value = new Label { FontFamily = "NumMedium" }.Styled("Text.Label");
+    private readonly Label _comparison = Ui.Text("Text.Caption");
+    private readonly Border _pill = new() { StrokeThickness = 0 };
+
+    public TrendDelta()
+    {
+        Spacing = Ui.D("Space150");
+        _icon.VerticalOptions = _value.VerticalOptions = _comparison.VerticalOptions = LayoutOptions.Center;
+        _pill.StrokeShape = Ui.Corner("RadiusFull");
+        _pill.Content = new HorizontalStackLayout { Spacing = Ui.D("Space100"), Children = { _icon, _value } };
+        Children.Add(_pill);
+        Children.Add(_comparison);
+        Update();
+    }
+
+    public double Current { get => (double)GetValue(CurrentProperty); set => SetValue(CurrentProperty, value); }
+
+    /// <summary>Value compared against; NaN or ≤ 0 hides the trend (no „∞%”).</summary>
+    public double Baseline { get => (double)GetValue(BaselineProperty); set => SetValue(BaselineProperty, value); }
+
+    /// <summary>„vs wczoraj”, „vs średnia 7 dni”, „vs poprzednie 30 dni”.</summary>
+    public string Comparison { get => (string)GetValue(ComparisonProperty); set => SetValue(ComparisonProperty, value); }
+
+    public TrendMeaning Meaning { get => (TrendMeaning)GetValue(MeaningProperty); set => SetValue(MeaningProperty, value); }
+
+    public bool OnHero { get => (bool)GetValue(OnHeroProperty); set => SetValue(OnHeroProperty, value); }
+
+    /// <summary>True when there is a baseline to compare with (the control is shown).</summary>
+    public bool HasBaseline => !double.IsNaN(Baseline) && Baseline > 0;
+
+    private static BindableProperty Prop(string name, Type type, object fallback) =>
+        BindableProperty.Create(name, type, typeof(TrendDelta), fallback, propertyChanged: (b, _, _) => ((TrendDelta)b).Update());
+
+    private void Update()
+    {
+        IsVisible = HasBaseline;
+        if (!HasBaseline)
+        {
+            return;
+        }
+
+        var change = (Current - Baseline) / Baseline * 100;
+        var neutral = Math.Abs(change) < NeutralBand;
+        var worse = Meaning == TrendMeaning.HigherIsWorse ? change > 0 : change < 0;
+        _icon.Text = neutral ? Icons.Minus : change > 0 ? Icons.TrendingUp : Icons.TrendingDown;
+        _value.Text = neutral ? "bez zmian" : (change > 0 ? "+" : "−") + Fmt.Percent(Math.Abs(change));
+        _comparison.Text = Comparison;
+        _comparison.IsVisible = Comparison.Length > 0;
+
+        if (OnHero)
+        {
+            _pill.Padding = Ui.Thick("PaddingBadge");
+            _pill.Dyn(BackgroundColorProperty, "ColorHeroPillBg");
+            _value.Dyn(Label.TextColorProperty, "ColorHeroText");
+            _comparison.Dyn(Label.TextColorProperty, "ColorHeroTextSecondary");
+            _icon.Dyn(Label.TextColorProperty, neutral ? "ColorHeroTextSecondary" : worse ? "ColorHeroTrendWorse" : "ColorHeroTrendBetter");
+        }
+        else
+        {
+            var key = neutral ? "ColorTextTertiary" : worse ? "ColorStatusWarning" : "ColorStatusSuccess";
+            _pill.Padding = Ui.Thick("ThicknessZero");
+            _pill.Dyn(BackgroundColorProperty, "ColorTransparent");
+            _icon.Dyn(Label.TextColorProperty, key);
+            _value.Dyn(Label.TextColorProperty, key);
+            _comparison.Dyn(Label.TextColorProperty, "ColorTextTertiary");
+        }
+
+        var amount = Fmt.Percent(Math.Abs(change)).Replace("%", " procent", StringComparison.Ordinal);
+        var spoken = neutral ? "bez zmian" : $"{(change > 0 ? "wzrost" : "spadek")} o {amount}";
+        SemanticProperties.SetDescription(this, $"{spoken} {Comparison.Replace("vs ", "względem ", StringComparison.Ordinal)}".Trim());
+    }
+}
+
 /// <summary>Hero number of „Dziś” (§4.3.3) on the gradient card: overline with freshness dot · display · caption.</summary>
 public sealed class HeroMetric : VerticalStackLayout
 {
@@ -223,7 +350,20 @@ public sealed class HeroMetric : VerticalStackLayout
         nameof(Overline), typeof(string), typeof(HeroMetric), "Dziś", propertyChanged: (b, _, v) => ((HeroMetric)b)._overline.Text = (string)v);
 
     public static readonly BindableProperty ValueProperty = BindableProperty.Create(
-        nameof(Value), typeof(double), typeof(HeroMetric), double.NaN, propertyChanged: (b, _, v) => ((HeroMetric)b)._number.Value = (double)v);
+        nameof(Value), typeof(double), typeof(HeroMetric), double.NaN, propertyChanged: (b, _, v) =>
+        {
+            var hero = (HeroMetric)b;
+            hero._number.Value = (double)v;
+            hero._yesterday.Current = hero._week.Current = (double)v;
+        });
+
+    /// <summary>Cost yesterday — TrendDelta „vs wczoraj” (§6.1); NaN or 0 hides it.</summary>
+    public static readonly BindableProperty YesterdayProperty = BindableProperty.Create(
+        nameof(Yesterday), typeof(double), typeof(HeroMetric), double.NaN, propertyChanged: (b, _, v) => ((HeroMetric)b)._yesterday.Baseline = (double)v);
+
+    /// <summary>Average daily cost of the 7 days before today — TrendDelta „vs średnia 7 dni”.</summary>
+    public static readonly BindableProperty WeekAverageProperty = BindableProperty.Create(
+        nameof(WeekAverage), typeof(double), typeof(HeroMetric), double.NaN, propertyChanged: (b, _, v) => ((HeroMetric)b)._week.Baseline = (double)v);
 
     public static readonly BindableProperty MarkerProperty = BindableProperty.Create(
         nameof(Marker), typeof(string), typeof(HeroMetric), string.Empty, propertyChanged: (b, _, v) => ((HeroMetric)b)._number.Marker = (string)v);
@@ -239,6 +379,8 @@ public sealed class HeroMetric : VerticalStackLayout
     private readonly Border _dot = Ui.Dot("ColorStatusSuccess", "SizeHeroDot");
     private readonly MetricLabel _number = new() { Size = MetricSize.Display, OnHero = true, AutomationId = "Today.HeroCost" };
     private readonly Label _caption = Ui.Text("Text.Hero.Body");
+    private readonly TrendDelta _yesterday = new() { OnHero = true, Comparison = "vs wczoraj" };
+    private readonly TrendDelta _week = new() { OnHero = true, Comparison = "vs średnia 7 dni" };
 
     public HeroMetric()
     {
@@ -246,7 +388,13 @@ public sealed class HeroMetric : VerticalStackLayout
         Children.Add(new HorizontalStackLayout { Spacing = Ui.D("Space150"), Children = { _dot, _overline } });
         Children.Add(_number);
         Children.Add(_caption);
+        _yesterday.Margin = _week.Margin = new Thickness(0, 0, Ui.D("Space300"), Ui.D("Space100"));
+        Children.Add(new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap, Children = { _yesterday, _week } });
     }
+
+    public double Yesterday { get => (double)GetValue(YesterdayProperty); set => SetValue(YesterdayProperty, value); }
+
+    public double WeekAverage { get => (double)GetValue(WeekAverageProperty); set => SetValue(WeekAverageProperty, value); }
 
     public string Overline { get => (string)GetValue(OverlineProperty); set => SetValue(OverlineProperty, value); }
 
