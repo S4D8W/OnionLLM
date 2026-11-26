@@ -31,8 +31,10 @@
                                                VerticalOptions="Start" AutomationId="Limits.Rings" />
                             <VerticalStackLayout x:Name="Gauges" Grid.Column="1" Spacing="{StaticResource Space600}">
                                 <controls:LimitGauge Title="Limit 5-godzinny" Percent="{Binding FiveHour}" ResetText="{Binding FiveHourReset}"
+                                                     ProjectionText="{Binding FiveHourForecast}"
                                                      State="{Binding LimitState}" LiveTooltip="{Binding LiveTooltip}" AutomationId="Limits.FiveHour" />
                                 <controls:LimitGauge Title="Limit 7-dniowy" Percent="{Binding SevenDay}" ResetText="{Binding SevenDayReset}"
+                                                     ProjectionText="{Binding SevenDayForecast}"
                                                      State="{Binding LimitState}" LiveTooltip="{Binding LiveTooltip}" AutomationId="Limits.SevenDay" />
                                 <VerticalStackLayout Spacing="{StaticResource Space200}" IsVisible="{Binding HasActiveBlock}">
                                     <controls:LimitGauge Title="Aktywny blok" Percent="{Binding BlockPercent}" ResetText="{Binding BlockReset}"
@@ -43,6 +45,33 @@
                                 </VerticalStackLayout>
                             </VerticalStackLayout>
                         </Grid>
+                    </controls:Section.Body>
+                </controls:Section>
+
+                <!-- §6.2 pkt 3: usage history from the recorded limit readings (7 days, thresholds 80/100%). -->
+                <charts:ChartCard Title="Historia wykorzystania" Subtitle="Ostatnie 7 dni · odczyty co 5 min" IsVisible="{Binding HasClaude}" LegendStateKey="limits.history">
+                    <charts:ChartCard.Chart>
+                        <charts:LineChart Data="{Binding History}" AutomationId="Limits.History" />
+                    </charts:ChartCard.Chart>
+                </charts:ChartCard>
+
+                <!-- §6.2 pkt 4: budgets (§5.9) computed locally from the logs. -->
+                <controls:Section Title="Budżety" Description="Koszt z logów względem budżetów z Ustawień">
+                    <controls:Section.Actions>
+                        <Button Style="{StaticResource Button.Link}" Text="Zmień" Command="{Binding OpenBudgetSettingsCommand}" IsVisible="{Binding HasBudgets}" />
+                    </controls:Section.Actions>
+                    <controls:Section.Body>
+                        <VerticalStackLayout Spacing="{StaticResource Space600}">
+                            <controls:EmptyState Variant="Inline" IsVisible="{Binding HasNoBudgets}" Glyph="{x:Static res:Icons.Wallet}"
+                                                 Title="Nie ustawiono budżetów" ActionText="Ustaw budżet" ActionCommand="{Binding OpenBudgetSettingsCommand}" />
+                            <controls:LimitGauge Title="Budżet dzienny" Percent="{Binding DailyBudgetPercent}" ResetText="{Binding DailyBudgetText}"
+                                                 State="Local" IsVisible="{Binding HasDailyBudget}" AutomationId="Limits.DailyBudget" />
+                            <controls:LimitGauge Title="Budżet miesięczny" Percent="{Binding MonthlyBudgetPercent}" ResetText="{Binding MonthlyBudgetText}"
+                                                 ProjectionText="{Binding MonthlyForecastText}" State="Local" IsVisible="{Binding HasMonthlyBudget}"
+                                                 AutomationId="Limits.MonthlyBudget" />
+                            <controls:DataTable x:Name="BudgetTable" ItemsSource="{Binding SourceBudgets}" IsVisible="{Binding HasSourceBudgets}"
+                                                AutomationPrefix="Limits.Budgets" />
+                        </VerticalStackLayout>
                     </controls:Section.Body>
                 </controls:Section>
 

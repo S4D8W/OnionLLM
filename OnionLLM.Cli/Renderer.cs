@@ -358,12 +358,7 @@ internal static class Renderer
         Console.WriteLine();
     }
 
-    public static string LevelText(BurnRateLevel level) => level switch
-    {
-        BurnRateLevel.High => "wysokie",
-        BurnRateLevel.Moderate => "umiarkowane",
-        _ => "normalne"
-    };
+    public static string LevelText(BurnRateLevel level) => StatuslineComposer.LevelText(level);
 
     private static IEnumerable<string> Counts(TokenCounts totals, bool includeCost, bool compact, string marker = "")
     {

@@ -148,6 +148,41 @@ internal static class DebugSelfTest
             DrawerService.Close();
         }
 
+        // Budgets, currency, statusline preview, limit history (Faza 12.5 pkt 2c). The config is swapped in memory only.
+        var original = AppState.Config;
+        var trial = original.Clone();
+        trial.Budgets.DailyUsd = 1;
+        trial.Budgets.MonthlyUsd = 10;
+        trial.Budgets.PerSource["claude"] = new Core.Config.SourceBudget { DailyUsd = 1 };
+        AppState.Engine.UpdateConfig(trial);
+        try
+        {
+            await AppState.RefreshDataAsync(force: true);
+            Check(AppState.Budgets?.HasAny == true, $"budgets evaluated: peak {AppState.Budgets?.PeakPercent:0}%");
+            await shell.NavigateAsync(Screen.Limits);
+            await Task.Delay(TimeSpan.FromSeconds(3));
+            var limitsVm = (ViewModels.LimitsViewModel)shell.Navigation.CurrentView!.BindingContext;
+            await limitsVm.RefreshAsync();
+            Check(limitsVm.HasBudgets && limitsVm.SourceBudgets.Count == 1, $"Limity: budgets section ({limitsVm.MonthlyForecastText})");
+            Diagnostics.Trace($"ui: limit history {limitsVm.HasHistory}, forecast „{limitsVm.FiveHourForecast}”");
+        }
+        finally
+        {
+            AppState.Engine.UpdateConfig(original);
+            await AppState.RefreshDataAsync();
+        }
+
+        var currencyTrial = original.Clone();
+        currencyTrial.Currency.Display = "PLN";
+        var nbp = await Core.Pricing.ExchangeRates.FetchNbpAsync(currencyTrial);
+        Diagnostics.Trace($"ui: NBP rate {(nbp is null ? "unavailable (offline?)" : $"{nbp.Rate} from {nbp.Date}")}");
+        ViewModels.Fmt.Currency = new ViewModels.DisplayCurrency("PLN", nbp?.Rate ?? 4, nbp?.Date);
+        Check(ViewModels.Fmt.Cost(10).Contains("zł", StringComparison.Ordinal), $"currency: {ViewModels.Fmt.Cost(10)}");
+        ViewModels.Fmt.Currency = ViewModels.DisplayCurrency.Usd;
+
+        var statusline = await ViewModels.StatuslinePreview.RenderAsync(string.Empty);
+        Check(statusline.Length > 0, "statusline preview: " + statusline);
+
         Diagnostics.Trace($"ui selftest done: {failures} failures");
     }
 
@@ -240,9 +275,21 @@ internal static class DebugSelfTest
         var children = page?.RootChildCount ?? -1;
         var target = Design.ThemeService.EffectiveTheme == AppTheme.Dark ? Core.Config.ThemePreference.Light : Core.Config.ThemePreference.Dark;
         Design.ThemeService.Apply(target);
-        await Task.Delay(TimeSpan.FromMilliseconds(1200));
+        var started = DateTime.UtcNow;
+        while (page?.RootChildCount == children && DateTime.UtcNow - started < TimeSpan.FromSeconds(3))
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(20));
+        }
+
+        var appeared = DateTime.UtcNow - started;
+        while (page?.RootChildCount != children && DateTime.UtcNow - started < TimeSpan.FromSeconds(8))
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(50));
+        }
+
+        Diagnostics.Trace($"palette: snapshot after {appeared.TotalMilliseconds:0} ms, crossfade done after {(DateTime.UtcNow - started).TotalMilliseconds:0} ms");
         Check(Design.ThemeService.EffectiveTheme.ToString() == target.ToString(), "theme switched under the crossfade");
-        Check(page?.RootChildCount == children, "crossfade snapshot removed");
+        Check(page?.RootChildCount == children, $"crossfade snapshot removed ({children} → {page?.RootChildCount}: {page?.RootChildren})");
         Design.ThemeService.Apply(AppState.Config.Appearance.Theme);
         await Task.Delay(TimeSpan.FromMilliseconds(800));
 

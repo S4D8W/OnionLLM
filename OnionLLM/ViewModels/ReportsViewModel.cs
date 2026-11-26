@@ -555,6 +555,7 @@ public sealed class ReportsViewModel : ObservableObject
             Series = series,
             Unit = unit,
             LastInProgress = lastInProgress,
+            Thresholds = BudgetThresholds(unit),
             Description = $"Wykres {(series.Count > 1 ? "skumulowany " : "")}{Metrics[MetricIndex].ToLowerInvariant()} w okresach: {Periods[PeriodIndex].ToLowerInvariant()}, {RangeText}."
         };
 
@@ -580,6 +581,19 @@ public sealed class ReportsViewModel : ObservableObject
 
         Share = new ChartData { Categories = ["Udział"], Series = shareSeries, Description = $"Udział {(byProject ? "projektów" : shareBySource ? "źródeł" : "modeli")} w koszcie, {RangeText}." };
         OnPropertyChanged(nameof(ShareCenterLabel));
+    }
+
+    /// <summary>§5.9: daily / monthly budget as a line on the cost chart (days → daily, months → monthly budget).</summary>
+    private IReadOnlyList<ChartThreshold> BudgetThresholds(ChartUnit unit)
+    {
+        var budgets = AppState.Config.Budgets;
+        var amount = unit != ChartUnit.Cost ? null : Period switch
+        {
+            ReportPeriod.Daily => budgets.DailyUsd,
+            ReportPeriod.Monthly => budgets.MonthlyUsd,
+            _ => null
+        };
+        return amount is { } value ? [new ChartThreshold(value, "budżet " + Fmt.Cost(value), "ColorStatusWarning")] : [];
     }
 
     /// <summary>Click on a chart category opens the drawer of that period (§6.3 pkt 4).</summary>

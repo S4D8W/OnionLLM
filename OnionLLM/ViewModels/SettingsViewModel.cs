@@ -197,6 +197,11 @@ public sealed class SettingsViewModel : ObservableObject
     private int _densityIndex;
     private int _motionIndex;
     private bool _alwaysOnTop;
+    private string _dailyBudget = "";
+    private int _currencyIndex;
+    private bool _rateAutomatic = true;
+    private string _rate = "";
+    private string _monthlyBudget = "";
     private int _costModeIndex;
     private string _sessionLength = "5";
     private int _tokenLimitModeIndex;
@@ -327,6 +332,169 @@ public sealed class SettingsViewModel : ObservableObject
 
     public bool AlwaysOnTop { get => _alwaysOnTop; set => Field(ref _alwaysOnTop, value, "alwaysOnTop", immediate: true); }
 
+    // ===== §6.9.1 „Waluta wyświetlania” (§5.1) =====
+
+    public string[] Currencies { get; } = ["USD", "PLN", "EUR"];
+
+    public int CurrencyIndex
+    {
+        get => _currencyIndex;
+        set
+        {
+            Field(ref _currencyIndex, value, "currency", immediate: true);
+            OnPropertyChanged(nameof(IsConverted));
+            OnPropertyChanged(nameof(RateSuffix));
+        }
+    }
+
+    public bool IsConverted => CurrencyIndex > 0;
+
+    /// <summary>„Automatycznie (NBP)”: the average NBP rate, refreshed daily.</summary>
+    public bool RateAutomatic
+    {
+        get => _rateAutomatic;
+        set
+        {
+            Field(ref _rateAutomatic, value, "rate", immediate: true);
+            OnPropertyChanged(nameof(IsManualRate));
+        }
+    }
+
+    public bool IsManualRate => !RateAutomatic;
+
+    /// <summary>„1 USD = … zł”.</summary>
+    public string Rate { get => _rate; set => Field(ref _rate, value, "rate"); }
+
+    public string RateError => Error("rate");
+
+    public string RateSuffix => Currencies[Math.Clamp(CurrencyIndex, 0, 2)] switch { "PLN" => "zł", "EUR" => "€", _ => "$" };
+
+    /// <summary>„Kurs z 26.11.2026 (NBP)” / „Kurs nieaktualny (sprzed 9 dni)”.</summary>
+    public string RateInfo
+    {
+        get
+        {
+            var currency = AppState.Config.Currency;
+            if (currency.Display == "USD")
+            {
+                return "";
+            }
+
+            if (currency.ParsedRateDate is not { } date)
+            {
+                return currency.RateSource == "nbp" ? "Kurs NBP zostanie pobrany przy najbliższym odświeżeniu (wymaga internetu)." : "";
+            }
+
+            var age = DateOnly.FromDateTime(DateTime.Today).DayNumber - date.DayNumber;
+            return Design.CurrencyService.IsStale(currency)
+                ? $"Kurs nieaktualny — z {date:dd.MM.yyyy} (sprzed {Fmt.Count(age, "dnia", "dni", "dni")})."
+                : $"Kurs z {date:dd.MM.yyyy}{(currency.RateSource == "nbp" ? " (NBP)" : "")}.";
+        }
+    }
+
+    public bool IsRateStale => Design.CurrencyService.IsStale(AppState.Config.Currency) && AppState.Config.Currency.ParsedRateDate is not null;
+
+    // ===== §6.9.4 Budżety (notifications: Wymaga platformy — not rendered) =====
+
+    /// <summary>„Budżet dzienny ($)”; empty = none.</summary>
+    public string DailyBudget { get => _dailyBudget; set => Field(ref _dailyBudget, value, "dailyBudget"); }
+
+    public string MonthlyBudget { get => _monthlyBudget; set => Field(ref _monthlyBudget, value, "monthlyBudget"); }
+
+    public string DailyBudgetError => Error("dailyBudget");
+
+    public string MonthlyBudgetError => Error("monthlyBudget");
+
+    /// <summary>„Budżety per źródło” (§6.9.4).</summary>
+    public ObservableCollection<SourceBudgetRow> SourceBudgets { get; } = [];
+
+    public bool HasSourceBudgets => SourceBudgets.Count > 0;
+
+    public Command AddSourceBudgetCommand => new(async () => await EditSourceBudgetAsync(null));
+
+    public Command<SourceBudgetRow> EditSourceBudgetCommand => new(async row => await EditSourceBudgetAsync(row));
+
+    public Command<SourceBudgetRow> RemoveSourceBudgetCommand => new(row =>
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        SourceBudgets.Remove(row);
+        SaveSourceBudgets("Usunięto budżet źródła");
+    });
+
+    private async Task EditSourceBudgetAsync(SourceBudgetRow? existing)
+    {
+        var sources = AppState.Engine.Sources
+            .Where(source => existing?.Id == source.Id || SourceBudgets.All(row => row.Id != source.Id))
+            .Select(source => new ChoiceItem(source.Id, source.DisplayName)).ToList();
+        var select = new Select { ItemsSource = sources.Select(choice => choice.Name).ToList(), SelectedIndex = Math.Max(0, sources.FindIndex(choice => choice.Id == existing?.Id)) };
+        var daily = new TextField { Kind = TextFieldKind.Number, Suffix = "$", Text = existing?.Daily ?? "" };
+        var monthly = new TextField { Kind = TextFieldKind.Number, Suffix = "$", Text = existing?.Monthly ?? "" };
+        var error = Ui.Text("Text.Caption").Dyn(Label.TextColorProperty, "ColorStatusDanger");
+        var body = new VerticalStackLayout
+        {
+            Spacing = Ui.D("Space300"),
+            Children =
+            {
+                new FormRow { Label = "Źródło", Field = select },
+                new FormRow { Label = "Budżet dzienny", Field = daily, Description = "Puste = bez budżetu." },
+                new FormRow { Label = "Budżet miesięczny", Field = monthly },
+                error
+            }
+        };
+
+        bool Validate()
+        {
+            var ok = (daily.Text.Length == 0 || Amount(daily.Text) is not null) && (monthly.Text.Length == 0 || Amount(monthly.Text) is not null);
+            error.Text = !ok ? "Kwota musi być liczbą większą od zera." : daily.Text.Length == 0 && monthly.Text.Length == 0 ? "Podaj co najmniej jeden budżet." : "";
+            return error.Text.Length == 0;
+        }
+
+        if (sources.Count == 0 || !await DialogService.FormAsync(existing is null ? "Dodaj budżet źródła" : "Edytuj budżet źródła", body, existing is null ? "Dodaj" : "Zapisz", Validate))
+        {
+            return;
+        }
+
+        var choice = sources[Math.Clamp(select.SelectedIndex, 0, sources.Count - 1)];
+        var row = new SourceBudgetRow(choice.Id, choice.Name, daily.Text.Trim(), monthly.Text.Trim());
+        if (existing is null)
+        {
+            SourceBudgets.Add(row);
+        }
+        else
+        {
+            SourceBudgets[SourceBudgets.IndexOf(existing)] = row;
+        }
+
+        SaveSourceBudgets("Zapisano budżet źródła");
+    }
+
+    private void SaveSourceBudgets(string toast)
+    {
+        try
+        {
+            var config = AppState.Config.Clone();
+            config.Budgets.PerSource = SourceBudgets.ToDictionary(row => row.Id,
+                row => new SourceBudget { DailyUsd = Amount(row.Daily), MonthlyUsd = Amount(row.Monthly) }, StringComparer.OrdinalIgnoreCase);
+            AppState.SaveConfig(config);
+            ToastService.Show(toast);
+        }
+        catch (Exception exception) when (exception is ConfigException or IOException or UnauthorizedAccessException)
+        {
+            SaveError = "Nie zapisano: " + exception.Message;
+        }
+
+        OnPropertyChanged(nameof(HasSourceBudgets));
+    }
+
+    private static double? Amount(string text) =>
+        double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value > 0 ? value : null;
+
+    private static string AmountText(double? value) => value is { } amount ? amount.ToString("0.##", CultureInfo.InvariantCulture) : "";
+
     // ===== Obliczenia (§6.9.5) =====
 
     public int CostModeIndex
@@ -432,6 +600,16 @@ public sealed class SettingsViewModel : ObservableObject
             _densityIndex = (int)config.Appearance.Density;
             _motionIndex = (int)config.Appearance.Motion;
             _alwaysOnTop = config.Window.AlwaysOnTop;
+            _currencyIndex = Math.Max(0, Array.IndexOf(Currencies, config.Currency.Display));
+            _rateAutomatic = config.Currency.RateSource == "nbp";
+            _rate = config.Currency.Rate is { } rate ? rate.ToString("0.####", CultureInfo.InvariantCulture) : "";
+            _dailyBudget = AmountText(config.Budgets.DailyUsd);
+            _monthlyBudget = AmountText(config.Budgets.MonthlyUsd);
+            SourceBudgets.Clear();
+            foreach (var (id, budget) in config.Budgets.PerSource.OrderBy(pair => pair.Key))
+            {
+                SourceBudgets.Add(new SourceBudgetRow(id, AppState.Engine.FindSource(id)?.DisplayName ?? id, AmountText(budget.DailyUsd), AmountText(budget.MonthlyUsd)));
+            }
             _costModeIndex = (int)config.CostMode;
             _sessionLength = config.SessionLengthHours.ToString(CultureInfo.InvariantCulture);
             _tokenLimitModeIndex = config.IsTokenLimitDisabled ? 0
@@ -492,6 +670,10 @@ public sealed class SettingsViewModel : ObservableObject
         {
             _loading = wasLoading;
         }
+
+        // The NBP rate arrives in the background (CurrencyService) — refresh its description.
+        OnPropertyChanged(nameof(RateInfo));
+        OnPropertyChanged(nameof(IsRateStale));
     }
 
     private void Field<T>(ref T field, T value, string key, bool immediate = false, [System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
@@ -535,6 +717,24 @@ public sealed class SettingsViewModel : ObservableObject
         config.CostMode = (CostMode)Math.Clamp(CostModeIndex, 0, 2);
         config.Offline = Offline;
         config.ProjectAliases = string.IsNullOrWhiteSpace(ProjectAliases) ? null : ProjectAliases.Trim();
+
+        var display = Currencies[Math.Clamp(CurrencyIndex, 0, 2)];
+        if (display != config.Currency.Display)
+        {
+            config.Currency.Rate = null; // a rate belongs to one currency
+            config.Currency.RateDate = null;
+        }
+
+        config.Currency.Display = display;
+        config.Currency.RateSource = RateAutomatic ? "nbp" : "manual";
+        if (!RateAutomatic && display != "USD" && Number(Rate, 0.0001, 1_000_000, "rate") is { } manual)
+        {
+            config.Currency.Rate = manual;
+            config.Currency.RateDate = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+
+        config.Budgets.DailyUsd = DailyBudget.Trim().Length == 0 ? null : Number(DailyBudget, 0.01, 1_000_000, "dailyBudget") ?? config.Budgets.DailyUsd;
+        config.Budgets.MonthlyUsd = MonthlyBudget.Trim().Length == 0 ? null : Number(MonthlyBudget, 0.01, 10_000_000, "monthlyBudget") ?? config.Budgets.MonthlyUsd;
 
         if (Number(SessionLength, 1, 24, "sessionLength") is { } hours)
         {
@@ -587,6 +787,10 @@ public sealed class SettingsViewModel : ObservableObject
         {
             AppState.SaveConfig(config);
             SaveError = string.Empty;
+            if (key is "currency" or "rate")
+            {
+                _ = Design.CurrencyService.RefreshAsync(force: true);
+            }
             if (!_errors.ContainsKey(key))
             {
                 LastSaved = string.Empty;
@@ -962,4 +1166,12 @@ public sealed class SettingsViewModel : ObservableObject
 
         return builder.ToString().TrimEnd();
     }
+}
+
+/// <summary>Row of „Budżety per źródło” (§6.9.4): amounts as typed (USD), empty = none.</summary>
+public sealed record SourceBudgetRow(string Id, string Name, string Daily, string Monthly)
+{
+    public string DailyText => Daily.Length == 0 ? "—" : Daily + "\u00A0$";
+
+    public string MonthlyText => Monthly.Length == 0 ? "—" : Monthly + "\u00A0$";
 }

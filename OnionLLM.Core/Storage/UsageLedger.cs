@@ -325,6 +325,66 @@ public sealed class UsageLedger
         command.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Zapisuje odczyt limitów (historia na ekranie Limity). Niedostępne limity są pomijane; odczyt identyczny
+    /// z poprzednim i młodszy niż 15 min nie jest powielany. Odczyty starsze niż 90 dni są usuwane.
+    /// </summary>
+    public void RecordLimits(IReadOnlyDictionary<string, Limits.ProviderLimits> limits, DateTimeOffset at)
+    {
+        using var connection = Open();
+        foreach (var (provider, value) in limits.Where(pair => pair.Value.IsAvailable))
+        {
+            var five = value.FiveHourUtilization * 100;
+            var seven = value.SevenDayUtilization * 100;
+            using (var last = connection.CreateCommand())
+            {
+                last.CommandText = "SELECT ts, five_hour, seven_day FROM LimitSnapshots WHERE provider = $provider ORDER BY ts DESC LIMIT 1";
+                last.Parameters.AddWithValue("$provider", provider);
+                using var reader = last.ExecuteReader();
+                if (reader.Read() && at.ToUnixTimeMilliseconds() - reader.GetInt64(0) < 15 * 60_000 &&
+                    Math.Abs(reader.GetDouble(1) - five) < 0.01 && Math.Abs(reader.GetDouble(2) - seven) < 0.01)
+                {
+                    continue;
+                }
+            }
+
+            using var insert = connection.CreateCommand();
+            insert.CommandText = "INSERT INTO LimitSnapshots(ts, provider, five_hour, seven_day, five_reset, seven_reset) VALUES ($ts, $provider, $five, $seven, $fiveReset, $sevenReset)";
+            insert.Parameters.AddWithValue("$ts", at.ToUnixTimeMilliseconds());
+            insert.Parameters.AddWithValue("$provider", provider);
+            insert.Parameters.AddWithValue("$five", five);
+            insert.Parameters.AddWithValue("$seven", seven);
+            insert.Parameters.AddWithValue("$fiveReset", (object?)value.FiveHourReset?.ToUnixTimeMilliseconds() ?? DBNull.Value);
+            insert.Parameters.AddWithValue("$sevenReset", (object?)value.SevenDayReset?.ToUnixTimeMilliseconds() ?? DBNull.Value);
+            insert.ExecuteNonQuery();
+        }
+
+        using var prune = connection.CreateCommand();
+        prune.CommandText = "DELETE FROM LimitSnapshots WHERE ts < $cutoff";
+        prune.Parameters.AddWithValue("$cutoff", at.AddDays(-90).ToUnixTimeMilliseconds());
+        prune.ExecuteNonQuery();
+    }
+
+    /// <summary>Odczyty limitów dostawcy od <paramref name="since"/>, w kolejności czasu.</summary>
+    public IReadOnlyList<Limits.LimitSnapshot> LimitHistory(string provider, DateTimeOffset since)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT ts, five_hour, seven_day, five_reset, seven_reset FROM LimitSnapshots WHERE provider = $provider AND ts >= $since ORDER BY ts";
+        command.Parameters.AddWithValue("$provider", provider);
+        command.Parameters.AddWithValue("$since", since.ToUnixTimeMilliseconds());
+        using var reader = command.ExecuteReader();
+        var result = new List<Limits.LimitSnapshot>();
+        while (reader.Read())
+        {
+            result.Add(new Limits.LimitSnapshot(DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(0)), provider, reader.GetDouble(1), reader.GetDouble(2),
+                reader.IsDBNull(3) ? null : DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(3)),
+                reader.IsDBNull(4) ? null : DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(4))));
+        }
+
+        return result;
+    }
+
     public (int Files, long Entries) Statistics()
     {
         using var connection = Open();
@@ -514,6 +574,14 @@ public sealed class UsageLedger
             CREATE INDEX IF NOT EXISTS IX_Entries_file ON Entries(file_path);
             CREATE INDEX IF NOT EXISTS IX_Entries_source_key ON Entries(source, dedupe_key);
             CREATE INDEX IF NOT EXISTS IX_SourceFiles_source ON SourceFiles(source);
+            CREATE TABLE IF NOT EXISTS LimitSnapshots(
+                ts INTEGER NOT NULL,
+                provider TEXT NOT NULL,
+                five_hour REAL NOT NULL,
+                seven_day REAL NOT NULL,
+                five_reset INTEGER,
+                seven_reset INTEGER);
+            CREATE INDEX IF NOT EXISTS IX_LimitSnapshots_provider_ts ON LimitSnapshots(provider, ts);
             """;
         command.ExecuteNonQuery();
 

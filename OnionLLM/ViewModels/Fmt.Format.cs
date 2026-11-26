@@ -26,6 +26,9 @@ public static partial class Fmt
     private static readonly string[] MonthGenitive =
         ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września", "października", "listopada", "grudnia"];
 
+    /// <summary>Month name in the genitive („listopada”) — „koniec listopada”.</summary>
+    public static string MonthNameGenitive(int month) => MonthGenitive[month - 1];
+
     // ===== Numbers (§5.1) =====
 
     /// <summary>Compact tokens: „842”, „12,4 k”, „842 k”, „1,24 M”, „2,05 B”.</summary>
@@ -46,14 +49,29 @@ public static partial class Fmt
     /// <summary>Full number with non-breaking thousands separators: „12 412”.</summary>
     public static string Number(long value) => (value < 0 ? Minus : "") + Math.Abs(value).ToString("N0", Culture);
 
-    /// <summary>Compact cost: „0,00 $”, „0,0042 $”, „12,34 $”, „1 234 $”.</summary>
-    public static string Cost(double value) => FormatCost(value, compact: true);
+    /// <summary>
+    /// Display currency (§5.1): every cost in the UI is converted from USD and prefixed with „≈”. Model prices and
+    /// amounts typed in USD (budgets, overrides) stay in USD; export and CLI never use this.
+    /// </summary>
+    public static DisplayCurrency Currency { get; set; } = DisplayCurrency.Usd;
 
-    /// <summary>Full cost (tooltip, drawer, export): „1 234,50 $”.</summary>
-    public static string CostFull(double value) => FormatCost(value, compact: false);
+    /// <summary>Compact cost: „0,00 $”, „0,0042 $”, „12,34 $”, „1 234 $” (or „≈ 49,60 zł”).</summary>
+    public static string Cost(double value) => FormatCost(value, compact: true, Currency);
 
-    /// <summary>Price per 1 M tokens: „3,00 $ / 1 M”.</summary>
-    public static string PricePerMillion(double perToken) => CostFull(perToken * 1_000_000) + " /" + Nbsp + "1" + Nbsp + "M";
+    /// <summary>Full cost (tooltip, drawer): „1 234,50 $”.</summary>
+    public static string CostFull(double value) => FormatCost(value, compact: false, Currency);
+
+    /// <summary>Cost always in USD (prices, budgets typed in USD, tooltips of converted values).</summary>
+    public static string CostUsd(double value) => FormatCost(value, compact: false, DisplayCurrency.Usd);
+
+    /// <summary>Tooltip of a converted value: „12,34 $ · 1 USD = 3,98 zł (26.11.2026)”; empty in USD.</summary>
+    public static string CostTooltip(double usd) => Currency.IsConverted
+        ? $"{CostUsd(usd)} · 1{Nbsp}USD = {Currency.Rate.ToString("0.####", Culture)}{Nbsp}{Currency.Symbol}" +
+          (Currency.RateDate is { } date ? $" ({date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)})" : "")
+        : string.Empty;
+
+    /// <summary>Price per 1 M tokens, always in USD (§5.1): „3,00 $ / 1 M”.</summary>
+    public static string PricePerMillion(double perToken) => CostUsd(perToken * 1_000_000) + " /" + Nbsp + "1" + Nbsp + "M";
 
     /// <summary>Percent from a 0–100 value: „62%”, „4,2%”, „&lt; 0,1%”.</summary>
     public static string Percent(double percent)
@@ -232,16 +250,23 @@ public static partial class Fmt
 
     // ===== Spoken variants for screen readers (§9.3) =====
 
-    /// <summary>„12,34 dolara”, „1 dolar”, „5 dolarów”.</summary>
+    /// <summary>„12,34 dolara”, „1 dolar”, „5 dolarów”; converted: „około 49,60 złotego”, „około 11 euro”.</summary>
     public static string CostSpoken(double value)
     {
-        var rounded = Math.Round(value, 2);
+        var rounded = Math.Round(value * Currency.Rate, 2);
+        var prefix = Currency.IsConverted ? "około " : "";
+        var (one, few, many, fraction) = Currency.Code switch
+        {
+            "PLN" => ("złoty", "złote", "złotych", "złotego"),
+            "EUR" => ("euro", "euro", "euro", "euro"),
+            _ => ("dolar", "dolary", "dolarów", "dolara")
+        };
         if (rounded % 1 != 0)
         {
-            return rounded.ToString("0.00", Culture) + " dolara";
+            return prefix + rounded.ToString("0.00", Culture) + " " + fraction;
         }
 
-        return Number((long)rounded) + " " + Plural((long)rounded, "dolar", "dolary", "dolarów");
+        return prefix + Number((long)rounded) + " " + Plural((long)rounded, one, few, many);
     }
 
     /// <summary>„1,2 miliona tokenów”, „842 tysiące tokenów”, „5 tokenów”.</summary>
@@ -393,8 +418,9 @@ public static partial class Fmt
         return name.Length > max ? name[..max] + "…" : name;
     }
 
-    private static string FormatCost(double value, bool compact)
+    private static string FormatCost(double usd, bool compact, DisplayCurrency currency)
     {
+        var value = usd * currency.Rate;
         var sign = value < 0 ? Minus : "";
         var absolute = Math.Abs(value);
         var number = absolute switch
@@ -404,7 +430,7 @@ public static partial class Fmt
             < 1000 => absolute.ToString("0.00", Culture),
             _ => absolute.ToString(compact ? "N0" : "N2", Culture)
         };
-        return sign + number + Nbsp + "$";
+        return (currency.IsConverted ? "≈" + Nbsp : "") + sign + number + Nbsp + currency.Symbol;
     }
 
     private static CultureInfo CreateCulture()
@@ -414,4 +440,19 @@ public static partial class Fmt
         culture.NumberFormat.NumberDecimalSeparator = ",";
         return culture;
     }
+}
+
+/// <summary>Display currency for <see cref="Fmt"/> (DESIGN.md §5.1): 1 USD = <see cref="Rate"/> units of <see cref="Code"/>.</summary>
+public sealed record DisplayCurrency(string Code, double Rate, DateOnly? RateDate)
+{
+    public static DisplayCurrency Usd { get; } = new("USD", 1, null);
+
+    public bool IsConverted => Code != "USD";
+
+    public string Symbol => Code switch
+    {
+        "PLN" => "zł",
+        "EUR" => "€",
+        _ => "$"
+    };
 }

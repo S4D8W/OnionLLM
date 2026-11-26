@@ -13,6 +13,15 @@ public partial class LimitsView : ContentView, IScreenView
     {
         InitializeComponent();
         BindingContext = _viewModel;
+        // §6.2 pkt 4: per-source budgets — źródło, budżet (wydano / limit), wykorzystanie, prognoza miesiąca.
+        BudgetTable.Columns =
+        [
+            new DataColumn { Key = nameof(BudgetRowViewModel.Source), Header = "Źródło", Star = 1.6, Format = CellFormat.Strong },
+            new DataColumn { Key = nameof(BudgetRowViewModel.Daily), Header = "Dzień", Align = ColumnAlign.End, Priority = 2, Format = CellFormat.Number },
+            new DataColumn { Key = nameof(BudgetRowViewModel.Monthly), Header = "Miesiąc", Align = ColumnAlign.End, Format = CellFormat.Number },
+            new DataColumn { Key = nameof(BudgetRowViewModel.Usage), Header = "Wykorzystanie", Align = ColumnAlign.End, Format = CellFormat.Number, BarKey = nameof(BudgetRowViewModel.UsageShare), BarColorKey = "ColorStatusWarning" },
+            new DataColumn { Key = nameof(BudgetRowViewModel.Forecast), Header = "Prognoza miesiąca", Align = ColumnAlign.End, Priority = 3, Format = CellFormat.Number }
+        ];
         BindableLayout.SetItemTemplate(OthersList, new DataTemplate(() =>
         {
             var badge = new SourceBadge { Size = BadgeSize.Sm };

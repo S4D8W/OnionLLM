@@ -117,6 +117,8 @@ public sealed class MetricLabel : Label
             Text = formatted + Marker;
         }
 
+        // §5.1: every converted cost shows the USD amount and the rate in its tooltip.
+        ToolTipProperties.SetText(this, Format == MetricFormat.Cost ? Fmt.CostTooltip(value) : string.Empty);
         SemanticProperties.SetDescription(this, Format switch
         {
             MetricFormat.Cost => Fmt.CostSpoken(value),
@@ -357,6 +359,18 @@ public sealed class HeroMetric : VerticalStackLayout
             hero._yesterday.Current = hero._week.Current = (double)v;
         });
 
+    /// <summary>Daily budget usage 0–1+ (§5.9: ProgressBar <c>OnHero</c>); NaN hides the budget row.</summary>
+    public static readonly BindableProperty BudgetFractionProperty = BindableProperty.Create(
+        nameof(BudgetFraction), typeof(double), typeof(HeroMetric), double.NaN, propertyChanged: (b, _, v) =>
+        {
+            var hero = (HeroMetric)b;
+            hero._budget.IsVisible = !double.IsNaN((double)v);
+            hero._budgetBar.Value = double.IsNaN((double)v) ? 0 : (double)v;
+        });
+
+    public static readonly BindableProperty BudgetTextProperty = BindableProperty.Create(
+        nameof(BudgetText), typeof(string), typeof(HeroMetric), string.Empty, propertyChanged: (b, _, v) => ((HeroMetric)b)._budgetText.Text = (string)v);
+
     /// <summary>Cost yesterday — TrendDelta „vs wczoraj” (§6.1); NaN or 0 hides it.</summary>
     public static readonly BindableProperty YesterdayProperty = BindableProperty.Create(
         nameof(Yesterday), typeof(double), typeof(HeroMetric), double.NaN, propertyChanged: (b, _, v) => ((HeroMetric)b)._yesterday.Baseline = (double)v);
@@ -381,6 +395,9 @@ public sealed class HeroMetric : VerticalStackLayout
     private readonly Label _caption = Ui.Text("Text.Hero.Body");
     private readonly TrendDelta _yesterday = new() { OnHero = true, Comparison = "vs wczoraj" };
     private readonly TrendDelta _week = new() { OnHero = true, Comparison = "vs średnia 7 dni" };
+    private readonly ProgressBar _budgetBar = new() { OnHero = true, IsThreshold = true };
+    private readonly Label _budgetText = Ui.Text("Text.Hero.Body");
+    private readonly VerticalStackLayout _budget = new() { IsVisible = false };
 
     public HeroMetric()
     {
@@ -390,7 +407,15 @@ public sealed class HeroMetric : VerticalStackLayout
         Children.Add(_caption);
         _yesterday.Margin = _week.Margin = new Thickness(0, 0, Ui.D("Space300"), Ui.D("Space100"));
         Children.Add(new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap, Children = { _yesterday, _week } });
+        _budget.Spacing = Ui.D("Space100");
+        _budget.Children.Add(_budgetText);
+        _budget.Children.Add(_budgetBar);
+        Children.Add(_budget);
     }
+
+    public double BudgetFraction { get => (double)GetValue(BudgetFractionProperty); set => SetValue(BudgetFractionProperty, value); }
+
+    public string BudgetText { get => (string)GetValue(BudgetTextProperty); set => SetValue(BudgetTextProperty, value); }
 
     public double Yesterday { get => (double)GetValue(YesterdayProperty); set => SetValue(YesterdayProperty, value); }
 
@@ -608,7 +633,10 @@ public enum LimitState
 {
     Live,
     Estimated,
-    Unavailable
+    Unavailable,
+
+    /// <summary>Computed locally from the logs (budgets): neither „na żywo” nor „~”.</summary>
+    Local
 }
 
 /// <summary>Limit gauge (§4.4.2): name · badge · percent / threshold bar / reset caption / projection.</summary>

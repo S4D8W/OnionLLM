@@ -32,6 +32,38 @@
         "alwaysOnTop": { "type": "boolean", "default": false, "description": "Okno główne zawsze na wierzchu." }
       }
     },
+    "currency": {
+      "type": "object",
+      "description": "Waluta wyświetlania kosztów w GUI (eksport i CLI zawsze w USD).",
+      "additionalProperties": false,
+      "properties": {
+        "display": { "enum": ["USD", "PLN", "EUR"], "default": "USD" },
+        "rate": { "type": ["number", "null"], "exclusiveMinimum": 0, "description": "1 USD = rate jednostek waluty wyświetlania." },
+        "rateSource": { "enum": ["manual", "nbp"], "default": "nbp", "description": "manual: kurs wpisany; nbp: kurs średni NBP pobierany raz dziennie." },
+        "rateDate": { "type": ["string", "null"], "description": "Data notowania kursu (yyyy-MM-dd)." }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "description": "Budżety kosztu w USD (tylko GUI). Puste = brak budżetu.",
+      "additionalProperties": false,
+      "properties": {
+        "dailyUsd": { "type": ["number", "null"], "exclusiveMinimum": 0, "description": "Budżet dzienny (USD)." },
+        "monthlyUsd": { "type": ["number", "null"], "exclusiveMinimum": 0, "description": "Budżet miesięczny (USD)." },
+        "perSource": {
+          "type": "object",
+          "description": "Budżety per źródło (klucz = id źródła).",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "dailyUsd": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+              "monthlyUsd": { "type": ["number", "null"], "exclusiveMinimum": 0 }
+            }
+          }
+        }
+      }
+    },
     "sources": {
       "type": "object",
       "description": "Ustawienia źródeł (klucz = id źródła: claude, codex, copilot, gemini, …).",

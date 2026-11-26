@@ -299,13 +299,27 @@ public sealed class MainViewModel : ObservableObject
 
     public bool LimitsUnavailable => _snapshot?.Sources.FirstOrDefault(source => source.Id == "claude") is { IsInstalled: true, Limits: { IsAvailable: false } or null };
 
-    public bool HasBanner => !_bannerClosed && (SkippedFiles > 0 || LimitsUnavailable);
+    /// <summary>Daily budget usage for the hero bar (§5.9); NaN = no daily budget.</summary>
+    public double BudgetFraction => AppState.Budgets?.Global.Daily is { } daily ? daily.SpentUsd / daily.LimitUsd : double.NaN;
 
-    public BannerKind BannerKind => SkippedFiles > 0 ? BannerKind.Warning : BannerKind.Info;
+    public string BudgetText => AppState.Budgets?.Global.Daily is { } daily
+        ? $"Budżet dnia: {Fmt.Cost(daily.SpentUsd)} z {Fmt.Cost(daily.LimitUsd)} · {Fmt.Percent(daily.Percent)}"
+        : "";
 
-    public string BannerTitle => SkippedFiles > 0 ? "Dane częściowe" : "Limity Claude są niedostępne";
+    /// <summary>Highest budget usage (Banner: ≥ 80% warning, ≥ 100% danger — §5.8).</summary>
+    private double BudgetPeak => AppState.Budgets?.PeakPercent ?? 0;
 
-    public string BannerMessage => SkippedFiles > 0
+    private bool BudgetAlert => BudgetPeak >= 80;
+
+    public bool HasBanner => !_bannerClosed && (BudgetAlert || SkippedFiles > 0 || LimitsUnavailable);
+
+    public BannerKind BannerKind => BudgetPeak >= 100 ? BannerKind.Danger : BudgetAlert || SkippedFiles > 0 ? BannerKind.Warning : BannerKind.Info;
+
+    public string BannerTitle => BudgetPeak >= 100 ? "Przekroczono budżet" : BudgetAlert ? "Budżet blisko limitu" : SkippedFiles > 0 ? "Dane częściowe" : "Limity Claude są niedostępne";
+
+    public string BannerMessage => BudgetAlert
+        ? $"Wykorzystano {Fmt.Percent(BudgetPeak)} budżetu. Szczegóły na ekranie Limity."
+        : SkippedFiles > 0
         ? $"Pominięto {Fmt.Count(SkippedFiles, "plik", "pliki", "plików")}, których nie udało się odczytać. Koszt może być zaniżony."
         : "Zaloguj się ponownie w Claude Code (claude /login), aby odczytać limity konta.";
 
@@ -394,7 +408,7 @@ public sealed class MainViewModel : ObservableObject
                      nameof(YesterdayCost), nameof(WeekAverageCost), nameof(WeekSeries), nameof(WeekCostValue), nameof(PreviousWeekCost), nameof(MonthSeries),
                      nameof(BlockProjection), nameof(BlockProjectionText), nameof(HasBlockLimit), nameof(BlockLimitPercent), nameof(BlockLimitTitle),
                      nameof(UndetectedToggleText), nameof(HiddenCount), nameof(SkippedFiles), nameof(LimitsUnavailable), nameof(HasBanner),
-                     nameof(BannerKind), nameof(BannerTitle), nameof(BannerMessage)
+                     nameof(BannerKind), nameof(BannerTitle), nameof(BannerMessage), nameof(BudgetFraction), nameof(BudgetText)
                  })
         {
             OnPropertyChanged(name);
@@ -419,6 +433,11 @@ public sealed class MainViewModel : ObservableObject
         if (HasActiveBlock && HasBlockLimit)
         {
             rings.Add(new OnionRing("Aktywny blok", BlockLimitPercent, DesignTokens.SourceKey("claude")));
+        }
+        else if (AppState.Budgets?.Global.Daily is { } daily)
+        {
+            // §5.9: the budget ring takes the block's place when no block is active.
+            rings.Add(new OnionRing("Budżet dnia", daily.Percent, "ColorDataCost"));
         }
 
         return rings;

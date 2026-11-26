@@ -87,4 +87,25 @@ public class UiFormatTests
     [Fact]
     public void Burn_colour_is_a_token_key() =>
         Assert.Equal("ColorBurnHigh", Fmt.BurnColorKey(Reports.BurnRateLevel.High));
+
+    [Fact]
+    public void Display_currency_converts_with_approximation_and_keeps_prices_in_usd()
+    {
+        Fmt.Currency = new DisplayCurrency("PLN", 4, new DateOnly(2026, 11, 26));
+        try
+        {
+            Assert.Equal("≈" + S + "49,60" + S + "zł", Fmt.Cost(12.40));
+            Assert.Equal("3,00" + S + "$ /" + S + "1" + S + "M", Fmt.PricePerMillion(0.000003));
+            Assert.Equal("12,40" + S + "$", Fmt.CostUsd(12.40));
+            Assert.Equal("około 49,60 złotego", Fmt.CostSpoken(12.40));
+            Assert.Contains("1" + S + "USD = 4" + S + "zł (26.11.2026)", Fmt.CostTooltip(12.40));
+        }
+        finally
+        {
+            Fmt.Currency = DisplayCurrency.Usd;
+        }
+
+        Assert.Equal("12,40" + S + "$", Fmt.Cost(12.40));
+        Assert.Equal(string.Empty, Fmt.CostTooltip(12.40));
+    }
 }

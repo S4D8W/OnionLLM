@@ -118,6 +118,45 @@ public sealed class AppearanceSettings
 }
 
 /// <summary>Zachowanie okna aplikacji (klucz <c>window</c>).</summary>
+/// <summary>Waluta wyświetlania kosztów w GUI (DESIGN.md §5.1); eksport i CLI zawsze w USD.</summary>
+public sealed class CurrencySettings
+{
+    /// <summary><c>USD</c> (domyślnie), <c>PLN</c> lub <c>EUR</c>.</summary>
+    public string Display { get; set; } = "USD";
+
+    /// <summary>1 USD = <c>Rate</c> jednostek waluty wyświetlania.</summary>
+    public double? Rate { get; set; }
+
+    /// <summary><c>manual</c> (kurs wpisany) lub <c>nbp</c> (kurs średni NBP, pobierany raz dziennie).</summary>
+    public string RateSource { get; set; } = "nbp";
+
+    /// <summary>Data notowania kursu (<c>yyyy-MM-dd</c>).</summary>
+    public string? RateDate { get; set; }
+
+    public bool IsConverted => Display != "USD" && Rate is > 0;
+
+    public DateOnly? ParsedRateDate => DateOnly.TryParseExact(RateDate, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+        System.Globalization.DateTimeStyles.None, out var date) ? date : null;
+}
+
+/// <summary>Budżety kosztu w USD (DESIGN.md §5.9); null = brak budżetu.</summary>
+public sealed class BudgetSettings
+{
+    public double? DailyUsd { get; set; }
+
+    public double? MonthlyUsd { get; set; }
+
+    /// <summary>Budżety per źródło (klucz = id źródła).</summary>
+    public Dictionary<string, SourceBudget> PerSource { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class SourceBudget
+{
+    public double? DailyUsd { get; set; }
+
+    public double? MonthlyUsd { get; set; }
+}
+
 public sealed class WindowSettings
 {
     /// <summary>Okno główne zawsze na wierzchu (domyślnie wyłączone, DESIGN.md §7.1).</summary>
@@ -172,6 +211,12 @@ public sealed class OnionConfig
     public AppearanceSettings Appearance { get; set; } = new();
 
     public WindowSettings Window { get; set; } = new();
+
+    /// <summary>Waluta wyświetlania i kurs (tylko GUI).</summary>
+    public CurrencySettings Currency { get; set; } = new();
+
+    /// <summary>Budżety dzienne i miesięczne (tylko GUI: Dziś, Limity, Raporty).</summary>
+    public BudgetSettings Budgets { get; set; } = new();
 
     public SourceSettings GetSource(string id) =>
         Sources.TryGetValue(id, out var settings) ? settings : new SourceSettings();

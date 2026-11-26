@@ -1,3 +1,4 @@
+using OnionLLM.Core.Text;
 using OnionLLM.Cli;
 
 namespace OnionLLM.Core.Tests;

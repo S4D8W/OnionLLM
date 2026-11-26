@@ -8,9 +8,11 @@ namespace OnionLLM
         {
             InitializeComponent();
             AppearanceService.Apply(AppState.Config.Appearance);
+            CurrencyService.Apply(AppState.Config.Currency);
             AppState.Changed += (_, _) => MainThread.BeginInvokeOnMainThread(() =>
             {
                 AppearanceService.Apply(AppState.Config.Appearance);
+                CurrencyService.Apply(AppState.Config.Currency);
                 foreach (var window in Windows)
                 {
                     ApplyWindowSettings(window);

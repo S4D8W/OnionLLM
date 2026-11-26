@@ -24,6 +24,9 @@ public static class AppState
 
     public static IReadOnlyDictionary<string, ProviderLimits>? Limits { get; set; }
 
+    /// <summary>Stan budżetów (§5.9), przeliczany po każdym odświeżeniu danych; null przed pierwszym.</summary>
+    public static Core.Reports.BudgetReport? Budgets { get; private set; }
+
     public static DateTimeOffset LimitsReadAt { get; set; } = DateTimeOffset.MinValue;
 
     /// <summary>Wywoływane po zmianie konfiguracji lub danych (strony odświeżają widoki).</summary>
@@ -80,11 +83,13 @@ public static class AppState
         try
         {
             await Engine.LoadPricingAsync(cancellationToken: cancellationToken);
+            await Design.CurrencyService.RefreshAsync();
             _progress = new Dictionary<string, SyncProgress>(StringComparer.OrdinalIgnoreCase);
             await Engine.SyncAsync(force, TimeSpan.FromSeconds(10), cancellationToken, new ProgressSink());
             MainThread.BeginInvokeOnMainThread(() => ProgressChanged?.Invoke(null, EventArgs.Empty));
             LastSyncSucceededAt = DateTimeOffset.UtcNow;
             LastSyncError = null;
+            Budgets = await Task.Run(() => Engine.BuildBudgets(), cancellationToken);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
         {
@@ -103,6 +108,18 @@ public static class AppState
             {
                 Limits = await Engine.ReadLimitsAsync(cancellationToken);
                 LimitsReadAt = DateTimeOffset.UtcNow;
+                var readings = Limits;
+                await Task.Run(() =>
+                {
+                    try
+                    {
+                        Engine.Ledger.RecordLimits(readings, LimitsReadAt); // history and forecasts on Limity (§6.2)
+                    }
+                    catch (Microsoft.Data.Sqlite.SqliteException exception)
+                    {
+                        Diagnostics.Trace("limit history not saved: " + exception.Message);
+                    }
+                }, cancellationToken);
             }
             catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException or HttpRequestException)
             {

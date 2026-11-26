@@ -252,6 +252,41 @@ public sealed class UsageEngine : IDisposable
         return reports.Build(LoadEntries(fromMs, toMs, query.Sources), period, query, moment);
     }
 
+    /// <summary>Budżety (§5.9): koszt dziś, od początku miesiąca i z 7 dni przed dziś — globalnie i per źródło.</summary>
+    public BudgetReport BuildBudgets(DateTimeOffset? now = null)
+    {
+        var reports = Reports;
+        var calculator = reports.Calculator;
+        var today = reports.Today(now ?? DateTimeOffset.Now);
+        var monthStart = new DateOnly(today.Year, today.Month, 1);
+        var weekStart = today.AddDays(-7);
+        var from = monthStart < weekStart ? monthStart : weekStart;
+        var todayBySource = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var monthBySource = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var last7BySource = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in LoadEntries(reports.StartOfDayMs(from), reports.StartOfDayMs(today.AddDays(1))))
+        {
+            var cost = calculator.Calculate(entry).CostUsd;
+            var date = reports.LocalDate(entry.TimestampMs);
+            if (date == today)
+            {
+                todayBySource[entry.Source] = todayBySource.GetValueOrDefault(entry.Source) + cost;
+            }
+
+            if (date >= monthStart)
+            {
+                monthBySource[entry.Source] = monthBySource.GetValueOrDefault(entry.Source) + cost;
+            }
+
+            if (date >= weekStart && date < today)
+            {
+                last7BySource[entry.Source] = last7BySource.GetValueOrDefault(entry.Source) + cost;
+            }
+        }
+
+        return BudgetCalculator.Evaluate(Config.Budgets, today, todayBySource, monthBySource, last7BySource);
+    }
+
     /// <summary>Heatmapa „dni × godziny” (Raporty): rozkład kosztu w zakresie zapytania.</summary>
     public HourlyReport BuildHourly(ReportQuery query, DateTimeOffset? now = null)
     {

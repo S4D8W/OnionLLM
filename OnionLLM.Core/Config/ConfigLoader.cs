@@ -128,6 +128,25 @@ public static class ConfigLoader
         {
             throw new ConfigException("refreshIntervalSeconds musi wynosić co najmniej 5.");
         }
+
+        var currency = config.Currency ?? new CurrencySettings();
+        if (!Pricing.ExchangeRates.Supported.Contains(currency.Display?.ToUpperInvariant()))
+        {
+            throw new ConfigException("currency.display musi mieć wartość USD, PLN lub EUR.");
+        }
+
+        if (currency.Rate is <= 0 || currency.RateSource is not ("manual" or "nbp"))
+        {
+            throw new ConfigException("currency.rate musi być większy od 0, a currency.rateSource mieć wartość manual lub nbp.");
+        }
+
+        var budgets = config.Budgets ?? new BudgetSettings();
+        var amounts = new[] { budgets.DailyUsd, budgets.MonthlyUsd }
+            .Concat(budgets.PerSource.Values.SelectMany(source => new[] { source.DailyUsd, source.MonthlyUsd }));
+        if (amounts.Any(amount => amount is <= 0))
+        {
+            throw new ConfigException("Budżety (budgets) muszą być większe od 0 albo puste.");
+        }
     }
 
     public static void WriteSchema(string directory)
@@ -146,6 +165,10 @@ public static class ConfigLoader
     {
         config.Appearance ??= new AppearanceSettings();
         config.Window ??= new WindowSettings();
+        config.Budgets ??= new BudgetSettings();
+        config.Currency ??= new CurrencySettings();
+        config.Currency.Display = (config.Currency.Display ?? "USD").Trim().ToUpperInvariant();
+        config.Budgets.PerSource = new Dictionary<string, SourceBudget>(config.Budgets.PerSource ?? [], StringComparer.OrdinalIgnoreCase);
         config.Sources = new Dictionary<string, SourceSettings>(config.Sources ?? [], StringComparer.OrdinalIgnoreCase);
         config.PricingOverrides = new Dictionary<string, PricingOverride>(config.PricingOverrides ?? [], StringComparer.OrdinalIgnoreCase);
         config.ModelAliases = new Dictionary<string, string>(

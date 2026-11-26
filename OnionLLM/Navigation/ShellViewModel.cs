@@ -613,6 +613,15 @@ public sealed class ShellViewModel : ObservableObject
         }
 
         UpdateIndicators();
+        // §5.1: an outdated display-currency rate is flagged next to the pricing status.
+        var currency = AppState.Config.Currency;
+        if (CurrencyService.IsStale(currency) && currency.ParsedRateDate is { } rateDate)
+        {
+            var age = DateOnly.FromDateTime(DateTime.Today).DayNumber - rateDate.DayNumber;
+            PricingText += $" · kurs {currency.Display} sprzed {Fmt.Count(age, "dnia", "dni", "dni")}";
+            PricingColorKey = "ColorStatusWarning";
+        }
+
         foreach (var name in new[]
                  {
                      nameof(SyncText), nameof(SyncColorKey), nameof(SyncTooltip), nameof(SourcesText), nameof(SkippedText),
@@ -633,6 +642,7 @@ public sealed class ShellViewModel : ObservableObject
         var peak = AppState.Limits?.Values.Where(limits => limits.IsAvailable)
             .Select(limits => Math.Max(limits.FiveHourUtilization, limits.SevenDayUtilization) * 100)
             .DefaultIfEmpty(0).Max() ?? 0;
+        peak = Math.Max(peak, AppState.Budgets?.PeakPercent ?? 0);
         var limitKey = peak >= 100 ? "ColorStatusDanger" : peak >= 80 ? "ColorStatusWarning" : string.Empty;
         foreach (var entry in OverviewItems.Concat(AnalysisItems).Concat(SystemItems).Concat(FooterItems))
         {

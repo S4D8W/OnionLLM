@@ -10,6 +10,8 @@ public partial class MainShellPage : ContentPage
 
 #if DEBUG
     internal int RootChildCount => Root.Children.Count;
+
+    internal string RootChildren => string.Join(", ", Root.Children.Select(child => child.GetType().Name));
 #endif
     private bool _started;
 

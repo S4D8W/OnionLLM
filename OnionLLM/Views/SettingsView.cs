@@ -16,6 +16,7 @@ public sealed class SettingsView : ContentView, IScreenView
         ("Ogólne", "strefa czasowa początek tygodnia uruchamiaj przy starcie autostart"),
         ("Wygląd", "motyw jasny ciemny gęstość kompaktowa animacje ruch"),
         ("Okno i zasobnik", "zawsze na wierzchu okno"),
+        ("Budżety", "budżet dzienny miesięczny koszt limit wydatków powiadomienia"),
         ("Obliczenia", "tryb kosztu długość bloku limit tokenów odświeżanie sesja aktywna"),
         ("Projekty", "aliasy projektów nazwy"),
         ("Cennik", "litellm models.dev offline aliasy modeli nadpisania cen"),
@@ -194,7 +195,7 @@ public sealed class SettingsView : ContentView, IScreenView
 
     private void Open(int page)
     {
-        if (page == 10)
+        if (Pages[page].Title == "Źródła danych")
         {
             Sync();
             _ = ShellViewModel.Instance.NavigateAsync(Screen.Sources);
@@ -203,17 +204,18 @@ public sealed class SettingsView : ContentView, IScreenView
 
         _current = page;
         Sync();
-        var content = page switch
+        var content = Pages[page].Title switch
         {
-            1 => Appearance(),
-            2 => WindowPage(),
-            3 => Calculations(),
-            4 => Projects(),
-            5 => Pricing(),
-            6 => Statusline(),
-            7 => Advanced(),
-            8 => Diagnostics(),
-            9 => About(),
+            "Wygląd" => Appearance(),
+            "Okno i zasobnik" => WindowPage(),
+            "Budżety" => BudgetsPage(),
+            "Obliczenia" => Calculations(),
+            "Projekty" => Projects(),
+            "Cennik" => Pricing(),
+            "Statusline" => Statusline(),
+            "Zaawansowane" => Advanced(),
+            "Diagnostyka" => Diagnostics(),
+            "O aplikacji" => About(),
             _ => General()
         };
         var stack = new VerticalStackLayout { Spacing = Ui.D("LayoutSectionGap") };
@@ -289,9 +291,33 @@ public sealed class SettingsView : ContentView, IScreenView
         timezone.SetBinding(Select.SelectedIndexProperty, nameof(SettingsViewModel.TimezoneIndex), BindingMode.TwoWay);
         var week = new Select { Placeholder = "Początek tygodnia", ItemsSource = _vm.Days };
         week.SetBinding(Select.SelectedIndexProperty, nameof(SettingsViewModel.StartOfWeekIndex), BindingMode.TwoWay);
+        // §6.9.1 „Waluta wyświetlania”: USD · PLN · EUR + rate (manual or NBP); export and CLI stay in USD (§5.1).
+        var rate = Number(nameof(SettingsViewModel.Rate), string.Empty);
+        rate.SetBinding(TextField.SuffixProperty, nameof(SettingsViewModel.RateSuffix));
+        rate.SetBinding(IsVisibleProperty, nameof(SettingsViewModel.IsManualRate));
+        var automatic = new HorizontalStackLayout { Spacing = Ui.D("Space200") };
+        automatic.Children.Add(Toggle(nameof(SettingsViewModel.RateAutomatic)));
+        automatic.Children.Add(new Label { Text = "Automatycznie (NBP, dziennie)", VerticalOptions = LayoutOptions.Center }.Styled("Text.Body"));
+        var info = Ui.Text("Text.Caption");
+        info.SetBinding(Label.TextProperty, nameof(SettingsViewModel.RateInfo));
+        var rateBox = new VerticalStackLayout
+        {
+            Spacing = Ui.D("Space200"),
+            Children = { Ui.Text("Text.Label", "1 USD ="), rate, automatic, info }
+        };
+        rateBox.SetBinding(IsVisibleProperty, nameof(SettingsViewModel.IsConverted));
+        var currency = new VerticalStackLayout
+        {
+            Spacing = Ui.D("Space300"),
+            Children = { Segmented(nameof(SettingsViewModel.Currencies), nameof(SettingsViewModel.CurrencyIndex), "Waluta wyświetlania"), rateBox }
+        };
+        var stale = new Banner { Kind = BannerKind.Info, Title = "Kurs waluty jest nieaktualny", Message = "Sprawdź połączenie z internetem albo wpisz kurs ręcznie." };
+        stale.SetBinding(IsVisibleProperty, nameof(SettingsViewModel.IsRateStale));
         var stack = Stack(
+            stale,
             Row("Strefa czasowa", timezone, "timezone", "Wszystkie daty i godziny w aplikacji są w tej strefie."),
-            Row("Początek tygodnia", week, "startOfWeek"));
+            Row("Początek tygodnia", week, "startOfWeek"),
+            Row("Waluta wyświetlania", currency, "currency", "Koszty pokazujemy z „≈”; eksport i CLI zawsze w USD.", nameof(SettingsViewModel.RateError)));
         if (_vm.IsStartupSettingAvailable)
         {
             var row = Row("Uruchamiaj przy starcie systemu", Toggle(nameof(SettingsViewModel.RunAtStartup)), "startup");
@@ -329,6 +355,55 @@ public sealed class SettingsView : ContentView, IScreenView
     /// <summary>§6.9.3 Okno i zasobnik — only „Zawsze na wierzchu” (tray and mini view: Wymaga platformy).</summary>
     private View WindowPage() => Stack(
         Row("Zawsze na wierzchu", Toggle(nameof(SettingsViewModel.AlwaysOnTop)), "alwaysOnTop", "Okno główne pozostaje nad innymi oknami."));
+
+    /// <summary>
+    /// §6.9.4 „Powiadomienia i budżety” — the budget part (system notifications and quiet hours need platform code,
+    /// so the page is called „Budżety”).
+    /// </summary>
+    private View BudgetsPage()
+    {
+        var list = new VerticalStackLayout { Spacing = Ui.D("Space100") };
+        void Build()
+        {
+            list.Children.Clear();
+            foreach (var row in _vm.SourceBudgets)
+            {
+                var actions = new HorizontalStackLayout { Spacing = Ui.D("Space100") };
+                var edit = new IconButton { Glyph = Icons.Pencil }.Styled("IconButton.Ghost.Sm");
+                edit.Clicked += (_, _) => _vm.EditSourceBudgetCommand.Execute(row);
+                ToolTipProperties.SetText(edit, "Edytuj");
+                SemanticProperties.SetDescription(edit, "Edytuj budżet " + row.Name);
+                var remove = new IconButton { Glyph = Icons.Trash2 }.Styled("IconButton.Ghost.Sm");
+                remove.Clicked += (_, _) => _vm.RemoveSourceBudgetCommand.Execute(row);
+                ToolTipProperties.SetText(remove, "Usuń");
+                SemanticProperties.SetDescription(remove, "Usuń budżet " + row.Name);
+                actions.Children.Add(edit);
+                actions.Children.Add(remove);
+                list.Children.Add(new ListItem
+                {
+                    Title = row.Name,
+                    Subtitle = $"Dziennie {row.DailyText} · miesięcznie {row.MonthlyText}",
+                    Leading = new SourceBadge { SourceId = row.Id, Initial = row.Name[..1].ToUpperInvariant(), Size = BadgeSize.Sm },
+                    Trailing = actions
+                });
+            }
+
+            if (_vm.SourceBudgets.Count == 0)
+            {
+                list.Children.Add(Ui.Text("Text.Tertiary", "Brak budżetów per źródło."));
+            }
+        }
+
+        _vm.SourceBudgets.CollectionChanged += (_, _) => Build();
+        Build();
+        var add = new Button { Text = "Dodaj budżet źródła", HorizontalOptions = LayoutOptions.Start, AutomationId = "Settings.AddSourceBudget" }.Styled("Button.Secondary");
+        add.Command = _vm.AddSourceBudgetCommand;
+        return Stack(
+            Row("Budżet dzienny", Number(nameof(SettingsViewModel.DailyBudget), "$"), "dailyBudget", "Puste = bez budżetu. Kwoty w USD.", nameof(SettingsViewModel.DailyBudgetError)),
+            Row("Budżet miesięczny", Number(nameof(SettingsViewModel.MonthlyBudget), "$"), "monthlyBudget", "Prognoza końca miesiąca pojawia się od 3. dnia.", nameof(SettingsViewModel.MonthlyBudgetError)),
+            new Section { Title = "Budżety per źródło", Body = new VerticalStackLayout { Spacing = Ui.D("Space300"), Children = { list, add } } },
+            Ui.Text("Text.Tertiary", "Powiadomienia systemowe o progach pojawią się razem z ikoną w zasobniku."));
+    }
 
     /// <summary>§6.9.5 Obliczenia.</summary>
     private View Calculations()
@@ -449,7 +524,7 @@ public sealed class SettingsView : ContentView, IScreenView
         return remove;
     }
 
-    /// <summary>§6.9.8 Statusline: label aliases + installation steps (the live preview needs the CLI renderer — not shown).</summary>
+    /// <summary>§6.9.8 Statusline: label aliases with a live preview (the CLI renderer from Core) + installation steps.</summary>
     private View Statusline()
     {
         var labels = new KeyValueEditor { Separator = "\n", KeyPlaceholder = "nazwa modelu", ValuePlaceholder = "etykieta", Help = "Dokładna nazwa modelu z Claude Code=krótka etykieta (np. ARN profilu Bedrock=claude-opus-4-6)." };
@@ -469,8 +544,46 @@ public sealed class SettingsView : ContentView, IScreenView
                 Ui.Text("Text.Body", "3. Uruchom ponownie Claude Code.")
             }
         };
+        var preview = Ui.Text("Text.Mono", "Wczytywanie podglądu…").Dyn(Label.TextColorProperty, "ColorTextOnInverse");
+        preview.LineBreakMode = LineBreakMode.WordWrap;
+        preview.AutomationId = "Settings.StatuslinePreview";
+        var caption = Ui.Text("Text.Caption", "Przykład z ostatniej sesji Claude Code; w Claude Code model i kontekst podaje samo narzędzie.");
+        CancellationTokenSource? pending = null;
+        async void Refresh()
+        {
+            pending?.Cancel();
+            var token = (pending = new CancellationTokenSource()).Token;
+            try
+            {
+                await Task.Delay(Design.MotionTokens.SearchDebounce, token);
+                var text = await StatuslinePreview.RenderAsync(_vm.ModelLabelAliases);
+                if (!token.IsCancellationRequested)
+                {
+                    preview.Text = text;
+                    SemanticProperties.SetDescription(preview, "Podgląd linii statusu: " + text);
+                }
+            }
+            catch (TaskCanceledException)
+            {
+            }
+        }
+
+        labels.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(KeyValueEditor.Text))
+            {
+                Refresh();
+            }
+        };
+        Refresh();
+        var previewBox = new VerticalStackLayout
+        {
+            Spacing = Ui.D("Space200"),
+            Children = { Ui.Box(preview, "ColorSurfaceInverse", "RadiusMd", "LayoutCardPadding"), caption }
+        };
         return Stack(
             Row("Etykiety modeli", labels, "modelLabelAliases", errorPath: nameof(SettingsViewModel.ModelLabelAliasesError)),
+            new Section { Title = "Podgląd", Body = previewBox },
             new Section { Title = "Instalacja w Claude Code", Body = steps });
     }
 

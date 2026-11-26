@@ -35,6 +35,7 @@ public sealed class OnboardingView : ContentView
     private readonly Switch _startup = new() { HorizontalOptions = LayoutOptions.Start, AutomationId = "Onboarding.Startup" };
     private ThemePreference _theme;
     private DensityPreference _density;
+    private string _currency = AppState.Config.Currency.Display;
     private int _step;
     private bool _detectionDone;
 
@@ -210,7 +211,7 @@ public sealed class OnboardingView : ContentView
         (_title.Text, _description.Text, _body.Content) = _step switch
         {
             0 => ("Wykryte narzędzia", "OnionLLM czyta lokalne logi narzędzi AI. Wybierz, które śledzić — zmienisz to później na ekranie Źródła.", Tools()),
-            1 => ("Wygląd", "Motyw i gęstość możesz zmienić w każdej chwili w Ustawieniach.", Appearance()),
+            1 => ("Wygląd i waluta", "Motyw, gęstość i walutę możesz zmienić w każdej chwili w Ustawieniach.", Appearance()),
             _ => ("Praca w tle", "Aplikacja może startować razem z systemem, żeby dane były zawsze aktualne.", BackgroundStep())
         };
         if (announce)
@@ -328,12 +329,29 @@ public sealed class OnboardingView : ContentView
             }
         };
 
+        string[] currencies = ["USD", "PLN", "EUR"];
+        var currency = new SegmentedControl
+        {
+            ItemsSource = currencies,
+            SelectedIndex = Math.Max(0, Array.IndexOf(currencies, _currency)),
+            Label = "Waluta wyświetlania",
+            AutomationId = "Onboarding.Currency"
+        };
+        currency.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SegmentedControl.SelectedIndex))
+            {
+                _currency = currencies[Math.Clamp(currency.SelectedIndex, 0, 2)];
+            }
+        };
+
         return new VerticalStackLayout
         {
             Spacing = Ui.D("Space500"),
             Children =
             {
                 new FormRow { Label = "Motyw", Field = tiles },
+                new FormRow { Label = "Waluta wyświetlania", Description = "PLN i EUR liczymy po kursie średnim NBP (aktualizowany codziennie); eksport zawsze w USD.", Field = currency },
                 new FormRow { Label = "Gęstość", Description = "Kompaktowa mieści więcej wierszy na ekranie.", Field = density }
             }
         };
@@ -430,6 +448,10 @@ public sealed class OnboardingView : ContentView
                 var config = AppState.Config.Clone();
                 config.Appearance.Theme = _theme;
                 config.Appearance.Density = _density;
+                if (config.Currency.Display != _currency)
+                {
+                    config.Currency = new Core.Config.CurrencySettings { Display = _currency, RateSource = "nbp" };
+                }
                 foreach (var (source, _, toggle) in _detected)
                 {
                     if (!config.Sources.TryGetValue(source.Id, out var settings))

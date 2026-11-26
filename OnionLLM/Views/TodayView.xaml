@@ -36,6 +36,8 @@
                             <controls:HeroMetric Value="{Binding TodayCost}"
                                                  Yesterday="{Binding YesterdayCost}"
                                                  WeekAverage="{Binding WeekAverageCost}"
+                                                 BudgetFraction="{Binding BudgetFraction}"
+                                                 BudgetText="{Binding BudgetText}"
                                                  Marker="{Binding TodayMarker}"
                                                  Caption="{Binding TodayCaption}"
                                                  IsStale="{Binding IsStale}"
