@@ -1,137 +1,86 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Migrated to the window host in Faza 12.1; content is rebuilt to DESIGN.md §6 in 12.3. -->
+<!--
+    Raporty (DESIGN.md §6.3): PageHeader (range, Eksportuj) → FilterBar → KPI ×4 → „W czasie” → „Udział” + „Aktywność”
+    → table of periods (expandable breakdown, „Razem”, drawer) → PricingNote.
+-->
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:OnionLLM.Controls"
+             xmlns:charts="clr-namespace:OnionLLM.Controls.Charts"
+             xmlns:vm="clr-namespace:OnionLLM.ViewModels"
              x:Class="OnionLLM.Views.ReportsView"
-             x:Name="Root">
-
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="{DynamicResource LayoutPagePadding}" RowSpacing="{StaticResource Space300}">
-        <controls:PageHeader Title="Raporty" Subtitle="{Binding DateRangeSummary}">
-            <HorizontalStackLayout Spacing="{StaticResource Space200}">
-                <Button Style="{StaticResource Button.Secondary.Sm}" Text="CSV" Command="{Binding ExportCsvCommand}"
-                        SemanticProperties.Description="Eksportuj raport do pliku CSV" AutomationId="Reports.ExportCsv" />
-                <Button Style="{StaticResource Button.Secondary.Sm}" Text="JSON (format ccusage)" Command="{Binding ExportJsonCommand}"
-                        SemanticProperties.Description="Eksportuj raport do pliku JSON w formacie ccusage" AutomationId="Reports.ExportJson" />
-            </HorizontalStackLayout>
+             x:DataType="vm:ReportsViewModel">
+    <Grid RowDefinitions="Auto,Auto,*"
+          Padding="{DynamicResource LayoutPagePadding}"
+          RowSpacing="{StaticResource Space300}">
+        <controls:PageHeader Title="Raporty" Subtitle="{Binding RangeText}">
+            <controls:SplitButton x:Name="ExportButton" Text="Eksportuj" Command="{Binding ExportCsvCommand}" AutomationId="Reports.Export" />
         </controls:PageHeader>
 
-        <Border Grid.Row="1" Padding="12,10" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E5EC, Dark=#282C37}"
-                BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="16" />
-            </Border.StrokeShape>
-            <VerticalStackLayout Spacing="8">
-                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-                    <Picker ItemsSource="{Binding Periods}" SelectedIndex="{Binding PeriodIndex}" FontSize="12" Title="Okres" />
-                    <Picker Grid.Column="1" ItemsSource="{Binding Ranges}" SelectedIndex="{Binding RangeIndex}" FontSize="12" Title="Zakres" />
-                    <Picker Grid.Column="2" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" FontSize="12" Title="Źródło" />
+        <controls:FilterBar Grid.Row="1" IsDirty="{Binding IsFiltered}" ResetCommand="{Binding ResetFiltersCommand}">
+            <controls:SegmentedControl ItemsSource="{Binding Periods}" SelectedIndex="{Binding PeriodIndex}" Label="Okres" />
+            <controls:DateRangePicker Presets="{Binding Presets}" PresetIndex="{Binding RangeIndex}" CustomIndex="{Binding CustomPresetIndex}"
+                                      Since="{Binding Since}" Until="{Binding Until}" DisplayText="{Binding RangeText}" AutomationId="Reports.Range" />
+            <controls:FilterChip Variant="Menu" Label="Źródło" ItemsSource="{Binding SourceChoiceNames}" SelectedIndex="{Binding SourceIndex}" AutomationId="Reports.Source" />
+            <controls:FilterChip Label="Modele" IsChecked="{Binding Breakdown}" AutomationId="Reports.SplitModels" />
+            <controls:FilterChip Label="Źródła" IsChecked="{Binding BySource}" IsVisible="{Binding CanSplitBySource}" AutomationId="Reports.SplitSources" />
+            <controls:FilterChip Label="Projekty" IsChecked="{Binding GroupByProject}" AutomationId="Reports.SplitProjects" />
+        </controls:FilterBar>
+
+        <ScrollView Grid.Row="2">
+            <VerticalStackLayout Spacing="{DynamicResource LayoutSectionGap}">
+                <Grid x:Name="KpiGrid" ColumnDefinitions="*,*,*,*" ColumnSpacing="{DynamicResource LayoutGridGap}" RowSpacing="{DynamicResource LayoutGridGap}">
+                    <controls:StatTile Title="Koszt łącznie" Value="{Binding TotalCost}" Marker="{Binding TotalMarker}" Caption="{Binding StoredCaption}" AutomationId="Reports.Kpi.Cost" />
+                    <controls:StatTile Grid.Column="1" Title="Tokeny" Value="{Binding TotalTokens}" Caption="{Binding TotalTokensCaption}" AutomationId="Reports.Kpi.Tokens" />
+                    <controls:StatTile Grid.Column="2" Title="{Binding AverageTitle}" Value="{Binding AverageCost}" AutomationId="Reports.Kpi.Average" />
+                    <controls:StatTile Grid.Column="3" Title="Udział cache" Value="{Binding CacheShare}" AutomationId="Reports.Kpi.Cache" />
                 </Grid>
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding IsCustomRange}">
-                    <VerticalStackLayout Spacing="2">
-                        <Label Text="OD" FontSize="9" FontAttributes="Bold" CharacterSpacing="1" TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
-                        <DatePicker Date="{Binding Since}" FontSize="12" Format="d MMM yyyy" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Grid.Column="1" Spacing="2">
-                        <Label Text="DO" FontSize="9" FontAttributes="Bold" CharacterSpacing="1" TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
-                        <DatePicker Date="{Binding Until}" FontSize="12" Format="d MMM yyyy" />
-                    </VerticalStackLayout>
+
+                <charts:ChartCard x:Name="TimeCard" Title="W czasie" Subtitle="{Binding RangeText}" LegendStateKey="reports.time">
+                    <charts:ChartCard.Controls>
+                        <controls:SegmentedControl ItemsSource="{Binding Metrics}" SelectedIndex="{Binding MetricIndex}" IsSmall="True" Label="Metryka" />
+                    </charts:ChartCard.Controls>
+                    <charts:ChartCard.Chart>
+                        <charts:BarChart x:Name="TimeChart" Data="{Binding Chart}" AutomationId="Reports.Chart" />
+                    </charts:ChartCard.Chart>
+                </charts:ChartCard>
+
+                <Grid x:Name="AnalysisGrid" ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource LayoutGridGap}" RowSpacing="{DynamicResource LayoutGridGap}">
+                    <charts:ChartCard x:Name="ShareCard" Title="Udział" Subtitle="Koszt">
+                        <charts:ChartCard.Controls>
+                            <controls:SegmentedControl ItemsSource="{Binding ShareModes}" SelectedIndex="{Binding ShareIndex}" IsSmall="True" Label="Udział" />
+                        </charts:ChartCard.Controls>
+                        <charts:ChartCard.Chart>
+                            <charts:DonutChart Data="{Binding Share}" CenterLabel="{Binding ShareCenterLabel}" />
+                        </charts:ChartCard.Chart>
+                    </charts:ChartCard>
+                    <controls:Card x:Name="ActivityCard" Grid.Column="1" Title="Aktywność" Subtitle="Koszt dzienny · ostatnie 12 miesięcy">
+                        <controls:Card.Body>
+                            <ScrollView Orientation="Horizontal">
+                                <charts:Heatmap Days="{Binding Activity}" />
+                            </ScrollView>
+                        </controls:Card.Body>
+                    </controls:Card>
                 </Grid>
-                <HorizontalStackLayout Spacing="10">
-                    <HorizontalStackLayout Spacing="3">
-                        <CheckBox IsChecked="{Binding Breakdown}" Color="#7257E8" />
-                        <Label Text="modele" FontSize="10" VerticalOptions="Center" />
-                    </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="3" IsVisible="{Binding CanSplitBySource}">
-                        <CheckBox IsChecked="{Binding BySource}" Color="#13A6A1" />
-                        <Label Text="źródła" FontSize="10" VerticalOptions="Center" />
-                    </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="3">
-                        <CheckBox IsChecked="{Binding GroupByProject}" Color="#E39B32" />
-                        <Label Text="projekty" FontSize="10" VerticalOptions="Center" />
-                    </HorizontalStackLayout>
-                </HorizontalStackLayout>
+
+                <controls:DataTable x:Name="Table"
+                                    ItemsSource="{Binding Rows}"
+                                    SortKey="{Binding SortKey}"
+                                    SortDescending="{Binding SortDescending}"
+                                    SelectedItem="{Binding SelectedRow}"
+                                    RowActivatedCommand="{Binding OpenDetailsCommand}"
+                                    State="{Binding TableState}"
+                                    TotalRow="{Binding TotalRow}"
+                                    HeightRequest="{StaticResource SizeTableHeight}"
+                                    AutomationPrefix="Reports">
+                    <controls:DataTable.EmptyView>
+                        <controls:EmptyState Variant="Inline" Title="Brak danych w tym zakresie" Description="Zmień zakres lub źródło."
+                                             ActionText="Pokaż całą historię" ActionCommand="{Binding ShowAllCommand}" />
+                    </controls:DataTable.EmptyView>
+                </controls:DataTable>
+
+                <controls:PricingNote Text="{Binding PricingNote}" />
             </VerticalStackLayout>
-        </Border>
-
-        <Border Grid.Row="2" Padding="12" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E5EC, Dark=#282C37}"
-                BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="16" />
-            </Border.StrokeShape>
-            <VerticalStackLayout Spacing="8">
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                    <Border Padding="10,8" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light=#F0EDFF, Dark=#26213D}">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="12" />
-                        </Border.StrokeShape>
-                        <VerticalStackLayout Spacing="2">
-                            <Label Text="KOSZT ŁĄCZNIE" FontSize="9" FontAttributes="Bold" CharacterSpacing="0.7" TextColor="{AppThemeBinding Light=#6850CF, Dark=#B8AAFF}" />
-                            <Label Text="{Binding TotalCost}" FontSize="20" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#4930B0, Dark=#D0C6FF}" />
-                        </VerticalStackLayout>
-                    </Border>
-                    <Border Grid.Column="1" Padding="10,8" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light=#E7F7F6, Dark=#173337}">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="12" />
-                        </Border.StrokeShape>
-                        <VerticalStackLayout Spacing="2">
-                            <Label Text="TOKENY" FontSize="9" FontAttributes="Bold" CharacterSpacing="0.7" TextColor="{AppThemeBinding Light=#14827D, Dark=#64D3C9}" />
-                            <Label Text="{Binding TotalTokens}" FontSize="17" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#116E69, Dark=#9AE8E0}" />
-                        </VerticalStackLayout>
-                    </Border>
-                </Grid>
-                <Label Text="{Binding TotalDetails}" FontSize="10" TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
-                <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#E9EBF1, Dark=#2A2E3A}" />
-                <VerticalStackLayout Spacing="1">
-                    <Label Text="KOSZT W CZASIE" FontSize="9" FontAttributes="Bold" CharacterSpacing="0.8" TextColor="{AppThemeBinding Light=#6861A4, Dark=#9D97DA}" />
-                    <Label Text="{Binding DateRangeSummary}" FontSize="9" LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
-                </VerticalStackLayout>
-                <GraphicsView x:Name="ChartView" HeightRequest="145" SemanticProperties.Description="{Binding ChartDescription}" />
-            </VerticalStackLayout>
-        </Border>
-
-        <CollectionView Grid.Row="3" ItemsSource="{Binding Rows}" SelectionMode="None">
-            <CollectionView.ItemsLayout>
-                <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
-            </CollectionView.ItemsLayout>
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E5EC, Dark=#282C37}"
-                            BackgroundColor="{AppThemeBinding Light=White, Dark=#151821}">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="13" />
-                        </Border.StrokeShape>
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding BindingContext.ShowDetailsCommand, Source={x:Reference Root}}" CommandParameter="{Binding .}" />
-                        </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="4,*">
-                            <BoxView Color="{AppThemeBinding Light=#13A6A1, Dark=#64D3C9}" />
-                            <VerticalStackLayout Grid.Column="1" Padding="11,9" Spacing="4">
-                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                                    <Label Text="{Binding Period}" FontSize="12" FontAttributes="Bold" />
-                                    <Label Grid.Column="1" Text="{Binding Tokens}" FontSize="11" VerticalOptions="Center"
-                                           TextColor="{AppThemeBinding Light=#14827D, Dark=#64D3C9}" />
-                                    <Label Grid.Column="2" Text="{Binding Cost}" FontSize="13" FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light=#4F3FD5, Dark=#A99FFF}" />
-                                </Grid>
-                                <Label Text="{Binding Subtitle}" FontSize="10" LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
-                                <Label Text="{Binding Details}" FontSize="10" TextColor="{AppThemeBinding Light=#666D79, Dark=#A6ACB9}" />
-                                <Label Text="{Binding Breakdown}" IsVisible="{Binding HasBreakdown}" FontSize="9" FontFamily="Consolas"
-                                       TextColor="{AppThemeBinding Light=#727986, Dark=#9BA0AD}" />
-                            </VerticalStackLayout>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
-
-        <VerticalStackLayout Grid.Row="4" Spacing="2">
-            <Label Text="{Binding PricingNote}" IsVisible="{Binding HasPricingNote}" FontSize="9" LineBreakMode="WordWrap"
-                   TextColor="{AppThemeBinding Light=#B26B00, Dark=#F5A524}" />
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                <Label Grid.Column="1" Text="{Binding Status}" FontSize="9" LineBreakMode="TailTruncation" VerticalOptions="Center"
-                       TextColor="{AppThemeBinding Light=#8B909C, Dark=#707582}" />
-            </Grid>
-        </VerticalStackLayout>
+        </ScrollView>
     </Grid>
 </ContentView>

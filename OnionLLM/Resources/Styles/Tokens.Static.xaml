@@ -81,6 +81,7 @@
     <x:Double x:Key="SizeDotSm">6</x:Double>
     <x:Double x:Key="SizeChartBarMax">28</x:Double>
     <x:Double x:Key="SizeSourceCardMin">320</x:Double>
+    <x:Double x:Key="SizeTableHeight">520</x:Double>
     <x:Double x:Key="SizeRingCard">120</x:Double>
     <x:Double x:Key="SizeAccentBar">3</x:Double>
     <x:Double x:Key="SizeChevron">14</x:Double>

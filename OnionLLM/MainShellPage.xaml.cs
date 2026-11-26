@@ -69,8 +69,46 @@ public partial class MainShellPage : ContentPage
             Design.ThemeService.Apply(AppState.Config.Appearance.Theme);
             Design.DensityService.Apply(AppState.Config.Appearance.Density);
             await _shell.RefreshAsync(force: false);
+            foreach (var table in Find<Controls.DataTable>(_shell.Navigation.CurrentView))
+            {
+                if (table.ItemsSource?.Cast<object>().FirstOrDefault() is { } first && table.RowActivatedCommand is { } open)
+                {
+                    open.Execute(first);
+                    await Task.Delay(TimeSpan.FromMilliseconds(900));
+                    Diagnostics.Trace($"smoke: drawer {(DrawerService.IsOpen ? "open" : "NOT OPEN")} for {table.AutomationPrefix}");
+                    KeyboardRouter.Target = table;
+                    KeyboardRouter.Route(KeyboardAction.Down);
+                    await Task.Delay(TimeSpan.FromMilliseconds(500));
+                    DrawerService.Close();
+                    await Task.Delay(TimeSpan.FromMilliseconds(500));
+                }
+            }
+
             Diagnostics.Trace("smoke done: " + _shell.Navigation.Current);
         }
 #endif
     }
+
+#if DEBUG
+    private static IEnumerable<T> Find<T>(Element? root)
+    {
+        if (root is null)
+        {
+            yield break;
+        }
+
+        if (root is T match)
+        {
+            yield return match;
+        }
+
+        foreach (var child in ((IElementController)root).LogicalChildren)
+        {
+            foreach (var found in Find<T>(child))
+            {
+                yield return found;
+            }
+        }
+    }
+#endif
 }
