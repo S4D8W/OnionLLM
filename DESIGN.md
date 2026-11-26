@@ -2,7 +2,7 @@
 
 > **Dla kogo:** agenci i ludzie, którzy projektują lub implementują UI aplikacji OnionLLM (MAUI, desktop Windows + macOS).
 > **Status dokumentu:** obowiązujący, docelowy. Opisuje, jak aplikacja **ma** wyglądać i się zachowywać — nie jak wygląda dziś. Jeśli kod jest niezgodny z tym dokumentem, rację ma dokument, a kod jest do poprawy.
-> **Wersja:** 1.8 · 2026-11-26
+> **Wersja:** 1.9 · 2026-11-26
 
 ## Spis treści
 
@@ -2012,6 +2012,8 @@ Po „Zacznij”: **import historii** — ekran z OnionRings animowanym jako wsk
 
 **Stan wdrożenia (1.8):** progi i treści — `ViewModels/Alerts.cs` (`AlertEvaluator`, `AlertLog` — raz na okno limitu, wyciszenie, ciche godziny; testy `AlertTests`), wysyłka — `Navigation/NotificationCenter.cs` po każdej aktualizacji `LiveState`. Windows: App Notifications z przyciskami „Otwórz” / „Wycisz na 1 h” (`Platforms/Windows/WindowsNotifier.cs`) — działają w wydaniu MSIX; w niespakowanym buildzie Debug rejestracja się nie udaje (brak `Microsoft.WindowsAppRuntime.Insights.Resource.dll` w runtime), więc rezerwą jest powiadomienie z ikony w zasobniku (`NIF_INFO`: tytuł, treść, bez przycisków, klik otwiera właściwy ekran), a bez ikony — Toast w aplikacji. macOS (`UNUserNotificationCenter`) — nie wdrożone (wymaga Maca).
 
+**Pakiet MSIX (1.9):** `Platforms/Windows/Package.appxmanifest` deklaruje aktywator COM i `toastNotificationActivation` (CLSID `3ccbc2c4-659e-4df1-82e4-8596ba608aab`), zadanie autostartu `OnionLLMStartup`, alias `onionllm-app.exe` (uruchamianie z terminala) oraz `FileSystemWriteVirtualization=disabled` z `unvirtualizedResources` — aplikacja w pakiecie używa tego samego `%LOCALAPPDATA%\OnionLLM` (baza, konfiguracja) co CLI i statusline. Budowa, podpis i rejestracja testowa: `tools/packaging/build-msix.ps1` (wydawca pakietu `CN=OnionLLM` musi zgadzać się z certyfikatem).
+
 - Windows: App Notifications (Windows App SDK); macOS: `UNUserNotificationCenter`.
 - Struktura: tytuł (stan) · treść (liczby + czas) · akcje: „Otwórz” (domyślna), „Wycisz na 1 h”.
 - Ikona aplikacji; bez dźwięku dla ostrzeżeń, domyślny dźwięk systemowy dla przekroczeń.
@@ -2525,6 +2527,7 @@ Kontrast liczony wg WCAG 2.2 (luminancja względna sRGB). Skrypt referencyjny: `
 | Wersja | Data | Zmiana |
 | --- | --- | --- |
 | 1.0 | 2026-11-26 | Pierwsza wersja docelowego design systemu. |
+| 1.9 | 2026-11-26 | Faza 12.7 (instalator): manifest MSIX z aktywatorem powiadomień, autostartem, aliasem i wyłączoną wirtualizacją AppData; skrypt `tools/packaging/build-msix.ps1`; §7.6 — pakiet MSIX. |
 | 1.8 | 2026-11-26 | Faza 12.6 (platforma Windows): ikona w zasobniku z menu i kropką statusu, zamykanie do zasobnika, mini-widok (Ctrl+Shift+M, przycisk w Sidebarze, polecenie palety), powiadomienia systemowe z progami, wyciszeniem i cichymi godzinami (App Notifications w MSIX, rezerwa z zasobnika w buildzie niespakowanym), Ustawienia „Okno i zasobnik” i „Powiadomienia i budżety” w pełnym zakresie, podsumowanie powiadomień na Limitach, krok 3 onboardingu; §7.2–7.6 stan wdrożenia; macOS (pasek menu, powiadomienia) nadal `Wymaga platformy`. |
 | 1.7 | 2026-11-26 | Faza 12.5 (warstwa danych): aktywne sesje, statystyki źródeł, `tokenLimit: none`, postęp importu i `S-IMPORT`, serie czasowe (Dziś: trendy i sparkline, bloki: oś i sesje, sesje: przebieg, Raporty: dni × godziny, udział projektów, porównanie zakresów), budżety (§5.9), waluta wyświetlania (§5.1), historia i prognozy limitów, podgląd statusline; TrendDelta i HourHeatmap wdrożone; §6.10 i §11.4 zaktualizowane; nowe tokeny `ColorHeroTrendWorse` / `ColorHeroTrendBetter`. |
 | 1.6 | 2026-11-26 | Faza 12.5 (domknięcie UI): wskaźniki stanu w pasku bocznym, zmiana szerokości drawera, obrys PageHeader po przewinięciu, „Filtry (N)” na narrow, klawiatura wykresów, kalendarz dwumiesięczny, Alt+↑/↓ na kartach źródeł, wiersze-separatory DataTable (przerwy w Blokach), ModelTagi w Raportach, poziomy BarChart „Top projekty”, skrót Ctrl+E w podpowiedzi SplitButton; §6.10 zaktualizowane. |

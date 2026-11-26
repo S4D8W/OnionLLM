@@ -24,6 +24,9 @@ BundleArtifacts/
 *.appxbundle
 *.cer
 *.pfx
+# tools/packaging/build-msix.ps1: build output and the local test-certificate folder (pfx, cer, password)
+artifacts/
+.signing/
 
 # Local data
 *.db
