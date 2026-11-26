@@ -15,6 +15,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="{Binding SidebarColumn}" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="{Binding DrawerColumn}" />
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="1" RowDefinitions="*,Auto">
@@ -30,6 +31,16 @@
                     <TapGestureRecognizer Command="{Binding CloseOverlayCommand}" />
                 </Grid.GestureRecognizers>
             </Grid>
+
+            <!-- Drawer (DESIGN.md 4.6.1): third column on wide windows, overlay with scrim otherwise. -->
+            <Grid Grid.Column="1" Grid.ColumnSpan="2"
+                  BackgroundColor="{DynamicResource ColorScrim}"
+                  IsVisible="{Binding IsDrawerScrimVisible}">
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding CloseDrawerCommand}" />
+                </Grid.GestureRecognizers>
+            </Grid>
+            <controls:Drawer Grid.Column="1" Grid.ColumnSpan="2" />
 
             <controls:Sidebar Grid.ColumnSpan="{Binding SidebarColumnSpan}"
                               WidthRequest="{Binding SidebarWidth}"

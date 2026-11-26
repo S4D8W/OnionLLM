@@ -67,6 +67,8 @@ public sealed class ShellViewModel : ObservableObject
         }
 
         RefreshCommand = new Command(async () => await RefreshAsync(force: true));
+        CloseDrawerCommand = new Command(DrawerService.Close);
+        DrawerService.Changed += (_, _) => MainThread.BeginInvokeOnMainThread(OnDrawerChanged);
         ToggleSidebarCommand = new Command(ToggleSidebar);
         OpenSidebarCommand = new Command(() => IsOverlayOpen = true);
         CloseOverlayCommand = new Command(() => IsOverlayOpen = false);
@@ -104,6 +106,24 @@ public sealed class ShellViewModel : ObservableObject
     public Command CloseOverlayCommand { get; }
 
     public Command OpenDiagnosticsCommand { get; }
+
+    public Command CloseDrawerCommand { get; }
+
+    // ===== Drawer (DESIGN.md 4.6.1): push on wide, overlay with scrim on medium/narrow =====
+
+    public bool IsDrawerOpen => DrawerService.IsOpen;
+
+    /// <summary>Column reserved for the drawer in push mode.</summary>
+    public GridLength DrawerColumn => new(IsDrawerOpen && Layout == LayoutState.Wide ? Token("SizeDrawerWidth", 420) : 0);
+
+    public bool IsDrawerScrimVisible => IsDrawerOpen && Layout != LayoutState.Wide;
+
+    private void OnDrawerChanged()
+    {
+        OnPropertyChanged(nameof(IsDrawerOpen));
+        OnPropertyChanged(nameof(DrawerColumn));
+        OnPropertyChanged(nameof(IsDrawerScrimVisible));
+    }
 
     // ===== Layout and sidebar (§2.9.2, §4.7.1, M18) =====
 
@@ -193,7 +213,7 @@ public sealed class ShellViewModel : ObservableObject
                  {
                      nameof(IsNarrow), nameof(IsSidebarExpanded), nameof(IsSidebarCollapsed), nameof(IsOverlayOpen),
                      nameof(SidebarColumn), nameof(SidebarWidth), nameof(SidebarColumnSpan), nameof(ToggleSidebarLabel),
-                     nameof(ToggleSidebarGlyph), nameof(ToggleSidebarTooltip)
+                     nameof(ToggleSidebarGlyph), nameof(ToggleSidebarTooltip), nameof(DrawerColumn), nameof(IsDrawerScrimVisible)
                  })
         {
             OnPropertyChanged(name);
@@ -205,6 +225,11 @@ public sealed class ShellViewModel : ObservableObject
     public async Task NavigateAsync(Screen screen, object? parameter = null)
     {
         IsOverlayOpen = false;
+        if (Navigation.Current != screen)
+        {
+            DrawerService.Close();
+        }
+
         if (!Navigation.IsAvailable(screen))
         {
             return;
@@ -271,6 +296,9 @@ public sealed class ShellViewModel : ObservableObject
                 break;
             case ShortcutCommand.Escape when Controls.PopoverService.IsOpen:
                 Controls.PopoverService.Close();
+                break;
+            case ShortcutCommand.Escape when DrawerService.IsOpen:
+                DrawerService.Close();
                 break;
             case ShortcutCommand.Escape:
                 IsOverlayOpen = false;

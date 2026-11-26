@@ -163,6 +163,10 @@ public sealed class GalleryView : ContentView, IScreenView
                             }
                         }
                     })),
+                Group("DataTable i Drawer", Table()),
+                Group("Edytory", Columns(
+                    new FormRow { Label = "Aliasy projektów", Field = new KeyValueEditor { Text = "onion-app=Onion,api=Backend API", Separator = ",", KeyPlaceholder = "katalog", ValuePlaceholder = "nazwa" } },
+                    new FormRow { Label = "Aliasy modeli do wyceny", Field = new CodeEditor { Text = "private-alpha=gpt-5.5", Help = "Jeden wpis w wierszu: nazwa z logu=model w cenniku." } })),
                 Group("Komunikaty i stany", new VerticalStackLayout
                 {
                     Spacing = Ui.D("Space400"),
@@ -187,13 +191,213 @@ public sealed class GalleryView : ContentView, IScreenView
         Content = new ScrollView { Content = new ContentView { Padding = Ui.Thick("ThicknessZero"), Content = stack }.Dyn(PaddingProperty, "LayoutPagePadding") };
     }
 
-    public Task OnNavigatedToAsync(object? parameter) => Task.CompletedTask;
+    public Task OnNavigatedToAsync(object? parameter) =>
+        Environment.GetEnvironmentVariable("ONIONLLM_GALLERY_SELFTEST") is { Length: > 0 } ? SelfTestAsync() : Task.CompletedTask;
+
+    /// <summary>
+    /// DEBUG self-test (ONIONLLM_GALLERY_SELFTEST=1): drives overlays, keyboard routing, theme and density switches and
+    /// writes each step to the diagnostics log — a runtime smoke test when nobody can click.
+    /// </summary>
+    private async Task SelfTestAsync()
+    {
+        async Task Step(string name, Func<Task> action)
+        {
+            try
+            {
+                await action();
+                Diagnostics.Trace("selftest ok: " + name);
+            }
+            catch (Exception exception)
+            {
+                Diagnostics.Trace($"selftest FAILED: {name}: {exception}");
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(700));
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        var table = Find<DataTable>(this).First();
+        var first = table.ItemsSource!.Cast<object>().First();
+        await Step("table activate → drawer", () => { table.RowActivatedCommand!.Execute(first); return Task.CompletedTask; });
+        await Step("drawer is open", () => DrawerService.IsOpen ? Task.CompletedTask : throw new InvalidOperationException("drawer closed"));
+        KeyboardRouter.Target = table;
+        await Step("keyboard Down routes to table", () => KeyboardRouter.Route(KeyboardAction.Down) ? Task.CompletedTask : throw new InvalidOperationException("not routed"));
+        await Step("keyboard Next (J) in drawer", () => KeyboardRouter.Route(KeyboardAction.Next) ? Task.CompletedTask : throw new InvalidOperationException("not routed"));
+        await Step("expand row", () => { table.SelectedItem = first; KeyboardRouter.Route(KeyboardAction.Expand); return Task.CompletedTask; });
+        await Step("sort by cost", () => { table.SortKey = "Cost"; return Task.CompletedTask; });
+        await Step("table loading/empty/error/ready", async () =>
+        {
+            foreach (var state in new[] { TableState.Loading, TableState.Empty, TableState.Error, TableState.Ready })
+            {
+                table.State = state;
+                await Task.Delay(TimeSpan.FromMilliseconds(200));
+            }
+        });
+        await Step("close drawer", () => { DrawerService.Close(); return Task.CompletedTask; });
+        await Step("menu popover", async () =>
+        {
+            Menu.Show(table, [new MenuEntry("A"), MenuEntry.Separator, new MenuEntry("B", IsDanger: true)]);
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            if (!PopoverService.IsOpen)
+            {
+                throw new InvalidOperationException("popover not open");
+            }
+
+            PopoverService.Close();
+        });
+        await Step("select popover", () => { var select = Find<Select>(this).First(); select.SendClicked(); PopoverService.Close(); return Task.CompletedTask; });
+        await Step("date range popover", () => { var picker = Find<DateRangePicker>(this).First(); picker.SendClicked(); PopoverService.Close(); return Task.CompletedTask; });
+        await Step("dialog confirm/cancel", async () =>
+        {
+            var pending = DialogService.ConfirmAsync("Test", "Treść", "OK");
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            DialogService.Current!.Complete(false);
+            if (await pending)
+            {
+                throw new InvalidOperationException("dialog result");
+            }
+        });
+        await Step("toast", () => { ToastService.Show("Test", ToastKind.Info); return Task.CompletedTask; });
+        await Step("theme dark", () => { ThemeService.Apply(ThemePreference.Dark); return Task.CompletedTask; });
+        await Step("density compact", () => { DensityService.Apply(DensityPreference.Compact); return Task.CompletedTask; });
+        await Step("theme light + comfortable", () =>
+        {
+            ThemeService.Apply(AppState.Config.Appearance.Theme);
+            DensityService.Apply(AppState.Config.Appearance.Density);
+            return Task.CompletedTask;
+        });
+        await Step("layout narrow → wide", async () =>
+        {
+            ShellViewModel.Instance.UpdateLayout(700);
+            await Task.Delay(TimeSpan.FromMilliseconds(400));
+            ShellViewModel.Instance.UpdateLayout(1400);
+        });
+        Diagnostics.Trace("selftest done");
+    }
+
+    private static IEnumerable<T> Find<T>(Element root)
+    {
+        if (root is T match)
+        {
+            yield return match;
+        }
+
+        foreach (var child in ((IElementController)root).LogicalChildren)
+        {
+            foreach (var found in Find<T>(child))
+            {
+                yield return found;
+            }
+        }
+    }
 
     public void OnNavigatedFrom()
     {
     }
 
     public Task RefreshAsync(bool force) => AppState.RefreshDataAsync(force);
+
+    private static View Table()
+    {
+        var rows = Enumerable.Range(1, 40).Select(i => new GalleryRow(
+            $"projekt-{i:00}", $"C:\\Users\\dev\\src\\projekt-{i:00}", i % 3 == 0 ? "Codex CLI" : "Claude Code",
+            1_000L * i * i, 0.37 * i, i % 7 == 0 ? "*" : "")).ToList();
+        var max = rows.Max(row => row.CostValue);
+        foreach (var row in rows)
+        {
+            row.CostShare = row.CostValue / max;
+        }
+
+        var table = new DataTable
+        {
+            HeightRequest = Ui.D("SizeDialogSm"),
+            AutomationPrefix = "Gallery",
+            Columns =
+            [
+                new DataColumn { Key = nameof(GalleryRow.Name), Header = "Projekt", SubtitleKey = nameof(GalleryRow.Path), Star = 3, Sortable = true, Format = CellFormat.Strong, IsId = true },
+                new DataColumn { Key = nameof(GalleryRow.Source), Header = "Źródło", Priority = 2, Star = 2, CellFactory = SourceCell },
+                new DataColumn { Key = nameof(GalleryRow.Tokens), Header = "Tokeny", Align = ColumnAlign.End, Format = CellFormat.Number, Sortable = true, Priority = 2 },
+                new DataColumn { Key = nameof(GalleryRow.Cost), Header = "Koszt", Align = ColumnAlign.End, Format = CellFormat.Cost, Sortable = true, BarKey = nameof(GalleryRow.CostShare), MarkerKey = nameof(GalleryRow.Marker) }
+            ],
+            TotalRow = new GalleryRow("Razem", "", "", rows.Sum(row => row.TokensValue), rows.Sum(row => row.CostValue), ""),
+            FooterText = "Pokazano 40 z 1 284",
+            CanShowMore = true
+        };
+
+        void Sort()
+        {
+            IEnumerable<GalleryRow> sorted = table.SortKey switch
+            {
+                nameof(GalleryRow.Cost) => rows.OrderBy(row => row.CostValue),
+                nameof(GalleryRow.Tokens) => rows.OrderBy(row => row.TokensValue),
+                nameof(GalleryRow.Name) => rows.OrderBy(row => row.Name, StringComparer.CurrentCulture),
+                _ => rows
+            };
+            table.ItemsSource = (table.SortKey.Length > 0 && table.SortDescending ? sorted.Reverse() : sorted).ToList();
+        }
+
+        table.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(DataTable.SortKey) or nameof(DataTable.SortDescending))
+            {
+                Sort();
+            }
+        };
+        Sort();
+        table.RowActivatedCommand = new Command<GalleryRow>(row => OpenDrawer(table, row));
+        var states = new SegmentedControl { ItemsSource = new[] { "Dane", "Ładowanie", "Pusto", "Błąd" }, IsSmall = true, Label = "Stan" };
+        states.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(SegmentedControl.SelectedIndex))
+            {
+                return;
+            }
+
+            table.State = states.SelectedIndex switch { 1 => TableState.Loading, 2 => TableState.Empty, 3 => TableState.Error, _ => TableState.Ready };
+            table.EmptyView = states.SelectedIndex == 3
+                ? new EmptyState { Variant = EmptyStateVariant.Inline, IsError = true, Title = "Nie udało się wczytać projektów", ActionText = "Spróbuj ponownie" }
+                : new EmptyState { Variant = EmptyStateVariant.Inline, Title = "Brak danych w zakresie 1–26 lis", ActionText = "Pokaż całą historię" };
+        };
+        return new VerticalStackLayout { Spacing = Ui.D("Space300"), Children = { states, table } };
+    }
+
+    private static View SourceCell()
+    {
+        var badge = new SourceBadge { Size = BadgeSize.Sm };
+        badge.SetBinding(SourceBadge.SourceIdProperty, nameof(GalleryRow.SourceId));
+        badge.SetBinding(SourceBadge.InitialProperty, nameof(GalleryRow.Initial));
+        var name = Ui.Text("Text.Body");
+        name.SetBinding(Label.TextProperty, nameof(GalleryRow.Source));
+        name.VerticalOptions = LayoutOptions.Center;
+        return new HorizontalStackLayout { Spacing = Ui.D("Space200"), Children = { badge, name } };
+    }
+
+    private static void OpenDrawer(DataTable table, GalleryRow row)
+    {
+        var items = table.ItemsSource!.Cast<GalleryRow>().ToList();
+        var index = items.IndexOf(row);
+        DrawerService.Open(new DrawerRequest
+        {
+            Overline = "Projekt",
+            Title = row.Name,
+            Subtitle = row.Path,
+            Content = new VerticalStackLayout
+            {
+                Spacing = Ui.D("Space600"),
+                Children =
+                {
+                    Columns(new StatTile { Title = "Koszt", Value = row.Cost, Marker = row.Marker }, new StatTile { Title = "Tokeny", Value = row.Tokens }),
+                    new TokenBreakdown { Input = row.TokensValue / 10, Output = row.TokensValue / 20, CacheWrite = row.TokensValue / 5, CacheRead = row.TokensValue / 2 },
+                    new KeyValueList { ItemsSource = new[] { new KeyValueItem("Ścieżka", row.Path, IsMono: true, CanCopy: true), new KeyValueItem("Źródło", row.Source) } }
+                }
+            },
+            Footer = new Button { Text = "Pokaż sesje projektu" }.Styled("Button.Secondary"),
+            PreviousCommand = index > 0 ? new Command(() => { table.SelectedItem = items[index - 1]; OpenDrawer(table, items[index - 1]); }) : null,
+            NextCommand = index < items.Count - 1 ? new Command(() => { table.SelectedItem = items[index + 1]; OpenDrawer(table, items[index + 1]); }) : null,
+            MoreEntries = [new MenuEntry("Kopiuj ścieżkę", () => _ = Ui.CopyAsync(row.Path), Icons.Copy)],
+            Closed = () => table.SelectedItem = null
+        });
+    }
 
     private static View Group(string title, View body) => new Section { Title = title, Body = body };
 
@@ -249,6 +453,36 @@ public sealed class GalleryView : ContentView, IScreenView
             Initial = source.DisplayName[..1].ToUpperInvariant(),
             Size = BadgeSize.Md
         }, source.DisplayName)).ToArray();
+}
+
+internal sealed class GalleryRow(string name, string path, string source, long tokens, double cost, string marker) : IExpandableRow
+{
+    public string Name { get; } = name;
+
+    public string Path { get; } = path;
+
+    public string Source { get; } = source;
+
+    public string SourceId => Source.StartsWith("Codex", StringComparison.Ordinal) ? "codex" : "claude";
+
+    public string Initial => Source.Length > 0 ? Source[..1] : "";
+
+    public long TokensValue { get; } = tokens;
+
+    public double CostValue { get; } = cost;
+
+    public string Tokens => Fmt.Tokens(TokensValue);
+
+    public string Cost => Fmt.Cost(CostValue);
+
+    public string Marker { get; } = marker;
+
+    public double CostShare { get; set; }
+
+    public bool IsExpanded { get; set; }
+
+    public IReadOnlyList<object> Children => Source.Length == 0 || Path.Length == 0 ? [] :
+        [new GalleryRow("claude-opus-4-6", "", Source, TokensValue / 2, CostValue * 0.7, ""), new GalleryRow("claude-haiku-4-5", "", Source, TokensValue / 2, CostValue * 0.3, "")];
 }
 
 internal static class GalleryExtensions

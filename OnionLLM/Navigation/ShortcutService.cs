@@ -98,6 +98,31 @@ public static class ShortcutService
             allowedInText = true;
         }
 
+        if (action is null && !inText && sender is Microsoft.UI.Xaml.UIElement origin && IsNavigationKeyFree(origin))
+        {
+            // List navigation (DESIGN.md 4.5.1): arrows, Home/End, Enter, J/K, Ctrl+C go to the active table or drawer.
+            KeyboardAction? list = e.Key switch
+            {
+                Windows.System.VirtualKey.Up when !ctrl && !alt => KeyboardAction.Up,
+                Windows.System.VirtualKey.Down when !ctrl && !alt => KeyboardAction.Down,
+                Windows.System.VirtualKey.Home when !ctrl && !alt => KeyboardAction.Home,
+                Windows.System.VirtualKey.End when !ctrl && !alt => KeyboardAction.End,
+                Windows.System.VirtualKey.Enter when !ctrl && !alt => KeyboardAction.Activate,
+                Windows.System.VirtualKey.Right when !ctrl && !alt => KeyboardAction.Expand,
+                Windows.System.VirtualKey.Left when !ctrl && !alt => KeyboardAction.Collapse,
+                Windows.System.VirtualKey.J when !ctrl && !alt => KeyboardAction.Next,
+                Windows.System.VirtualKey.K when !ctrl && !alt => KeyboardAction.Previous,
+                Windows.System.VirtualKey.C when ctrl && !alt && !shift => KeyboardAction.Copy,
+                _ => null
+            };
+            if (list is { } listAction && KeyboardRouter.Route(listAction))
+            {
+                e.Handled = true;
+            }
+
+            return;
+        }
+
         if (action is null || (inText && !allowedInText))
         {
             return;
@@ -111,6 +136,14 @@ public static class ShortcutService
     private static bool IsDown(Windows.System.VirtualKey key) =>
         Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(key)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+    /// <summary>Focus is not on a control that uses arrows or Enter itself (buttons, toggles, pickers, text).</summary>
+    private static bool IsNavigationKeyFree(Microsoft.UI.Xaml.UIElement element) =>
+        element.XamlRoot is not { } root ||
+        Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(root) is not
+            (Microsoft.UI.Xaml.Controls.Primitives.ButtonBase or Microsoft.UI.Xaml.Controls.ToggleSwitch or
+            Microsoft.UI.Xaml.Controls.ComboBox or Microsoft.UI.Xaml.Controls.Slider or Microsoft.UI.Xaml.Controls.CalendarView or
+            Microsoft.UI.Xaml.Controls.CalendarDatePicker or Microsoft.UI.Xaml.Controls.DatePicker);
 
     private static bool IsTextInputFocused(Microsoft.UI.Xaml.UIElement element) =>
         element.XamlRoot is { } root &&

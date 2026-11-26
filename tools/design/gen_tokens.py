@@ -233,7 +233,8 @@ def shadow_lines(theme: int) -> list[str]:
     for key, values in SHADOWS.items():
         spec = values[theme]
         if spec is None:
-            lines.append(f'    <Shadow x:Key="{key}" Brush="#00000000" Offset="0,0" Radius="0" Opacity="0" />')
+            # Invisible but valid: WinUI rejects a zero blur radius when building the shadow mask.
+            lines.append(f'    <Shadow x:Key="{key}" Brush="#00000000" Offset="0,0" Radius="1" Opacity="0" />')
         else:
             brush, offset, radius, opacity = spec
             lines.append(f'    <Shadow x:Key="{key}" Brush="{brush}" Offset="{offset}" Radius="{radius}" Opacity="{opacity}" />')

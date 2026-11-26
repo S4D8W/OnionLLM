@@ -34,6 +34,14 @@ namespace OnionLLM
             });
 
             // TextField (DESIGN.md §4.2.0) draws its own frame; the inner WinUI TextBox must be borderless and transparent.
+            Microsoft.Maui.Handlers.EditorHandler.Mapper.AppendToMapping("OnionBareEditor", (handler, view) =>
+            {
+                if (view is Controls.BareEditor)
+                {
+                    handler.PlatformView.BorderThickness = new Microsoft.UI.Xaml.Thickness(0);
+                    handler.PlatformView.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+                }
+            });
             Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("OnionBareEntry", (handler, view) =>
             {
                 if (view is Controls.BareEntry)
@@ -54,7 +62,7 @@ namespace OnionLLM
                 {
                     try
                     {
-                        File.AppendAllText(diagnosticLog, $"{DateTime.Now:O} {args.Exception.GetType().FullName}: {args.Exception.Message} | inner: {args.Exception.InnerException?.GetType().Name}: {args.Exception.InnerException?.Message} | at: {new System.Diagnostics.StackTrace(1, false).ToString().Replace(Environment.NewLine, " / ")[..Math.Min(900, new System.Diagnostics.StackTrace(1, false).ToString().Length)]}{Environment.NewLine}");
+                        File.AppendAllText(diagnosticLog, $"{DateTime.Now:O} {args.Exception.GetType().FullName}: {args.Exception.Message} | inner: {args.Exception.InnerException?.GetType().Name}: {args.Exception.InnerException?.Message} | at: {new System.Diagnostics.StackTrace(1, false).ToString().Replace(Environment.NewLine, " / ")[..Math.Min(4000, new System.Diagnostics.StackTrace(1, false).ToString().Length)]}{Environment.NewLine}");
                     }
                     catch (IOException)
                     {

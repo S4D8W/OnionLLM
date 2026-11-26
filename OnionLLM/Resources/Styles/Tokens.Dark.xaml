@@ -185,8 +185,8 @@
 
     <FileImageSource x:Key="ImageLogo" File="onion_logo_dark.png" />
 
-    <Shadow x:Key="ShadowE1" Brush="#00000000" Offset="0,0" Radius="0" Opacity="0" />
-    <Shadow x:Key="ShadowE2" Brush="#00000000" Offset="0,0" Radius="0" Opacity="0" />
+    <Shadow x:Key="ShadowE1" Brush="#00000000" Offset="0,0" Radius="1" Opacity="0" />
+    <Shadow x:Key="ShadowE2" Brush="#00000000" Offset="0,0" Radius="1" Opacity="0" />
     <Shadow x:Key="ShadowE3" Brush="#000000" Offset="0,12" Radius="32" Opacity="0.5" />
-    <Shadow x:Key="ShadowHero" Brush="#00000000" Offset="0,0" Radius="0" Opacity="0" />
+    <Shadow x:Key="ShadowHero" Brush="#00000000" Offset="0,0" Radius="1" Opacity="0" />
 </ResourceDictionary>
