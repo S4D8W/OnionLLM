@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Źródła (DESIGN.md §6.8): PageHeader (Wykryj ponownie, Przebuduj bazę…) → Banner → filters → table → drawer with tabs. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OnionLLM.Controls"
+             xmlns:vm="clr-namespace:OnionLLM.ViewModels"
+             x:Class="OnionLLM.Views.SourcesView"
+             x:DataType="vm:SourcesViewModel">
+    <Grid RowDefinitions="Auto,Auto,Auto,*"
+          Padding="{DynamicResource LayoutPagePadding}"
+          RowSpacing="{StaticResource Space300}">
+        <controls:PageHeader Title="Źródła" Subtitle="{Binding Subtitle}">
+            <HorizontalStackLayout Spacing="{StaticResource Space200}">
+                <Button Style="{StaticResource Button.Secondary.Sm}" Text="Wykryj ponownie" Command="{Binding RedetectCommand}" AutomationId="Sources.Redetect" />
+                <Button Style="{StaticResource Button.Ghost.Sm}" Text="Przebuduj bazę…" Command="{Binding RebuildCommand}" AutomationId="Sources.Rebuild" />
+            </HorizontalStackLayout>
+        </controls:PageHeader>
+
+        <controls:Banner Grid.Row="1" Kind="Warning" Title="Dane częściowe" Message="{Binding PartialMessage}" IsVisible="{Binding HasPartialData}" CanClose="True" />
+
+        <controls:FilterBar Grid.Row="2" ResetCommand="{Binding ResetFiltersCommand}">
+            <controls:SegmentedControl ItemsSource="{Binding Filters}" SelectedIndex="{Binding FilterIndex}" Label="Stan" AutomationId="Sources.Filter" />
+            <controls:SearchField Placeholder="Szukaj źródła" Query="{Binding Search}" MinimumWidthRequest="{StaticResource SizeDrawerMin}" AutomationId="Sources.Search" />
+        </controls:FilterBar>
+
+        <controls:DataTable x:Name="Table" Grid.Row="3"
+                            ItemsSource="{Binding Rows}"
+                            SelectedItem="{Binding SelectedRow}"
+                            RowActivatedCommand="{Binding OpenDetailsCommand}"
+                            State="{Binding TableState}"
+                            AutomationPrefix="Sources">
+            <controls:DataTable.EmptyView>
+                <controls:EmptyState Variant="Inline" Title="Brak źródeł dla wybranych filtrów" ActionText="Wyczyść filtry" ActionCommand="{Binding ResetFiltersCommand}" />
+            </controls:DataTable.EmptyView>
+        </controls:DataTable>
+    </Grid>
+</ContentView>

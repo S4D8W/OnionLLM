@@ -9,13 +9,16 @@
              BackgroundColor="{DynamicResource ColorScrim}">
     <Border x:Name="Card"
             Style="{StaticResource Surface.Dialog}"
-            WidthRequest="{StaticResource SizeDialogSm}"
+            WidthRequest="{StaticResource SizeDialogMd}"
             HorizontalOptions="Center"
             VerticalOptions="Center"
             SemanticProperties.Description="{Binding Title}">
         <VerticalStackLayout Spacing="{StaticResource Space400}">
             <Label Style="{StaticResource Text.TitleSection}" Text="{Binding Title}" />
-            <Label Style="{StaticResource Text.Secondary}" Text="{Binding Message}" />
+            <Label Style="{StaticResource Text.Secondary}" Text="{Binding Message}" IsVisible="{Binding HasMessage}" />
+            <ScrollView MaximumHeightRequest="{StaticResource SizePopoverMaxHeight}">
+                <ContentView Content="{Binding Body}" />
+            </ScrollView>
             <HorizontalStackLayout HorizontalOptions="End" Spacing="{StaticResource Space200}">
                 <Button x:Name="CancelButton" Style="{StaticResource Button.Secondary}"
                         Text="{Binding CancelText}" Command="{Binding CancelCommand}" AutomationId="Dialog.Cancel" />

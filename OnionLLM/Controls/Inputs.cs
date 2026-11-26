@@ -68,7 +68,9 @@ public sealed class SegmentedControl : ContentView
             var active = i == SelectedIndex;
             button.Dyn(BackgroundColorProperty, active ? "ColorSegmentActive" : "ColorTransparent");
             button.Dyn(Button.TextColorProperty, active ? "ColorTextPrimary" : "ColorTextSecondary");
-            button.Shadow = active && ThemeService.EffectiveTheme == AppTheme.Light ? Ui.Res<Shadow>("ShadowE1") : null!;
+            // Outline instead of a shadow: toggling Shadow on a live WinUI button re-wraps it and fails.
+            button.BorderWidth = active ? Ui.D("StrokeDefault") : 0;
+            button.Dyn(Button.BorderColorProperty, active ? "ColorBorderDefault" : "ColorTransparent");
             SemanticProperties.SetDescription(button,
                 $"{Label}{(string.IsNullOrEmpty(Label) ? "" : ": ")}{button.Text}{(active ? ", wybrane" : "")}, {i + 1} z {count}");
         }

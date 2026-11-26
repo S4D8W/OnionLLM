@@ -1,21 +1,23 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
+using OnionLLM.Controls;
 using OnionLLM.Core.Config;
 using OnionLLM.Core.Pricing;
 using OnionLLM.Core.Reports;
 using OnionLLM.Core.Sources;
 using OnionLLM.Core.Util;
+using OnionLLM.Navigation;
+using OnionLLM.Resources;
 
 namespace OnionLLM.ViewModels;
 
+/// <summary>Source configuration (edited in the „Źródła” drawer, DESIGN.md §6.8).</summary>
 public sealed class SourceSettingViewModel : ObservableObject
 {
     /// <summary>Codex: poziom szybkości do wyceny (indeks 0 = auto → <c>null</c> w configu).</summary>
     public static readonly string[] SpeedValues = ["auto", "standard", "flex", "fast"];
-
     private static readonly System.Text.RegularExpressions.Regex StoreName = new("^[a-z][a-z0-9_-]{0,31}$");
-
     private bool _enabled;
     private string _paths;
     private int _speedIndex;
@@ -23,7 +25,7 @@ public sealed class SourceSettingViewModel : ObservableObject
     private string _agentDirs;
     private string _stores;
 
-    public SourceSettingViewModel(string id, string name, SourceSettings settings, string state)
+    public SourceSettingViewModel(string id, string name, SourceSettings settings)
     {
         Id = id;
         Name = name;
@@ -33,24 +35,30 @@ public sealed class SourceSettingViewModel : ObservableObject
         _includeClaudeAgent = settings.IncludeClaudeAgent;
         _agentDirs = string.Join("; ", settings.AgentDirs);
         _stores = string.Join("; ", settings.Stores.Select(store => $"{store.Name}={store.Path}"));
-        State = state;
     }
 
     public string Id { get; }
+
     public string Name { get; }
-    public string State { get; }
+
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
     public string Paths { get => _paths; set => Set(ref _paths, value); }
 
     public bool IsCodex => Id == "codex";
+
     public bool IsOpenCode => Id == "opencode";
+
     public bool IsPi => Id == "pi";
 
     public string[] Speeds { get; } = ["auto — z logów, potem config.toml", "standard", "flex", "fast (priority)"];
 
     public int SpeedIndex { get => _speedIndex; set => Set(ref _speedIndex, value); }
+
     public bool IncludeClaudeAgent { get => _includeClaudeAgent; set => Set(ref _includeClaudeAgent, value); }
+
     public string AgentDirs { get => _agentDirs; set => Set(ref _agentDirs, value); }
+
     public string Stores { get => _stores; set => Set(ref _stores, value); }
 
     /// <summary>Zapisuje pola widoku do ustawień źródła; pozostałe pola zostają bez zmian.</summary>
@@ -109,35 +117,53 @@ public sealed class SourceSettingViewModel : ObservableObject
     }
 }
 
-/// <summary>Wiersz edytora nadpisań cennika; logika parsowania w <see cref="PricingOverrideForm"/> (Core).</summary>
+/// <summary>Row of the pricing overrides table; parsing lives in <see cref="PricingOverrideForm"/> (Core).</summary>
 public sealed class PricingOverrideViewModel : ObservableObject
 {
     private bool _showAdvanced;
 
-    public PricingOverrideViewModel(PricingOverrideForm form, Action<PricingOverrideViewModel> remove)
+    public PricingOverrideViewModel(PricingOverrideForm form)
     {
         Form = form;
         _showAdvanced = form.HasAdvanced;
-        RemoveCommand = new Command(() => remove(this));
     }
 
     public PricingOverrideForm Form { get; }
-    public Command RemoveCommand { get; }
+
     public bool ShowAdvanced { get => _showAdvanced; set => Set(ref _showAdvanced, value); }
 
     public string Key { get => Form.Key; set => Update(Form.Key, value, v => Form.Key = v); }
+
     public string Input { get => Form.Input; set => Update(Form.Input, value, v => Form.Input = v); }
+
     public string Output { get => Form.Output; set => Update(Form.Output, value, v => Form.Output = v); }
+
     public string CacheWrite { get => Form.CacheWrite; set => Update(Form.CacheWrite, value, v => Form.CacheWrite = v); }
+
     public string CacheWrite1h { get => Form.CacheWrite1h; set => Update(Form.CacheWrite1h, value, v => Form.CacheWrite1h = v); }
+
     public string CacheRead { get => Form.CacheRead; set => Update(Form.CacheRead, value, v => Form.CacheRead = v); }
+
     public string InputAbove200k { get => Form.InputAbove200k; set => Update(Form.InputAbove200k, value, v => Form.InputAbove200k = v); }
+
     public string OutputAbove200k { get => Form.OutputAbove200k; set => Update(Form.OutputAbove200k, value, v => Form.OutputAbove200k = v); }
+
     public string CacheWriteAbove200k { get => Form.CacheWriteAbove200k; set => Update(Form.CacheWriteAbove200k, value, v => Form.CacheWriteAbove200k = v); }
+
     public string CacheReadAbove200k { get => Form.CacheReadAbove200k; set => Update(Form.CacheReadAbove200k, value, v => Form.CacheReadAbove200k = v); }
+
     public string MaxInputTokens { get => Form.MaxInputTokens; set => Update(Form.MaxInputTokens, value, v => Form.MaxInputTokens = v); }
+
     public string FastMultiplier { get => Form.FastMultiplier; set => Update(Form.FastMultiplier, value, v => Form.FastMultiplier = v); }
+
     public string FlexMultiplier { get => Form.FlexMultiplier; set => Update(Form.FlexMultiplier, value, v => Form.FlexMultiplier = v); }
+
+    public PricingOverrideViewModel Copy() => new(new PricingOverrideForm
+    {
+        Key = Key, Input = Input, Output = Output, CacheWrite = CacheWrite, CacheWrite1h = CacheWrite1h, CacheRead = CacheRead,
+        InputAbove200k = InputAbove200k, OutputAbove200k = OutputAbove200k, CacheWriteAbove200k = CacheWriteAbove200k,
+        CacheReadAbove200k = CacheReadAbove200k, MaxInputTokens = MaxInputTokens, FastMultiplier = FastMultiplier, FlexMultiplier = FlexMultiplier
+    });
 
     private void Update(string current, string? value, Action<string> assign, [System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
     {
@@ -149,216 +175,447 @@ public sealed class PricingOverrideViewModel : ObservableObject
     }
 }
 
+/// <summary>Row of „Rozbieżności kosztu” (§6.9.9).</summary>
+public sealed record MismatchRow(string Source, string Model, string Compared, string Mismatches, string Stored, string Calculated, string Difference);
+
+/// <summary>Row of „Diagnostyka” per source (§6.9.10).</summary>
+public sealed record DiagnosticsRow(string Source, string Files, string Parsed, string Skipped, string Errors);
+
+/// <summary>Screen „Ustawienia” (DESIGN.md §6.9) with autosave (§5.10).</summary>
 public sealed class SettingsViewModel : ObservableObject
 {
     private static readonly DayOfWeek[] WeekDays =
         [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday];
 
-    private string _timezone = "";
-    private int _costModeIndex;
-    private bool _offline;
+    private readonly Dictionary<string, string> _errors = [];
+    private CancellationTokenSource? _debounce;
+    private bool _loading;
+    private int _timezoneIndex;
     private int _startOfWeekIndex;
+    private bool _runAtStartup;
+    private int _themeIndex;
+    private int _densityIndex;
+    private int _motionIndex;
+    private bool _alwaysOnTop;
+    private int _costModeIndex;
     private string _sessionLength = "5";
-    private string _tokenLimit = "max";
+    private int _tokenLimitModeIndex;
+    private string _tokenLimitValue = "";
     private string _refreshInterval = "30";
     private string _activeMinutes = "15";
     private string _projectAliases = "";
+    private bool _offline;
     private string _modelAliases = "";
     private string _modelLabelAliases = "";
-    private string _liteLlmStatus = "";
-    private string _modelsDevStatus = "";
-    private string _status = "";
-    private string _diagnostics = "";
-    private string _pricingMismatches = "";
     private int _mismatchRangeIndex = 1;
-    private bool _isBusy;
-    private bool _runAtStartup;
+    private string _lastSaved = "";
     private string _startupStatus = "";
+    private bool _isBusy;
 
     public SettingsViewModel()
     {
-        SaveCommand = new Command(async () => await SaveAsync());
-        AddOverrideCommand = new Command(() => PricingOverrides.Add(new PricingOverrideViewModel(new PricingOverrideForm(), RemoveOverride)));
+        Timezones = [new ChoiceItem("", $"Systemowa ({TimeZoneInfo.Local.Id})"), .. TimeZoneInfo.GetSystemTimeZones().Select(zone => new ChoiceItem(zone.Id, zone.DisplayName))];
+        AddOverrideCommand = new Command(async () => await EditOverrideAsync(null));
+        EditOverrideCommand = new Command<PricingOverrideViewModel>(async item => await EditOverrideAsync(item));
+        RemoveOverrideCommand = new Command<PricingOverrideViewModel>(RemoveOverride);
         RefreshPricingCommand = new Command(async () => await RefreshPricingAsync());
         RebuildCommand = new Command(async () => await RebuildAsync());
         CheckMismatchesCommand = new Command(async () => await CheckMismatchesAsync());
-        OpenFolderCommand = new Command(async () => await Launcher.Default.OpenAsync(new OpenFileRequest("Folder", new ReadOnlyFile(FileUtil.DataDirectory))));
+        OpenDataFolderCommand = new Command(async () => await Launcher.Default.OpenAsync(new Uri(FileUtil.DataDirectory)));
+        OpenConfigFolderCommand = new Command(async () => await Launcher.Default.OpenAsync(new Uri(Path.GetDirectoryName(ConfigPath)!)));
+        OpenConfigFileCommand = new Command(async () =>
+        {
+            if (File.Exists(ConfigPath))
+            {
+                await Launcher.Default.OpenAsync(new OpenFileRequest("Plik konfiguracji", new ReadOnlyFile(ConfigPath)));
+            }
+        });
+        CopyDiagnosticsCommand = new Command(async () => await Ui.CopyAsync(DiagnosticsText()));
+        OpenSourcesCommand = new Command(() => _ = ShellViewModel.Instance.NavigateAsync(Screen.Sources));
     }
 
-    public string[] CostModes { get; } = ["auto — koszt z narzędzia, inaczej z cennika", "calculate — zawsze z cennika", "display — tylko zapisany koszt"];
+    // ===== Options (labels §6.9) =====
+
+    public ChoiceItem[] Timezones { get; }
+
     public string[] Days { get; } = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"];
-    public ObservableCollection<SourceSettingViewModel> Sources { get; } = [];
+
+    public string[] Themes { get; } = ["Systemowy", "Jasny", "Ciemny"];
+
+    public string[] Densities { get; } = ["Komfortowa", "Kompaktowa"];
+
+    public string[] Motions { get; } = ["Pełne", "Ograniczone", "Wyłączone"];
+
+    public string[] CostModes { get; } = ["Automatyczny", "Wyliczany", "Zapisany"];
+
+    public string[] TokenLimitModes { get; } = ["Maksimum z historii", "Własny"];
+
+    public string[] MismatchRanges { get; } = ["7 dni", "30 dni", "90 dni", "Cała historia"];
+
+    public Command AddOverrideCommand { get; }
+
+    public Command<PricingOverrideViewModel> EditOverrideCommand { get; }
+
+    public Command<PricingOverrideViewModel> RemoveOverrideCommand { get; }
+
+    public Command RefreshPricingCommand { get; }
+
+    public Command RebuildCommand { get; }
+
+    public Command CheckMismatchesCommand { get; }
+
+    public Command OpenDataFolderCommand { get; }
+
+    public Command OpenConfigFolderCommand { get; }
+
+    public Command OpenConfigFileCommand { get; }
+
+    public Command CopyDiagnosticsCommand { get; }
+
+    public Command OpenSourcesCommand { get; }
+
+    /// <summary>Field key saved last — FormRow shows „Zapisano” next to it (§5.10).</summary>
+    public string LastSaved { get => _lastSaved; private set => Set(ref _lastSaved, value); }
+
+    public string SaveError { get; private set; } = string.Empty;
+
+    public bool HasSaveError => SaveError.Length > 0;
+
+    public string ConfigPath => ConfigLoader.UserConfigPath;
+
+    public string AutosaveCaption => "Zmiany zapisują się automatycznie · Plik: " + ConfigPath;
+
+    public bool IsBusy { get => _isBusy; private set => Set(ref _isBusy, value); }
+
+    // ===== Ogólne =====
+
+    public int TimezoneIndex { get => _timezoneIndex; set => Field(ref _timezoneIndex, value, "timezone", immediate: true); }
+
+    public int StartOfWeekIndex { get => _startOfWeekIndex; set => Field(ref _startOfWeekIndex, value, "startOfWeek", immediate: true); }
+
 #if WINDOWS
     public bool IsStartupSettingAvailable => true;
 #else
     public bool IsStartupSettingAvailable => false;
 #endif
-    public bool RunAtStartup { get => _runAtStartup; set => Set(ref _runAtStartup, value); }
+
+    public bool RunAtStartup
+    {
+        get => _runAtStartup;
+        set
+        {
+            if (Set(ref _runAtStartup, value) && !_loading)
+            {
+                _ = ApplyStartupAsync();
+            }
+        }
+    }
+
     public string StartupStatus { get => _startupStatus; private set => Set(ref _startupStatus, value); }
 
-    /// <summary>Nadpisania cennika (<c>pricingOverrides</c>); stawki w UI w USD za 1M tokenów.</summary>
+    // ===== Wygląd / Okno =====
+
+    public int ThemeIndex { get => _themeIndex; set => Field(ref _themeIndex, value, "theme", immediate: true); }
+
+    public int DensityIndex { get => _densityIndex; set => Field(ref _densityIndex, value, "density", immediate: true); }
+
+    public int MotionIndex { get => _motionIndex; set => Field(ref _motionIndex, value, "motion", immediate: true); }
+
+    public bool AlwaysOnTop { get => _alwaysOnTop; set => Field(ref _alwaysOnTop, value, "alwaysOnTop", immediate: true); }
+
+    // ===== Obliczenia (§6.9.5) =====
+
+    public int CostModeIndex
+    {
+        get => _costModeIndex;
+        set
+        {
+            Field(ref _costModeIndex, value, "costMode", immediate: true);
+            OnPropertyChanged(nameof(CostModeDescription));
+        }
+    }
+
+    public string CostModeDescription => CostModeIndex switch
+    {
+        1 => "Zawsze z cennika i liczby tokenów.",
+        2 => "Tylko koszt zapisany przez narzędzie; bez niego koszt wynosi 0.",
+        _ => "Koszt zapisany przez narzędzie, gdy jest; w przeciwnym razie wyliczony z cennika."
+    };
+
+    public string SessionLength { get => _sessionLength; set => Field(ref _sessionLength, value, "sessionLength"); }
+
+    public int TokenLimitModeIndex
+    {
+        get => _tokenLimitModeIndex;
+        set
+        {
+            Field(ref _tokenLimitModeIndex, value, "tokenLimit", immediate: value == 0);
+            OnPropertyChanged(nameof(IsCustomTokenLimit));
+        }
+    }
+
+    public bool IsCustomTokenLimit => TokenLimitModeIndex == 1;
+
+    public string TokenLimitValue { get => _tokenLimitValue; set => Field(ref _tokenLimitValue, value, "tokenLimit"); }
+
+    public string RefreshInterval { get => _refreshInterval; set => Field(ref _refreshInterval, value, "refreshInterval"); }
+
+    public string ActiveMinutes { get => _activeMinutes; set => Field(ref _activeMinutes, value, "activeMinutes"); }
+
+    public string SessionLengthError => Error("sessionLength");
+
+    public string TokenLimitError => Error("tokenLimit");
+
+    public string RefreshIntervalError => Error("refreshInterval");
+
+    public string ActiveMinutesError => Error("activeMinutes");
+
+    // ===== Projekty / Cennik / Statusline =====
+
+    public string ProjectAliases { get => _projectAliases; set => Field(ref _projectAliases, value, "projectAliases"); }
+
+    public bool Offline { get => _offline; set => Field(ref _offline, value, "offline", immediate: true); }
+
+    public string ModelAliases { get => _modelAliases; set => Field(ref _modelAliases, value, "modelAliases"); }
+
+    public string ModelAliasesError => Error("modelAliases");
+
+    public string ModelLabelAliases { get => _modelLabelAliases; set => Field(ref _modelLabelAliases, value, "modelLabelAliases"); }
+
+    public string ModelLabelAliasesError => Error("modelLabelAliases");
+
     public ObservableCollection<PricingOverrideViewModel> PricingOverrides { get; } = [];
-    public Command AddOverrideCommand { get; }
 
-    public Command SaveCommand { get; }
-    public Command RefreshPricingCommand { get; }
-    public Command RebuildCommand { get; }
-    public Command CheckMismatchesCommand { get; }
+    public TableState OverridesState => PricingOverrides.Count == 0 ? TableState.Empty : TableState.Ready;
 
-    public string[] MismatchRanges { get; } = ["7 dni", "30 dni", "90 dni", "Cała historia"];
+    public string LiteLlmStatus { get; private set; } = string.Empty;
+
+    public string ModelsDevStatus { get; private set; } = string.Empty;
+
+    public StatusKind LiteLlmKind { get; private set; }
+
+    public StatusKind ModelsDevKind { get; private set; }
+
+    public string LiteLlmBadge => LiteLlmKind == StatusKind.Success ? "aktualny" : LiteLlmKind == StatusKind.Warning ? "nieaktualny" : "offline";
+
+    public string ModelsDevBadge => ModelsDevKind == StatusKind.Success ? "aktualny" : ModelsDevKind == StatusKind.Warning ? "nieaktualny" : "offline";
+
+    // ===== Zaawansowane / Diagnostyka / O aplikacji =====
+
     public int MismatchRangeIndex { get => _mismatchRangeIndex; set => Set(ref _mismatchRangeIndex, value); }
 
-    /// <summary>Rozbieżności kosztu zapisanego przez narzędzie i wyliczonego z cennika (ccusage <c>--debug</c>).</summary>
-    public string PricingMismatches { get => _pricingMismatches; private set { if (Set(ref _pricingMismatches, value)) { OnPropertyChanged(nameof(HasPricingMismatches)); } } }
-    public bool HasPricingMismatches => PricingMismatches.Length > 0;
-    public Command OpenFolderCommand { get; }
+    public IReadOnlyList<MismatchRow> Mismatches { get; private set; } = [];
 
-    public string Timezone { get => _timezone; set => Set(ref _timezone, value); }
-    public int CostModeIndex { get => _costModeIndex; set => Set(ref _costModeIndex, value); }
-    public bool Offline { get => _offline; set => Set(ref _offline, value); }
-    public int StartOfWeekIndex { get => _startOfWeekIndex; set => Set(ref _startOfWeekIndex, value); }
-    public string SessionLength { get => _sessionLength; set => Set(ref _sessionLength, value); }
-    public string TokenLimit { get => _tokenLimit; set => Set(ref _tokenLimit, value); }
-    public string RefreshInterval { get => _refreshInterval; set => Set(ref _refreshInterval, value); }
-    public string ActiveMinutes { get => _activeMinutes; set => Set(ref _activeMinutes, value); }
-    public string ProjectAliases { get => _projectAliases; set => Set(ref _projectAliases, value); }
+    public string MismatchSummary { get; private set; } = string.Empty;
 
-    /// <summary>Aliasy modeli do wyceny (<c>modelAliases</c>): wiersze <c>nazwa z logu=model w cenniku</c>.</summary>
-    public string ModelAliases { get => _modelAliases; set => Set(ref _modelAliases, value); }
+    public TableState MismatchState { get; private set; } = TableState.Empty;
 
-    /// <summary>Etykiety modeli w statusline (<c>modelLabelAliases</c>): wiersze <c>nazwa modelu=etykieta</c>.</summary>
-    public string ModelLabelAliases { get => _modelLabelAliases; set => Set(ref _modelLabelAliases, value); }
+    public IReadOnlyList<KeyValueItem> DiagnosticsItems { get; private set; } = [];
 
-    /// <summary>Stan cennika LiteLLM: pochodzenie, data aktualizacji, liczba modeli.</summary>
-    public string LiteLlmStatus { get => _liteLlmStatus; private set => Set(ref _liteLlmStatus, value); }
+    public IReadOnlyList<DiagnosticsRow> DiagnosticsRows { get; private set; } = [];
 
-    /// <summary>Stan cennika models.dev (drugie źródło).</summary>
-    public string ModelsDevStatus { get => _modelsDevStatus; private set => Set(ref _modelsDevStatus, value); }
-    public string Status { get => _status; private set => Set(ref _status, value); }
-    public string Diagnostics { get => _diagnostics; private set => Set(ref _diagnostics, value); }
-    public bool IsBusy { get => _isBusy; private set => Set(ref _isBusy, value); }
-    public string ConfigPath => ConfigLoader.UserConfigPath;
+    public string Version => $"{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})";
 
     public async Task LoadAsync()
     {
-        var config = AppState.Config;
-        Timezone = config.Timezone ?? "";
-        CostModeIndex = (int)config.CostMode;
-        Offline = config.Offline;
-        StartOfWeekIndex = Array.IndexOf(WeekDays, config.StartOfWeek);
-        SessionLength = config.SessionLengthHours.ToString(CultureInfo.InvariantCulture);
-        TokenLimit = config.TokenLimit;
-        RefreshInterval = config.RefreshIntervalSeconds.ToString(CultureInfo.InvariantCulture);
-        ActiveMinutes = config.ActiveSessionMinutes.ToString(CultureInfo.InvariantCulture);
-        ProjectAliases = config.ProjectAliases ?? "";
-        ModelAliases = ConfigTextFormats.FormatMap(config.ModelAliases);
-        ModelLabelAliases = ConfigTextFormats.FormatMap(config.ModelLabelAliases);
-        PricingOverrides.Clear();
-        foreach (var form in ConfigTextFormats.ToForms(config.PricingOverrides))
-        {
-            PricingOverrides.Add(new PricingOverrideViewModel(form, RemoveOverride));
-        }
-
-        Sources.Clear();
-        foreach (var source in AppState.Engine.Sources)
-        {
-            var settings = config.GetSource(source.Id);
-            var installed = source.IsInstalled(config);
-            Sources.Add(new SourceSettingViewModel(source.Id, source.DisplayName, settings,
-                installed ? "wykryte: " + string.Join("; ", source.ResolveRoots(config).Where(Directory.Exists)) : "nie wykryto"));
-        }
-
-        Status = AppState.ConfigError is { } error ? "Błąd pliku konfiguracji: " + error : "";
-        UpdateDiagnostics();
-#if WINDOWS
+        _loading = true;
         try
         {
-            RunAtStartup = await WindowsStartupManager.IsEnabledAsync();
-            StartupStatus = "";
-        }
-        catch (Exception exception) when (IsStartupError(exception))
-        {
-            StartupStatus = "Nie można odczytać ustawienia autostartu: " + exception.Message;
-        }
-#endif
-    }
-
-    private void RemoveOverride(PricingOverrideViewModel item) => PricingOverrides.Remove(item);
-
-    private async Task SaveAsync()
-    {
-        try
-        {
-            var config = AppState.Config.Clone();
-            config.Timezone = string.IsNullOrWhiteSpace(Timezone) ? null : Timezone.Trim();
-            config.CostMode = (CostMode)Math.Max(0, CostModeIndex);
-            config.Offline = Offline;
-            config.StartOfWeek = WeekDays[Math.Max(0, StartOfWeekIndex)];
-            config.SessionLengthHours = ParseDouble(SessionLength, "Długość bloku");
-            config.TokenLimit = string.IsNullOrWhiteSpace(TokenLimit) ? "max" : TokenLimit.Trim();
-            config.RefreshIntervalSeconds = (int)ParseDouble(RefreshInterval, "Interwał odświeżania");
-            config.ActiveSessionMinutes = Math.Max(1, (int)ParseDouble(ActiveMinutes, "Okno aktywnej sesji"));
-            config.ProjectAliases = string.IsNullOrWhiteSpace(ProjectAliases) ? null : ProjectAliases.Trim();
-            var sourceIds = Sources.Select(source => source.Id).ToArray();
-            config.ModelAliases = ConfigTextFormats.ParseMap(ModelAliases, "Aliasy modeli");
-            config.ModelLabelAliases = ConfigTextFormats.ParseMap(ModelLabelAliases, "Etykiety modeli (statusline)");
-            config.PricingOverrides = ConfigTextFormats.BuildPricingOverrides(PricingOverrides.Select(item => item.Form), sourceIds);
-            foreach (var source in Sources)
+            var config = AppState.Config;
+            _timezoneIndex = Math.Max(0, Array.FindIndex(Timezones, zone => zone.Id.Length > 0 && zone.Id.Equals(config.Timezone, StringComparison.OrdinalIgnoreCase)));
+            _startOfWeekIndex = Math.Max(0, Array.IndexOf(WeekDays, config.StartOfWeek));
+            _themeIndex = (int)config.Appearance.Theme;
+            _densityIndex = (int)config.Appearance.Density;
+            _motionIndex = (int)config.Appearance.Motion;
+            _alwaysOnTop = config.Window.AlwaysOnTop;
+            _costModeIndex = (int)config.CostMode;
+            _sessionLength = config.SessionLengthHours.ToString(CultureInfo.InvariantCulture);
+            _tokenLimitModeIndex = config.TokenLimit.Equals("max", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+            _tokenLimitValue = _tokenLimitModeIndex == 1 ? config.TokenLimit : "";
+            _refreshInterval = config.RefreshIntervalSeconds.ToString(CultureInfo.InvariantCulture);
+            _activeMinutes = config.ActiveSessionMinutes.ToString(CultureInfo.InvariantCulture);
+            _projectAliases = config.ProjectAliases ?? "";
+            _offline = config.Offline;
+            _modelAliases = ConfigTextFormats.FormatMap(config.ModelAliases);
+            _modelLabelAliases = ConfigTextFormats.FormatMap(config.ModelLabelAliases);
+            PricingOverrides.Clear();
+            foreach (var form in ConfigTextFormats.ToForms(config.PricingOverrides))
             {
-                if (!config.Sources.TryGetValue(source.Id, out var settings))
-                {
-                    config.Sources[source.Id] = settings = new SourceSettings();
-                }
-
-                source.ApplyTo(settings, sourceIds);
+                PricingOverrides.Add(new PricingOverrideViewModel(form));
             }
 
-            // pi: nazwy i nakładanie się katalogów magazynów (ccusage pi_stores.rs) — błąd blokuje zapis.
-            var storeErrors = new PiSource().ValidateStores(config);
-            if (storeErrors.Count > 0)
-            {
-                Status = "Nie zapisano: " + string.Join("; ", storeErrors);
-                return;
-            }
-
-            AppState.SaveConfig(config);
-            Status = "Zapisano: " + ConfigLoader.UserConfigPath;
+            _errors.Clear();
+            SaveError = AppState.ConfigError is { } error ? "Plik konfiguracji jest niepoprawny — użyto wartości domyślnych: " + error : "";
+            UpdateDiagnostics();
 #if WINDOWS
             try
             {
-                var startupResult = await WindowsStartupManager.SetEnabledAsync(RunAtStartup);
-                RunAtStartup = startupResult.Enabled;
-                StartupStatus = startupResult.Status;
+                _runAtStartup = await WindowsStartupManager.IsEnabledAsync();
+                StartupStatus = "";
             }
             catch (Exception exception) when (IsStartupError(exception))
             {
-                StartupStatus = "Nie udało się zmienić ustawienia autostartu: " + exception.Message;
+                StartupStatus = "Nie można odczytać ustawienia autostartu: " + exception.Message;
             }
+#else
+            await Task.CompletedTask;
 #endif
-
-            // Nowe nadpisania i aliasy działają po ponownym wczytaniu cennika (z cache, bez wymuszania sieci).
-            IsBusy = true;
-            try
-            {
-                var catalog = await AppState.Engine.LoadPricingAsync();
-                var unpriced = config.ModelAliases.Values.Distinct(StringComparer.Ordinal).Where(model => catalog.Resolve(model) is null).ToArray();
-                if (unpriced.Length > 0)
-                {
-                    Status += " · uwaga, aliasy wskazują modele bez ceny: " + string.Join(", ", unpriced);
-                }
-
-                UpdateDiagnostics();
-                AppState.NotifyChanged();
-            }
-            finally
-            {
-                IsBusy = false;
-            }
         }
-        catch (Exception exception) when (exception is ConfigException or FormatException or IOException or UnauthorizedAccessException)
+        finally
         {
-            Status = "Nie zapisano: " + exception.Message;
+            _loading = false;
         }
+
+        OnPropertyChanged(string.Empty);
+    }
+
+    /// <summary>Field change → validate → save immediately (toggles, selects) or after 600 ms (text, §5.10).</summary>
+    private void Field<T>(ref T field, T value, string key, bool immediate = false, [System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
+    {
+        if (!Set(ref field, value, propertyName) || _loading)
+        {
+            return;
+        }
+
+        _debounce?.Cancel();
+        var debounce = _debounce = new CancellationTokenSource();
+        _ = SaveLaterAsync(key, immediate, debounce.Token);
+    }
+
+    private async Task SaveLaterAsync(string key, bool immediate, CancellationToken token)
+    {
+        try
+        {
+            if (!immediate)
+            {
+                await Task.Delay(Design.MotionTokens.AutosaveDelay, token);
+            }
+
+            Save(key);
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private void Save(string key)
+    {
+        _errors.Clear();
+        var config = AppState.Config.Clone();
+        config.Timezone = TimezoneIndex > 0 && TimezoneIndex < Timezones.Length ? Timezones[TimezoneIndex].Id : null;
+        config.StartOfWeek = WeekDays[Math.Clamp(StartOfWeekIndex, 0, WeekDays.Length - 1)];
+        config.Appearance.Theme = (ThemePreference)ThemeIndex;
+        config.Appearance.Density = (DensityPreference)DensityIndex;
+        config.Appearance.Motion = (MotionPreference)MotionIndex;
+        config.Window.AlwaysOnTop = AlwaysOnTop;
+        config.CostMode = (CostMode)Math.Clamp(CostModeIndex, 0, 2);
+        config.Offline = Offline;
+        config.ProjectAliases = string.IsNullOrWhiteSpace(ProjectAliases) ? null : ProjectAliases.Trim();
+
+        if (Number(SessionLength, 1, 24, "sessionLength") is { } hours)
+        {
+            config.SessionLengthHours = hours;
+        }
+
+        if (TokenLimitModeIndex == 0)
+        {
+            config.TokenLimit = "max";
+        }
+        else if (Number(TokenLimitValue, 1, long.MaxValue, "tokenLimit", integer: true) is { } limit)
+        {
+            config.TokenLimit = ((long)limit).ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (Number(RefreshInterval, 5, 3600, "refreshInterval", integer: true) is { } seconds)
+        {
+            config.RefreshIntervalSeconds = (int)seconds;
+        }
+
+        if (Number(ActiveMinutes, 1, 240, "activeMinutes", integer: true) is { } minutes)
+        {
+            config.ActiveSessionMinutes = (int)minutes;
+        }
+
+        try
+        {
+            config.ModelAliases = ConfigTextFormats.ParseMap(ModelAliases, "Aliasy modeli");
+        }
+        catch (Exception exception) when (exception is FormatException or ConfigException)
+        {
+            _errors["modelAliases"] = exception.Message;
+        }
+
+        try
+        {
+            config.ModelLabelAliases = ConfigTextFormats.ParseMap(ModelLabelAliases, "Etykiety modeli");
+        }
+        catch (Exception exception) when (exception is FormatException or ConfigException)
+        {
+            _errors["modelLabelAliases"] = exception.Message;
+        }
+
+        // Invalid values are not saved; the previous valid value stays in force (§4.2.0 „Walidacja”).
+        try
+        {
+            AppState.SaveConfig(config);
+            SaveError = string.Empty;
+            if (!_errors.ContainsKey(key))
+            {
+                LastSaved = string.Empty;
+                LastSaved = key;
+            }
+        }
+        catch (Exception exception) when (exception is ConfigException or IOException or UnauthorizedAccessException)
+        {
+            SaveError = "Nie zapisano: " + exception.Message;
+        }
+
+        foreach (var name in new[]
+                 {
+                     nameof(SessionLengthError), nameof(TokenLimitError), nameof(RefreshIntervalError), nameof(ActiveMinutesError),
+                     nameof(ModelAliasesError), nameof(ModelLabelAliasesError), nameof(SaveError), nameof(HasSaveError)
+                 })
+        {
+            OnPropertyChanged(name);
+        }
+    }
+
+    private double? Number(string text, double min, double max, string key, bool integer = false)
+    {
+        var valid = double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) &&
+                    value >= min && value <= max && (!integer || value % 1 == 0);
+        if (valid)
+        {
+            return value;
+        }
+
+        _errors[key] = max >= long.MaxValue
+            ? "Podaj liczbę większą od zera."
+            : $"Podaj liczbę od {min.ToString(CultureInfo.CurrentCulture)} do {max.ToString(CultureInfo.CurrentCulture)}.";
+        return null;
+    }
+
+    private string Error(string key) => _errors.TryGetValue(key, out var error) ? error : string.Empty;
+
+    private async Task ApplyStartupAsync()
+    {
+#if WINDOWS
+        try
+        {
+            var result = await WindowsStartupManager.SetEnabledAsync(RunAtStartup);
+            _runAtStartup = result.Enabled;
+            StartupStatus = result.Status;
+            OnPropertyChanged(nameof(RunAtStartup));
+            LastSaved = string.Empty;
+            LastSaved = "startup";
+        }
+        catch (Exception exception) when (IsStartupError(exception))
+        {
+            StartupStatus = "Nie udało się zmienić ustawienia autostartu: " + exception.Message;
+        }
+#else
+        await Task.CompletedTask;
+#endif
     }
 
 #if WINDOWS
@@ -367,21 +624,147 @@ public sealed class SettingsViewModel : ObservableObject
             System.Security.SecurityException or System.Runtime.InteropServices.COMException or NotSupportedException;
 #endif
 
+    // ===== Pricing overrides (§6.9.7) =====
+
+    private async Task EditOverrideAsync(PricingOverrideViewModel? existing)
+    {
+        var draft = existing?.Copy() ?? new PricingOverrideViewModel(new PricingOverrideForm());
+        var error = Ui.Text("Text.Caption").Dyn(Label.TextColorProperty, "ColorStatusDanger");
+        View Field(string label, string property, bool mono = false, string suffix = "$ / 1 M")
+        {
+            var field = new TextField { Kind = mono ? TextFieldKind.Mono : TextFieldKind.Number, Suffix = mono ? "" : suffix, BindingContext = draft };
+            field.SetBinding(TextField.TextProperty, property, BindingMode.TwoWay);
+            return new FormRow { Label = label, Field = field };
+        }
+
+        Grid Pair(View left, View right)
+        {
+            var grid = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Star)], ColumnSpacing = Ui.D("Space300") };
+            grid.Add(left);
+            grid.Add(right, 1);
+            return grid;
+        }
+
+        var advanced = new VerticalStackLayout
+        {
+            Spacing = Ui.D("Space300"),
+            Children =
+            {
+                Pair(Field("Wejście > 200 k", nameof(PricingOverrideViewModel.InputAbove200k)), Field("Wyjście > 200 k", nameof(PricingOverrideViewModel.OutputAbove200k))),
+                Pair(Field("Zapis cache > 200 k", nameof(PricingOverrideViewModel.CacheWriteAbove200k)), Field("Odczyt cache > 200 k", nameof(PricingOverrideViewModel.CacheReadAbove200k))),
+                Pair(Field("Maks. tokenów wejścia", nameof(PricingOverrideViewModel.MaxInputTokens), suffix: ""), Field("Mnożnik fast", nameof(PricingOverrideViewModel.FastMultiplier), suffix: "×")),
+                Field("Mnożnik flex", nameof(PricingOverrideViewModel.FlexMultiplier), suffix: "×")
+            }
+        };
+        var body = new VerticalStackLayout
+        {
+            Spacing = Ui.D("Space300"),
+            Children =
+            {
+                Field("Model", nameof(PricingOverrideViewModel.Key), mono: true),
+                Ui.Text("Text.Caption", "Klucz: model, dostawca/model lub [źródło] model. Puste pole = stawka z cennika."),
+                Pair(Field("Wejście", nameof(PricingOverrideViewModel.Input)), Field("Wyjście", nameof(PricingOverrideViewModel.Output))),
+                Pair(Field("Zapis cache 5 min", nameof(PricingOverrideViewModel.CacheWrite)), Field("Zapis cache 1 h", nameof(PricingOverrideViewModel.CacheWrite1h))),
+                Field("Odczyt cache", nameof(PricingOverrideViewModel.CacheRead)),
+                new Section { Title = "Zaawansowane", IsCollapsible = true, IsCollapsed = !draft.ShowAdvanced, Body = advanced },
+                error
+            }
+        };
+
+        bool Validate()
+        {
+            var forms = PricingOverrides.Where(item => item != existing).Select(item => item.Form).Append(draft.Form).ToList();
+            try
+            {
+                ConfigTextFormats.BuildPricingOverrides(forms, AppState.Engine.Sources.Select(source => source.Id).ToArray());
+                return !string.IsNullOrWhiteSpace(draft.Key) || SetError("Podaj nazwę modelu.");
+            }
+            catch (Exception exception) when (exception is FormatException or ConfigException)
+            {
+                return SetError(exception.Message);
+            }
+
+            bool SetError(string text)
+            {
+                error.Text = text;
+                return false;
+            }
+        }
+
+        if (!await DialogService.FormAsync(existing is null ? "Dodaj nadpisanie" : "Edytuj nadpisanie", body, existing is null ? "Dodaj" : "Zapisz", Validate))
+        {
+            return;
+        }
+
+        if (existing is null)
+        {
+            PricingOverrides.Add(draft);
+        }
+        else
+        {
+            PricingOverrides[PricingOverrides.IndexOf(existing)] = draft;
+        }
+
+        SaveOverrides("Zapisano nadpisanie ceny");
+    }
+
+    private void RemoveOverride(PricingOverrideViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        var index = PricingOverrides.IndexOf(item);
+        PricingOverrides.Remove(item);
+        SaveOverrides(null);
+        // Reversible action: no confirmation, a toast with „Cofnij” (§1.5).
+        ToastService.Show($"Usunięto nadpisanie {item.Key}", ToastKind.Info, "Cofnij", () =>
+        {
+            PricingOverrides.Insert(Math.Min(index, PricingOverrides.Count), item);
+            SaveOverrides(null);
+        });
+    }
+
+    private void SaveOverrides(string? toast)
+    {
+        try
+        {
+            var config = AppState.Config.Clone();
+            config.PricingOverrides = ConfigTextFormats.BuildPricingOverrides(PricingOverrides.Select(item => item.Form), AppState.Engine.Sources.Select(source => source.Id).ToArray());
+            AppState.SaveConfig(config);
+            if (toast is not null)
+            {
+                ToastService.Show(toast);
+            }
+
+            _ = AppState.Engine.LoadPricingAsync();
+        }
+        catch (Exception exception) when (exception is FormatException or ConfigException or IOException)
+        {
+            ToastService.Show("Nie zapisano nadpisań: " + exception.Message, ToastKind.Error);
+        }
+
+        OnPropertyChanged(nameof(OverridesState));
+    }
+
     private async Task RefreshPricingAsync()
     {
         IsBusy = true;
         try
         {
             var catalog = await AppState.Engine.LoadPricingAsync(forceRefresh: true);
-            Status = (catalog.Origin, catalog.ModelsDevOrigin) switch
+            if (catalog.Origin == PricingOrigin.Online)
             {
-                (PricingOrigin.Online, PricingOrigin.Online) =>
-                    $"Pobrano aktualny cennik: LiteLLM {catalog.Count} modeli, models.dev {catalog.ModelsDevCount} modeli.",
-                _ when AppState.Config.Offline =>
-                    "Tryb offline — cennik nie jest pobierany z sieci (używany cache lub snapshot w aplikacji).",
-                _ => "Nie udało się pobrać całego cennika (brak sieci?) — " +
-                     $"LiteLLM: {PricingStatus.OriginName(catalog.Origin)}, models.dev: {PricingStatus.OriginName(catalog.ModelsDevOrigin)}."
-            };
+                ToastService.Show($"Cennik zaktualizowany: {Fmt.Count(catalog.Count, "model", "modele", "modeli")}");
+            }
+            else
+            {
+                ToastService.Show(AppState.Config.Offline
+                    ? "Tryb offline — cennik nie jest pobierany z sieci."
+                    : "Brak połączenia — limity i cennik zostaną odświeżone automatycznie.", ToastKind.Info);
+            }
+
             UpdateDiagnostics();
             AppState.NotifyChanged();
         }
@@ -394,7 +777,7 @@ public sealed class SettingsViewModel : ObservableObject
     private async Task RebuildAsync()
     {
         // §8.4: irreversible action → confirmation dialog stating the consequence.
-        var confirmed = await Navigation.DialogService.ConfirmAsync(
+        var confirmed = await DialogService.ConfirmAsync(
             "Przebudować bazę?",
             "Baza zostanie odtworzona z logów na dysku. Wpisy z logów, które narzędzia już usunęły, zostaną utracone. Zwykle trwa to 10–60 s.",
             "Przebuduj",
@@ -409,7 +792,8 @@ public sealed class SettingsViewModel : ObservableObject
         {
             await Task.Run(() => AppState.Engine.Ledger.Reset());
             await AppState.Engine.SyncAsync(force: true);
-            Status = "Baza przebudowana z logów.";
+            var (_, entries) = AppState.Engine.Ledger.Statistics();
+            ToastService.Show($"Baza przebudowana: {Fmt.Count(entries, "wpis", "wpisy", "wpisów")}");
             UpdateDiagnostics();
             AppState.NotifyChanged();
         }
@@ -422,39 +806,99 @@ public sealed class SettingsViewModel : ObservableObject
     private async Task CheckMismatchesAsync()
     {
         IsBusy = true;
+        MismatchState = TableState.Loading;
+        OnPropertyChanged(nameof(MismatchState));
         try
         {
             await AppState.RefreshDataAsync();
-            var today = DateOnly.FromDateTime(DateTime.Today);
+            var today = DateOnly.FromDateTime(Fmt.NowLocal);
             var query = new ReportQuery
             {
                 Since = MismatchRangeIndex switch { 0 => today.AddDays(-6), 1 => today.AddDays(-29), 2 => today.AddDays(-89), _ => null }
             };
             var report = await Task.Run(() => PricingMismatchAnalyzer.Analyze(AppState.Engine, query, samples: 10));
-            PricingMismatches = report.Format(AppState.Engine.Reports.TimeZone);
+            Mismatches = report.Models.OrderByDescending(model => Math.Abs(model.CalculatedCostUsd - model.StoredCostUsd))
+                .Select(model => new MismatchRow(
+                    AppState.Engine.FindSource(model.Source)?.DisplayName ?? model.Source,
+                    Fmt.Model(model.Model),
+                    Fmt.Number(model.Compared),
+                    Fmt.Number(model.Mismatches),
+                    Fmt.CostFull(model.StoredCostUsd),
+                    Fmt.CostFull(model.CalculatedCostUsd),
+                    Fmt.Percent(model.AveragePercentDifference)))
+                .ToList();
+            MismatchSummary = report.Compared == 0
+                ? "Brak wpisów z kosztem zapisanym przez narzędzie w tym zakresie."
+                : $"Porównano {Fmt.Count(report.Compared, "wpis", "wpisy", "wpisów")}: zgodnych {Fmt.Percent(report.MatchRate * 100)}, " +
+                  $"zapisany {Fmt.CostFull(report.StoredCostUsd)}, wyliczony {Fmt.CostFull(report.CalculatedCostUsd)}.";
+            MismatchState = Mismatches.Count == 0 ? TableState.Empty : TableState.Ready;
         }
         catch (Exception exception) when (exception is IOException or ArgumentException or UnauthorizedAccessException)
         {
-            PricingMismatches = "Nie udało się sprawdzić rozbieżności: " + exception.Message;
+            MismatchSummary = "Nie udało się sprawdzić rozbieżności: " + exception.Message;
+            MismatchState = TableState.Error;
         }
         finally
         {
             IsBusy = false;
+            OnPropertyChanged(nameof(Mismatches));
+            OnPropertyChanged(nameof(MismatchSummary));
+            OnPropertyChanged(nameof(MismatchState));
         }
     }
 
     public void UpdateDiagnostics()
     {
         var engine = AppState.Engine;
+        var (files, entries) = engine.Ledger.Statistics();
+        var pricing = engine.Pricing;
+        LiteLlmStatus = PricingStatus.DescribeLiteLlm(pricing);
+        ModelsDevStatus = PricingStatus.DescribeModelsDev(pricing);
+        LiteLlmKind = Kind(pricing.Origin, pricing.UpdatedAt);
+        ModelsDevKind = Kind(pricing.ModelsDevOrigin, pricing.ModelsDevUpdatedAt);
+        DiagnosticsItems =
+        [
+            new KeyValueItem("Baza", engine.Ledger.DatabasePath, IsMono: true, CanCopy: true),
+            new KeyValueItem("Pliki", Fmt.Number(files), IsNumeric: true),
+            new KeyValueItem("Wpisy", Fmt.Number(entries), IsNumeric: true),
+            new KeyValueItem("Ostatnia synchronizacja", engine.Ledger.LastSync() is { } last ? Fmt.DateTimeShort(last) : "—"),
+            new KeyValueItem("Cennik LiteLLM", LiteLlmStatus),
+            new KeyValueItem("Cennik models.dev", ModelsDevStatus)
+        ];
+        DiagnosticsRows = engine.LastSync?.Sources.Select(source => new DiagnosticsRow(
+            engine.FindSource(source.Source)?.DisplayName ?? source.Source,
+            Fmt.Number(source.Files),
+            Fmt.Number(source.ParsedFiles),
+            Fmt.Number(source.SkippedLines),
+            Fmt.Number(source.Problems.Count))).ToList() ?? [];
+        foreach (var name in new[]
+                 {
+                     nameof(LiteLlmStatus), nameof(ModelsDevStatus), nameof(LiteLlmKind), nameof(ModelsDevKind), nameof(LiteLlmBadge),
+                     nameof(ModelsDevBadge), nameof(DiagnosticsItems), nameof(DiagnosticsRows)
+                 })
+        {
+            OnPropertyChanged(name);
+        }
+
+        static StatusKind Kind(PricingOrigin origin, DateTimeOffset? updated) => origin switch
+        {
+            PricingOrigin.Online => StatusKind.Success,
+            _ when AppState.Config.Offline => StatusKind.Neutral,
+            _ when updated is { } at && DateTimeOffset.UtcNow - at > TimeSpan.FromDays(7) => StatusKind.Warning,
+            _ => StatusKind.Neutral
+        };
+    }
+
+    /// <summary>„Kopiuj raport diagnostyczny” — the whole diagnostics as text.</summary>
+    private static string DiagnosticsText()
+    {
+        var engine = AppState.Engine;
         var builder = new StringBuilder();
         var (files, entries) = engine.Ledger.Statistics();
         builder.AppendLine($"Baza: {engine.Ledger.DatabasePath}");
         builder.AppendLine($"Plików: {files} · wpisów: {entries} · ostatnia synchronizacja: {engine.Ledger.LastSync()?.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
-        var pricing = engine.Pricing;
-        LiteLlmStatus = PricingStatus.DescribeLiteLlm(pricing);
-        ModelsDevStatus = PricingStatus.DescribeModelsDev(pricing);
-        builder.AppendLine($"Cennik {PricingStatus.LiteLlmName}: {LiteLlmStatus}");
-        builder.AppendLine($"Cennik {PricingStatus.ModelsDevName}: {ModelsDevStatus}");
+        builder.AppendLine($"Cennik {PricingStatus.LiteLlmName}: {PricingStatus.DescribeLiteLlm(engine.Pricing)}");
+        builder.AppendLine($"Cennik {PricingStatus.ModelsDevName}: {PricingStatus.DescribeModelsDev(engine.Pricing)}");
         if (engine.LastSync is { } sync)
         {
             builder.AppendLine($"Synchronizacja: {sync.Duration.TotalMilliseconds:0} ms");
@@ -473,11 +917,6 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
 
-        Diagnostics = builder.ToString().TrimEnd();
+        return builder.ToString().TrimEnd();
     }
-
-    private static double ParseDouble(string value, string name) =>
-        double.TryParse(value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
-            ? number
-            : throw new FormatException($"{name}: niepoprawna liczba '{value}'.");
 }

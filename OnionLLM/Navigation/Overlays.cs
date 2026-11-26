@@ -95,7 +95,14 @@ public sealed class DialogRequest : ObservableObject
 
     public DialogRequest()
     {
-        ConfirmCommand = new Command(() => Complete(true));
+        ConfirmCommand = new Command(() =>
+        {
+            // Forms stay open while invalid; Validate shows the messages next to the fields.
+            if (Validate?.Invoke() != false)
+            {
+                Complete(true);
+            }
+        });
         CancelCommand = new Command(() => Complete(false));
     }
 
@@ -106,6 +113,14 @@ public sealed class DialogRequest : ObservableObject
     public required string ConfirmText { get; init; }
 
     public string CancelText { get; init; } = "Anuluj";
+
+    /// <summary>Short form shown under the message (e.g. „Dodaj nadpisanie”, §4.6.2).</summary>
+    public View? Body { get; init; }
+
+    /// <summary>Called on confirm; false keeps the dialog open.</summary>
+    public Func<bool>? Validate { get; init; }
+
+    public bool HasMessage => !string.IsNullOrEmpty(Message);
 
     /// <summary>Danger action: Enter does not confirm (needs Tab + Enter or a click).</summary>
     public bool IsDanger { get; init; }
@@ -132,10 +147,16 @@ public static class DialogService
 
     public static DialogRequest? Current { get; private set; }
 
-    public static Task<bool> ConfirmAsync(string title, string message, string confirmText, bool danger = false)
+    public static Task<bool> ConfirmAsync(string title, string message, string confirmText, bool danger = false) =>
+        ShowAsync(new DialogRequest { Title = title, Message = message, ConfirmText = confirmText, IsDanger = danger });
+
+    /// <summary>Dialog with a form body (§4.6.2 „krótkie formularze”).</summary>
+    public static Task<bool> FormAsync(string title, View body, string confirmText, Func<bool> validate) =>
+        ShowAsync(new DialogRequest { Title = title, Message = string.Empty, ConfirmText = confirmText, Body = body, Validate = validate });
+
+    private static Task<bool> ShowAsync(DialogRequest request)
     {
         Current?.Complete(false);
-        var request = new DialogRequest { Title = title, Message = message, ConfirmText = confirmText, IsDanger = danger };
         Current = request;
         Changed?.Invoke(null, EventArgs.Empty);
         return request.Result;

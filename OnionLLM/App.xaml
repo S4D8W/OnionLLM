@@ -21,6 +21,7 @@
 
             <converters:TokenColorConverter x:Key="TokenColor" />
             <converters:InvertBoolConverter x:Key="Invert" />
+            <converters:EqualsConverter x:Key="Equals" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

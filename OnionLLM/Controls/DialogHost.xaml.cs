@@ -21,6 +21,8 @@ public partial class DialogHost : ContentView
         }
 
         BindingContext = request;
+        // §4.6.2: confirmations 440, short forms 560.
+        Card.WidthRequest = DesignTokens.Double(request.Body is null ? "SizeDialogSm" : "SizeDialogMd");
         ConfirmButton.Style = (Style)Application.Current!.Resources[request.IsDanger ? "Button.Danger" : "Button.Primary"];
         IsVisible = true;
         SemanticScreenReader.Announce(request.Title);
