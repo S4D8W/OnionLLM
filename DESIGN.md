@@ -2,7 +2,7 @@
 
 > **Dla kogo:** agenci i ludzie, którzy projektują lub implementują UI aplikacji OnionLLM (MAUI, desktop Windows + macOS).
 > **Status dokumentu:** obowiązujący, docelowy. Opisuje, jak aplikacja **ma** wyglądać i się zachowywać — nie jak wygląda dziś. Jeśli kod jest niezgodny z tym dokumentem, rację ma dokument, a kod jest do poprawy.
-> **Wersja:** 1.6 · 2026-11-26
+> **Wersja:** 1.7 · 2026-11-26
 
 ## Spis treści
 
@@ -560,7 +560,7 @@ Aplikacja ma **bogaty ruch** — ale każda animacja komunikuje zmianę stanu, h
 | M19 | Przekroczenie progu limitu/budżetu | Jednorazowe „potrząśnięcie” paska/pierścienia (X ±3, 3 cykle) + zmiana koloru. Nie powtarza się przy kolejnych odświeżeniach. | 360 ms |
 | M20 | Nowy rekord (np. najwyższy dzienny koszt) | Złota iskra (`data.highlight`) — krótki błysk obrysu 1→0 wokół kafla. | 800 ms |
 
-**Implementacja (1.5):** `Design/Motion.cs` — `StaggerInAsync` (M1: przy każdym wejściu na ekran widoczne potomki `Card` — w tym StatTile, ChartCard, SourceCard — maks. 8, w kolejności drzewa), `CrossfadeAsync` (M17: zrzut korzenia okna przez `CaptureAsync`, podmiana słowników pod spodem, zanik zrzutu `base`; bez zrzutu motyw zmienia się od razu; podpięte przez `ThemeService.Transition`, więc działa dla Ustawień, Ctrl+Shift+L, palety i onboardingu). M18 w `MainShellPage.AnimateSidebar`: animowana szerokość kolumny i panelu; etykiety przełączają się od razu, a cała zawartość panelu wraca z krycia `OpacityMuted` do 1 w ostatnich 40% czasu (uproszczenie: bez osobnego zaniku etykiet). M2 i M8 — bez zmian (`NavigationService`, `Card`).
+**Implementacja (1.5):** `Design/Motion.cs` — `StaggerInAsync` (M1: przy każdym wejściu na ekran widoczne potomki `Card` — w tym StatTile, ChartCard, SourceCard — maks. 8, w kolejności drzewa), `CrossfadeAsync` (M17: zrzut korzenia okna przez `CaptureAsync`, podmiana słowników pod spodem, zanik zrzutu `base`; bez zrzutu motyw zmienia się od razu; podpięte przez `ThemeService.Transition`, więc działa dla Ustawień, Ctrl+Shift+L, palety i onboardingu). M18 w `MainShellPage.AnimateSidebar`: animowana szerokość kolumny i panelu; etykiety przełączają się od razu, a cała zawartość panelu wraca z krycia `OpacityMuted` do 1 w ostatnich 40% czasu (uproszczenie: bez osobnego zaniku etykiet). M2 i M8 — bez zmian (`NavigationService`, `Card`). Pomiar 1.7: zrzut ≈ 0,4 s, podmiana słowników przy wszystkich zbuforowanych ekranach ≈ 1,3 s (zakryta zrzutem), zanik 200 ms — przejście trwa dłużej niż `base`, ale bez widocznego „przeskoku” kolorów.
 
 #### 2.7.3 Zasady ruchu
 
@@ -1471,6 +1471,8 @@ Symbol waluty **po** liczbie, oddzielony spacją niełamliwą. Wartość ujemna 
 - **Eksport i CLI zawsze w USD** (zgodność z ccusage); w nagłówku eksportu CSV dodatkowa kolumna w walucie wyświetlania tylko, gdy wybrano ją w opcjach eksportu.
 - Ceny modeli (cennik, nadpisania) zawsze w USD za 1 M tokenów („3,00 $ / 1 M”).
 
+**Stan wdrożenia (1.7):** `Fmt.Currency` przelicza każdy koszt UI (z „≈”), `Fmt.CostUsd` / `PricePerMillion` zostają w USD; podpowiedź z kwotą w USD i kursem — w `MetricLabel` (hero, karty, bloki); `CurrencyService` pobiera kurs NBP raz dziennie (nie w trybie offline) i zapisuje go w konfiguracji; kurs starszy niż 7 dni → Banner info w Ustawieniach i dopisek w StatusBar. Kwoty wpisywane (budżety, nadpisania cen) są w USD.
+
 **Procenty:** „62%” (bez spacji), < 10% z jednym miejscem: „4,2%”, < 0,1% → „< 0,1%”. **Kredyty:** „12,5 kredytu / kredytów” (odmiana). **Tempo:** „4,20 $/h”, „1,8 k tok/min”. **Mnożniki:** „×1,5”.
 
 **Dokładność a jednostka:** w jednej kolumnie tabeli wszystkie wartości mają tę samą liczbę miejsc dziesiętnych przy tym samym sufiksie.
@@ -1560,6 +1562,8 @@ Przez `ViewState` (MAUI Preferences), per ekran: zakres dat (preset lub własny)
 - Budżet **dzienny** i **miesięczny** w USD (wyświetlany w walucie wyświetlania z `≈`), globalny oraz opcjonalnie per źródło.
 - Widoczność: HeroMetric (budżet dnia — ProgressBar `OnHero`), OnionRings (pierścień budżetu, gdy brak aktywnego bloku), ekran Limity (sekcja „Budżety” z LimitGauge i prognozą końca miesiąca: „Prognoza na koniec listopada: 312 $ (104% budżetu)”), Raporty (linia budżetu na wykresie dziennym/miesięcznym), mini-widok.
 - Prognoza miesiąca: średnia dzienna z ostatnich 7 dni × pozostałe dni + koszt dotychczasowy; pokazywana od 3. dnia miesiąca.
+
+**Stan wdrożenia (1.7):** konfiguracja `budgets.*` (Ustawienia → „Budżety”, z tabelą budżetów per źródło i Dialogiem), `AppState.Budgets` przeliczany po każdym odświeżeniu; Dziś — pasek budżetu dnia w HeroMetric, pierścień „Budżet dnia” zamiast bloku, Banner warning ≥ 80% / danger ≥ 100%; Limity — LimitGauge dzienny i miesięczny z prognozą, DataTable per źródło, EmptyState „Nie ustawiono budżetów”; Raporty — linia budżetu na wykresie kosztu (dzień → dzienny, miesiąc → miesięczny); kropka przy „Limity” w Sidebarze uwzględnia budżety. Mini-widok — `Wymaga platformy`.
 
 ### 5.10 Autozapis ustawień
 
@@ -1919,15 +1923,15 @@ Wszystkie ekrany §6.1–6.9 są zbudowane z komponentów §4 (pliki `Views/*Vie
 
 | Ekran | Nierenderowane / uproszczone | Powód |
 | --- | --- | --- |
-| Dziś (§6.1) | TrendDelta, sparkline 7/30 dni, budżet dnia; oś bloku to odcinek start → teraz | Wymaga danych (§11.4) |
-| Limity (§6.2) | Historia wykorzystania, prognozy 5 h / 7 d, Budżety, podsumowanie powiadomień | Wymaga danych |
-| Raporty (§6.3) | Heatmapa „Dni × godziny” (jest kalendarz 12 mies.), udział „Projekty” w donucie, TrendDelta KPI | Wymaga danych |
-| Sesje (§6.4) | Filtr „Tylko aktywne”, StatusBadge „Aktywna” w wierszu, „Przebieg” w drawerze | Wymaga danych (`SessionRow.IsActive`, seria w sesji) |
-| Bloki (§6.5) | „Sesje w bloku” w drawerze | Wymaga danych |
+| Dziś (§6.1) | TrendDelta i sparkline dla „30 dni” (snapshot ma tylko 30 dni, bez poprzednich 30) | Wymaga danych (seria 60 dni) |
+| Limity (§6.2) | „Powiadomienia” (podsumowanie progów); resety nie są zaznaczane na wykresie historii | Wymaga platformy (powiadomienia systemowe) |
+| Raporty (§6.3) | — (pełny zakres) | — |
+| Sesje (§6.4) | — (pełny zakres) | — |
+| Bloki (§6.5) | — (pełny zakres) | — |
 | Projekty (§6.6) | — (pełny zakres; §6.6 nie przewiduje eksportu — jest „Kopiuj jako tabelę”) | — |
 | Modele (§6.7) | — (pełny zakres) | — |
-| Źródła (§6.8) | Kolumny „Ostatnia aktywność” i „Wpisy” | Wymaga danych (statystyki ledgera per źródło) |
-| Ustawienia (§6.9) | „Powiadomienia i budżety”, waluta, pozostałe pola „Okno i zasobnik” poza „Zawsze na wierzchu”, podgląd na żywo statusline, opcja „Bez limitu” limitu tokenów | Wymaga danych / platformy; podgląd wymaga renderera CLI; config zna tylko `max` lub liczbę |
+| Źródła (§6.8) | — (pełny zakres) | — |
+| Ustawienia (§6.9) | Z „Powiadomienia i budżety” tylko budżety (podstrona „Budżety”); pola „Okno i zasobnik” poza „Zawsze na wierzchu”; opcje eksportu z kolumną w walucie wyświetlania | Wymaga platformy (powiadomienia, tray, mini-widok); eksport zawsze w USD (§5.1) |
 
 ---
 
@@ -1989,6 +1993,8 @@ Pełnoekranowy kreator w oknie głównym (bez sidebaru), wyśrodkowana karta 640
 | 1 | „Wykryte narzędzia” | Lista wykrytych źródeł (ListItem: SourceBadge, nazwa, wykryty folder, Toggle — domyślnie włączone wszystkie wykryte); niewykryte zwinięte („+14 niewykrytych — pokaż”). Brak wykrytych → EmptyState z opisem i „Dodaj ścieżkę ręcznie”. | „Dalej” |
 | 2 | „Wygląd i waluta” | Motyw (3 kafle z podglądem), Waluta wyświetlania, Gęstość. | „Dalej” |
 | 3 | „Praca w tle” | Toggle „Uruchamiaj przy starcie systemu”, „Ikona w zasobniku / pasku menu”, „Powiadomienia o limitach” (z prośbą o zgodę systemu przy włączeniu), opcjonalny budżet dzienny. | „Zacznij” (Primary `lg`) |
+
+**Zmiany 1.7:** krok 2 to „Wygląd i waluta” (USD · PLN · EUR, kurs NBP); import pokazuje OnionRings z postępem plików trzech pierwszych narzędzi i listę „Pliki X z Y · N wpisów” (zdarzenia `SyncProgress`); „Kontynuuj w tle” zostawia Banner `S-IMPORT` z bieżącym źródłem i liczbą wpisów nad treścią ekranów.
 
 **Stan wdrożenia (1.5, `Views/OnboardingView.cs`):** `S-FIRST` = brak znacznika ukończenia w `ViewState`; instalacje, których baza była już synchronizowana, są oznaczane jako ukończone bez kreatora. Pętla odświeżania startuje dopiero po kreatorze (pierwszy sync uwzględnia wybór narzędzi). Krok 2 nosi tytuł „Wygląd” — waluta `Wymaga danych`; motyw i gęstość działają na żywo (kafle z miniaturą okna rysowaną ze słownika tokenów danego motywu), „Pomiń” cofa podgląd. Krok 3 istnieje tylko na Windows i zawiera wyłącznie „Uruchamiaj przy starcie systemu” (zasobnik, powiadomienia i budżet — `Wymaga platformy` / `Wymaga danych`); na macOS kreator ma 2 kroki. Import: Spinner + lista śledzonych narzędzi zamiast pierścieni z postępem (postęp „pliki X z Y” wymaga zdarzeń postępu synchronizacji w Core — §11.4); Toast z liczbą wpisów i narzędzi po zakończeniu; „Kontynuuj w tle” zamyka kreator (Banner `S-IMPORT` nierenderowany z tego samego powodu). „Dodaj ścieżkę ręcznie” kończy kreator i otwiera Źródła.
 
@@ -2426,7 +2432,7 @@ Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls
 | Card (Default/Interactive/Accent/Inset) | 4.3.1 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
 | StatTile | 4.3.2 | `Controls/Metrics.cs` | Docelowe — wdrożone (1.3) |
 | HeroMetric | 4.3.3 | `Controls/Metrics.cs` | Docelowe — wdrożone (1.3) |
-| TrendDelta | 4.3.4 | — | Wymaga danych (porównania) |
+| TrendDelta | 4.3.4 | `Controls/Metrics.cs` (`TrendDelta`; w `StatTile` przez `TrendCurrent`/`TrendBaseline`/`TrendLabel`, w `HeroMetric` przez `Yesterday`/`WeekAverage`) | Docelowe — wdrożone (1.7) |
 | Section / Collapsible | 4.3.5 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
 | Divider | 4.3.6 | `Styles.Surfaces.xaml` (`Divider`, `Divider.Vertical`, `Divider.Edge`) | Docelowe — wdrożone (1.3) |
 | KeyValueList | 4.3.7 | `Controls/Containers.cs` | Docelowe — wdrożone (1.3) |
@@ -2463,8 +2469,8 @@ Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls
 | ErrorState | 4.7.11 | `Controls/Containers.cs` (`EmptyState` z `IsError` i `ErrorDetails`) | Docelowe — wdrożone (1.3) |
 | ChartView (baza), ChartCard, ChartLegend | 4.8.1, 4.8.4 | `Controls/Charts/ChartView.cs`, `Controls/Charts/ChartCard.cs` | Docelowe — wdrożone (1.3; klawiatura — 1.6: wykres jest przystankiem Tab, ←/→/Home/End przesuwają wskaźnik i ogłaszają wartości, Enter = klik) |
 | BarChart (+ skumulowany, tryb %), poziomy BarChart (`HorizontalBarChart`), LineChart/AreaChart, Sparkline, DonutChart | 4.8.2 | `Controls/Charts/Charts.cs` | Docelowe — wdrożone (1.3; poziomy — 1.6: wiersz = nazwa · słupek · wartość i udział, bez dymka) |
-| Heatmap | 4.8.2 F | `Controls/Charts/Charts.cs` | Kalendarz: wdrożone (1.3); dni × godziny: Wymaga danych |
-| BlockTimeline | 4.8.2 H | `Controls/Charts/Charts.cs` | Docelowe — wdrożone (1.3) |
+| Heatmap, HourHeatmap | 4.8.2 F | `Controls/Charts/Charts.cs` | Docelowe — wdrożone (kalendarz 1.3; „Dni × godziny” — `HourHeatmap`, 1.7) |
+| BlockTimeline | 4.8.2 H | `Controls/Charts/Charts.cs` | Docelowe — wdrożone (1.3; koszt narastający z wpisów bloku, próbkowany równomiernie — 1.7) |
 | SourceCard | 6.1 | `Controls/SourceCard.cs` | Docelowe — wdrożone (1.4) |
 | MiniView | 7.2 | `Windows/MiniViewWindow` | Wymaga platformy |
 
@@ -2473,20 +2479,22 @@ Komponenty są pisane w C# (kontrolki budowane w kodzie przez pomocnik `Controls
 | Funkcja | Potrzebne | Proponowane klucze konfiguracji / API |
 | --- | --- | --- |
 | Motyw, gęstość, animacje — **dostarczone** (1.1, `OnionConfig.Appearance`) | ustawienia wyglądu | `appearance.theme` (`system`/`light`/`dark`), `appearance.density` (`comfortable`/`compact`), `appearance.motion` (`full`/`reduced`/`off`) |
-| Waluta wyświetlania | waluta + kurs | `currency.display` (`USD`/`PLN`/`EUR`), `currency.rate`, `currency.rateSource` (`manual`/`nbp`), `currency.rateDate` |
-| Budżety | kwoty | `budgets.dailyUsd`, `budgets.monthlyUsd`, `budgets.perSource.<id>.{dailyUsd,monthlyUsd}` |
+| Waluta wyświetlania — **dostarczone** (1.7: `OnionConfig.Currency`, `ExchangeRates` NBP, `Fmt.Currency`, `CurrencyService`) | waluta + kurs | `currency.display` (`USD`/`PLN`/`EUR`), `currency.rate`, `currency.rateSource` (`manual`/`nbp`), `currency.rateDate` |
+| Budżety — **dostarczone** (1.7: `OnionConfig.Budgets`, `UsageEngine.BuildBudgets`, `BudgetCalculator`) | kwoty | `budgets.dailyUsd`, `budgets.monthlyUsd`, `budgets.perSource.<id>.{dailyUsd,monthlyUsd}` |
+| Limit tokenów „Bez limitu” — **dostarczone** (1.7: `tokenLimit: "none"`, `OnionConfig.IsTokenLimitDisabled`) | tryb bez limitu | `tokenLimit` |
+| Podgląd statusline — **dostarczone** (1.7: `Core/Text/StatuslineComposer` wspólny dla CLI i Ustawień) | renderer linii statusu | — |
 | Powiadomienia | progi, kanały | `notifications.enabled`, `notifications.thresholds.<limit>.{warn,exceed,enabled}`, `notifications.burnHigh`, `notifications.quietHours.{from,to}` |
 | Okno, tray, mini-widok | zachowanie okna | `window.alwaysOnTop` (**dostarczone** w 1.1, `OnionConfig.Window`), `window.closeToTray`, `tray.enabled`, `tray.showCost` (macOS), `miniView.modules[]`, `miniView.alwaysOnTop` |
-| Trend vs wczoraj / średnia 7 dni | koszt wczoraj, średnia dzienna | `DashboardSnapshot.YesterdayCost`, `Avg7dCost`, seria dzienna 30 dni do sparkline |
-| Porównanie z poprzednim zakresem (Raporty) | suma poprzedniego zakresu | parametr raportu „porównaj” |
-| Historia limitów | zapisywanie odczytów limitów | tabela `limit_snapshots` w ledgerze (czas, limit, %, reset) |
-| Prognoza 5 h / 7 d | z historii odczytów | jak wyżej |
-| Heatmapa dni × godziny | agregacja godzinowa | raport `hourly` w `ReportModels` |
+| Trend vs wczoraj / średnia 7 dni — **dostarczone** (1.7: `DashboardSnapshot.DailyCost`, `YesterdayCost`, `Average7DaysCost`) | koszt wczoraj, średnia dzienna | — |
+| Porównanie z poprzednim zakresem (Raporty) — **dostarczone** (1.7: drugi raport dla zakresu tej samej długości) | suma poprzedniego zakresu | — |
+| Historia limitów — **dostarczone** (1.7: tabela `LimitSnapshots`, `UsageLedger.RecordLimits` / `LimitHistory`, 90 dni) | zapisywanie odczytów limitów | — |
+| Prognoza 5 h / 7 d — **dostarczone** (1.7: `LimitForecasting.Project`, regresja liniowa w bieżącym oknie) | z historii odczytów | — |
+| Heatmapa dni × godziny — **dostarczone** (1.7: `UsageEngine.BuildHourly`, `HourlyReport`) | agregacja godzinowa | — |
 | Trend per projekt — **dostarczone** (1.4, z raportu dziennego grupowanego po projekcie) | — | — |
-| Przebieg sesji, sesje w bloku, skumulowany koszt w bloku | serie czasowe per encja | API w `UsageEngine` |
-| Postęp importu historii (onboarding §7.5, `S-IMPORT`) | zdarzenia postępu synchronizacji (źródło, pliki X z Y, wpisy) | `IProgress<SyncProgress>` w `UsageEngine.SyncAsync` |
-| Ostatnia aktywność i liczba wpisów per źródło (ekran Źródła) | statystyki ledgera per źródło | `UsageLedger.Statistics(source)` |
-| Flaga aktywności sesji w wierszu | `IsActive` w wierszu sesji | `SessionRow.IsActive` |
+| Przebieg sesji, sesje w bloku, skumulowany koszt w bloku — **dostarczone** (1.7: `BuildSessionTimeline`, `BuildBlockDetails`, `BuildBlocksDetails`, `TimeSeries.Resample`) | serie czasowe per encja | — |
+| Postęp importu historii (onboarding §7.5, `S-IMPORT`) — **dostarczone** (1.7: `IProgress<SyncProgress>` w `UsageLedger.Sync` / `UsageEngine.SyncAsync`) | zdarzenia postępu synchronizacji | — |
+| Ostatnia aktywność i liczba wpisów per źródło — **dostarczone** (1.7: `UsageLedger.SourceStatistics`) | statystyki ledgera per źródło | — |
+| Flaga aktywności sesji w wierszu — **dostarczone** (1.7: `SessionRow.IsActive`, próg `activeSessionMinutes`) | `IsActive` w wierszu sesji | — |
 | Rozbicie pól w VM — **dostarczone** (1.4) | `WeekSummary`, `MonthSummary`, `Details`, `When`, `Extra`, `Diagnostics` jako struktury | refaktor ViewModeli (bez zmian w Core) |
 
 ### 11.5 Algorytm wariantów kolorów
@@ -2505,6 +2513,7 @@ Kontrast liczony wg WCAG 2.2 (luminancja względna sRGB). Skrypt referencyjny: `
 | Wersja | Data | Zmiana |
 | --- | --- | --- |
 | 1.0 | 2026-11-26 | Pierwsza wersja docelowego design systemu. |
+| 1.7 | 2026-11-26 | Faza 12.5 (warstwa danych): aktywne sesje, statystyki źródeł, `tokenLimit: none`, postęp importu i `S-IMPORT`, serie czasowe (Dziś: trendy i sparkline, bloki: oś i sesje, sesje: przebieg, Raporty: dni × godziny, udział projektów, porównanie zakresów), budżety (§5.9), waluta wyświetlania (§5.1), historia i prognozy limitów, podgląd statusline; TrendDelta i HourHeatmap wdrożone; §6.10 i §11.4 zaktualizowane; nowe tokeny `ColorHeroTrendWorse` / `ColorHeroTrendBetter`. |
 | 1.6 | 2026-11-26 | Faza 12.5 (domknięcie UI): wskaźniki stanu w pasku bocznym, zmiana szerokości drawera, obrys PageHeader po przewinięciu, „Filtry (N)” na narrow, klawiatura wykresów, kalendarz dwumiesięczny, Alt+↑/↓ na kartach źródeł, wiersze-separatory DataTable (przerwy w Blokach), ModelTagi w Raportach, poziomy BarChart „Top projekty”, skrót Ctrl+E w podpowiedzi SplitButton; §6.10 zaktualizowane. |
 | 1.5 | 2026-11-26 | Faza 12.4 (powierzchnie globalne): CommandPalette wdrożona (§4.6.7 — stan wdrożenia), Dialog informacyjny, lista skrótów „?”, skróty Ctrl+K, Ctrl+F, /, Ctrl+E, Ctrl+Shift+L, Ctrl+Shift+T (§9.6 — stan wdrożenia), onboarding (§7.5 — stan wdrożenia), animacje M1 (stagger kart), M17 (crossfade zrzutu okna), M18 (szerokość panelu); nowe tokeny (§11.1); §11.4 — postęp importu; §10.3 — testy dymne i autotesty DEBUG. |
 | 1.4 | 2026-11-26 | Faza 12.3 (ekrany): wszystkie ekrany §6.1–6.9 przebudowane na komponenty; nowe §6.10 (stan wdrożenia i świadome uproszczenia); SourceCard wdrożony; §11.4 — trend per projekt i rozbicie pól VM dostarczone, nowa pozycja „statystyki ledgera per źródło”. Wzorce runtime: widok nie może trafić do nowego rodzica, będąc w starym; nie przełączać `Shadow` na żywym przycisku WinUI. |
